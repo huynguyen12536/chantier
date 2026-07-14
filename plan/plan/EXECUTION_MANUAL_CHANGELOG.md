@@ -7,6 +7,7 @@
 | 2026-07-14 | Review step: classify P0–P3; P2 Legacy Difference ≠ auto-defect | Prevent clone-of-dump FAIL noise |
 | 2026-07-14 | Linked `DATABASE_EVOLUTION_POLICY.md` as binding policy | Single canonical policy file |
 | 2026-07-14 | Updated Current pointer: governance update; **Imp-07 STOP** | Explicit human gate after Imp-05 rework |
+| 2026-07-14 | Current pointer → Imp-07 PASS; Imp-06 frozen | Human authorized Review & Approval Wave2 |
 
 ## New invariants (short)
 

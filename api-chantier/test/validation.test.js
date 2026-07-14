@@ -264,4 +264,149 @@ describe('Imp-07 Review & Approval', () => {
       await close();
     }
   });
+
+  it('return for correction writes rejetee + audit action return', async () => {
+    const app = createApp();
+    const { base, close } = await listen(app);
+    try {
+      const created = await createSoumise(base, '2026-07-26', {
+        heure_debut: '08:30',
+        heure_fin: '12:30',
+      });
+      const chefToken = await login(base, chefEmail);
+      const res = await fetch(
+        `${base}/api/validation/declarations/${created.declaration.id}/return`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            authorization: `Bearer ${chefToken}`,
+          },
+          body: JSON.stringify({ reason: 'missing GPS' }),
+        },
+      );
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.equal(body.declaration.statut, 'rejetee');
+      const hist = await fetch(
+        `${base}/api/validation/declarations/${created.declaration.id}/history`,
+        { headers: { authorization: `Bearer ${chefToken}` } },
+      );
+      assert.equal(hist.status, 200);
+      const hBody = await hist.json();
+      assert.ok(hBody.events.some((e) => e.action === 'return' && e.reason === 'missing GPS'));
+      const p = await query(`SELECT statut FROM periodes_travail WHERE id=$1`, [created.period.id]);
+      assert.equal(p.rows[0].statut, 'rejetee');
+    } finally {
+      await close();
+    }
+  });
+
+  it('ouvrier cannot approve; can read own history after chef approve', async () => {
+    const app = createApp();
+    const { base, close } = await listen(app);
+    try {
+      const created = await createSoumise(base, '2026-07-27', {
+        heure_debut: '07:45',
+        heure_fin: '11:45',
+      });
+      const ouvToken = await login(base, ouvEmail);
+      const forbidden = await fetch(
+        `${base}/api/validation/declarations/${created.declaration.id}/approve`,
+        { method: 'POST', headers: { authorization: `Bearer ${ouvToken}` } },
+      );
+      assert.equal(forbidden.status, 403);
+
+      const chefToken = await login(base, chefEmail);
+      assert.equal(
+        (
+          await fetch(
+            `${base}/api/validation/declarations/${created.declaration.id}/approve`,
+            { method: 'POST', headers: { authorization: `Bearer ${chefToken}` } },
+          )
+        ).status,
+        200,
+      );
+
+      const hist = await fetch(
+        `${base}/api/validation/declarations/${created.declaration.id}/history`,
+        { headers: { authorization: `Bearer ${ouvToken}` } },
+      );
+      assert.equal(hist.status, 200);
+      const events = (await hist.json()).events;
+      assert.ok(events.some((e) => e.action === 'approve'));
+    } finally {
+      await close();
+    }
+  });
+
+  it('approve audit row persisted; failed second transition leaves first intact', async () => {
+    const app = createApp();
+    const { base, close } = await listen(app);
+    try {
+      const created = await createSoumise(base, '2026-07-28', {
+        heure_debut: '14:00',
+        heure_fin: '18:00',
+      });
+      const chefToken = await login(base, chefEmail);
+      const ok = await fetch(
+        `${base}/api/validation/declarations/${created.declaration.id}/approve`,
+        { method: 'POST', headers: { authorization: `Bearer ${chefToken}` } },
+      );
+      assert.equal(ok.status, 200);
+      const audits = await query(
+        `SELECT action, to_statut FROM approval_audit_events WHERE declaration_id=$1`,
+        [created.declaration.id],
+      );
+      assert.equal(audits.rows.length, 1);
+      assert.equal(audits.rows[0].action, 'approve');
+
+      const conflict = await fetch(
+        `${base}/api/validation/declarations/${created.declaration.id}/reject`,
+        { method: 'POST', headers: { authorization: `Bearer ${chefToken}` } },
+      );
+      assert.equal(conflict.status, 409);
+      const decl = await query(`SELECT statut FROM declarations_heures WHERE id=$1`, [
+        created.declaration.id,
+      ]);
+      assert.equal(decl.rows[0].statut, 'validee');
+      const auditsAfter = await query(
+        `SELECT COUNT(*)::int AS c FROM approval_audit_events WHERE declaration_id=$1`,
+        [created.declaration.id],
+      );
+      assert.equal(auditsAfter.rows[0].c, 1);
+    } finally {
+      await close();
+    }
+  });
+
+  it('period decide writes period_decide audit', async () => {
+    const app = createApp();
+    const { base, close } = await listen(app);
+    try {
+      const created = await createSoumise(base, '2026-07-29', {
+        heure_debut: '09:00',
+        heure_fin: '12:00',
+      });
+      const chefToken = await login(base, chefEmail);
+      const res = await fetch(`${base}/api/validation/periods/${created.period.id}/decide`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${chefToken}`,
+        },
+        body: JSON.stringify({ statut: 'rejetee', reason: 'too short' }),
+      });
+      assert.equal(res.status, 200);
+      const audits = await query(
+        `SELECT action, entity_type, reason FROM approval_audit_events
+         WHERE entity_id=$1 AND entity_type='period'`,
+        [created.period.id],
+      );
+      assert.equal(audits.rows[0].action, 'period_decide');
+      assert.equal(audits.rows[0].reason, 'too short');
+    } finally {
+      await close();
+    }
+  });
 });

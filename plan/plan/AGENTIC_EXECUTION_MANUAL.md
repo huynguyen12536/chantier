@@ -133,7 +133,7 @@ When uncertain, do not guess. Use: **Context · Evidence · Options · Recommend
 | Item | Value |
 |---|---|
 | Current wave | Wave 2 — Coding |
-| Current module | **STOP** — Governance update (Database Evolution Invariants). Imp-07 **not** authorized until human says continue |
+| Current module | **Imp-07 Review & Approval PASS** — Imp-06 frozen; next module only when human authorizes Imp-08 close-out / continue |
 | Governing decision | O3 + **UNION database / additive migrations** (2026-07-14) |
 | Binding DB policy | `DATABASE_EVOLUTION_POLICY.md` |
 | Roadmap | `WAVE2_IMPLEMENTATION_ROADMAP.md` |
