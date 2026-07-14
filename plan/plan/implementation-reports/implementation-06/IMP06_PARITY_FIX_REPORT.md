@@ -136,7 +136,6 @@ Also green: Imp-01…05, Imp-06 base, Imp-07 validation, Imp-08 export.
 
 ## SHA
 
-Recorded after successful commit + push (fill below at ship time):
-
-- **Commit SHA:** _(see git log after push)_
+- **Commit SHA:** `2f8af6aaec937fbb6f703f30ec6548dfc36475e5`
+- **Short:** `2f8af6aaec`
 - **Remote:** `origin/main`
