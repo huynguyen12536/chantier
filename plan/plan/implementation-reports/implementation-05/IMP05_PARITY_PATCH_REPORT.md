@@ -32,6 +32,9 @@ Align Backend Imp-05 with **Current Verified Legacy** in `migration-analysis/` (
 ## Tests
 `npm test` → **31/31 PASS** (Imp-05 parity + Imp-01…08 regression)
 
+## Commit SHA
+`266efc4f8c540d314b0578be7efe356ea11a2016`
+
 ## FE / Imp-06
 - FE Contract: unchanged (Frozen)
 - Timesheet Imp-06: unchanged (regression green)
