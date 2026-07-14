@@ -10,3 +10,8 @@ export const stats = asyncHandler(async (req, res) => {
   const result = await service.listExportStats(req.user);
   res.json(result);
 });
+
+export const userDeclarations = asyncHandler(async (req, res) => {
+  const result = await service.listUserDeclarations(req.query, req.user);
+  res.json(result);
+});

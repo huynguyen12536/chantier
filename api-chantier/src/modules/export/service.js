@@ -1,16 +1,22 @@
 /**
- * Imp-08 Payroll Export — Flow F.
- * Authorized read of validated periods only (SUMMARY / SHARED rule 14).
- * Spreadsheet/CSV formatting remains FE responsibility (frozen contract).
+ * Imp-08 Payroll Export & Reporting — Flow F / SUMMARY #14.
+ * Read-only. Does not mutate timesheet/review state.
+ * CSV/spreadsheet formatting remains FE (frozen contract).
  */
 import { z } from 'zod';
 import { AppError } from '../../shared/errors/AppError.js';
 import { query } from '../../shared/db/pool.js';
 import { getChefChantierIds } from '../../shared/authz/chefScope.js';
+import { splitHours } from '../timesheet/domain/calculation.js';
+import { mapPayrollPeriod, mapDeclarationExport } from './dto.js';
 
 const rangeSchema = z.object({
-  from: z.string().min(8),
-  to: z.string().min(8),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+const userRangeSchema = rangeSchema.extend({
+  user_id: z.string().uuid(),
 });
 
 function assertExporter(actor) {
@@ -21,12 +27,10 @@ function assertExporter(actor) {
 
 async function resolveChantierScope(actor) {
   if (['admin', 'administratif'].includes(actor.role)) return null; // all
-  const ids = await getChefChantierIds(actor.id);
-  return ids;
+  return getChefChantierIds(actor.id);
 }
 
-export async function listPayrollPeriods(queryParams, actor) {
-  assertExporter(actor);
+function parseRange(queryParams) {
   const parsed = rangeSchema.safeParse({
     from: queryParams.from,
     to: queryParams.to,
@@ -40,6 +44,24 @@ export async function listPayrollPeriods(queryParams, actor) {
   if (from > to) {
     throw new AppError('Invalid date range', 400, { code: 'VALIDATION_ERROR' });
   }
+  return { from, to };
+}
+
+/** Cadre window from Imp-04 columns (DR-002) for stats total_heures. */
+function cadreWindow(chantier) {
+  if (!chantier) return { debut: null, fin: null };
+  return {
+    debut: chantier.heure_debut_matin || chantier.heure_debut_apres_midi || null,
+    fin: chantier.heure_fin_apres_midi || chantier.heure_fin_matin || null,
+  };
+}
+
+/**
+ * Flow F — validated periods in date range (SUMMARY #14).
+ */
+export async function listPayrollPeriods(queryParams, actor) {
+  assertExporter(actor);
+  const { from, to } = parseRange(queryParams);
 
   const scope = await resolveChantierScope(actor);
   if (Array.isArray(scope) && scope.length === 0) {
@@ -62,47 +84,100 @@ export async function listPayrollPeriods(queryParams, actor) {
     [from, to, scope],
   );
 
-  return {
-    from,
-    to,
-    periods: rows.map((r) => ({
-      id: r.id,
-      date: r.date,
-      user_id: r.user_id,
-      chantier_id: r.chantier_id,
-      heure_debut: r.heure_debut,
-      heure_fin: r.heure_fin,
-      panier: r.panier,
-      deplacement: r.deplacement,
-      statut: r.statut,
-      profiles: { nom: r.user_nom, prenom: r.user_prenom },
-      chantiers: { nom: r.chantier_nom, adresse: r.chantier_adresse },
-    })),
-  };
+  return { from, to, periods: rows.map(mapPayrollPeriod) };
 }
 
-/** Dashboard stats (FE export.tsx loadStats) — scoped; not limited to validee-only for counts. */
+/**
+ * FE export.tsx loadStats — counts + total_heures (CADRE / 7h via splitHours).
+ * Closed periods (heure_fin NOT NULL) in exporter scope.
+ */
 export async function listExportStats(actor) {
   assertExporter(actor);
   const scope = await resolveChantierScope(actor);
   if (Array.isArray(scope) && scope.length === 0) {
-    return { total_declarations: 0, validees: 0, en_attente: 0 };
+    return { total_declarations: 0, validees: 0, en_attente: 0, total_heures: 0 };
   }
+
   const { rows } = await query(
-    `SELECT statut, COUNT(*)::int AS n
-       FROM periodes_travail
-      WHERE heure_fin IS NOT NULL
-        AND ($1::uuid[] IS NULL OR chantier_id = ANY($1::uuid[]))
-        AND statut IN ('terminee', 'validee')
-      GROUP BY statut`,
+    `SELECT
+       p.statut, p.heure_debut, p.heure_fin,
+       c.heure_debut_matin, c.heure_fin_matin,
+       c.heure_debut_apres_midi, c.heure_fin_apres_midi
+     FROM periodes_travail p
+     JOIN chantiers c ON c.id = p.chantier_id
+     WHERE p.heure_fin IS NOT NULL
+       AND ($1::uuid[] IS NULL OR p.chantier_id = ANY($1::uuid[]))`,
     [scope],
   );
-  const by = Object.fromEntries(rows.map((r) => [r.statut, r.n]));
-  const validees = by.validee ?? 0;
-  const en_attente = by.terminee ?? 0;
+
+  let validees = 0;
+  let en_attente = 0;
+  let total_heures = 0;
+
+  for (const r of rows) {
+    if (r.statut === 'validee') validees += 1;
+    if (r.statut === 'terminee') en_attente += 1;
+    if (r.statut === 'validee' || r.statut === 'terminee') {
+      const cadre = cadreWindow(r);
+      const split = splitHours(r.heure_debut, r.heure_fin, cadre.debut, cadre.fin);
+      total_heures += split.total_heures;
+    }
+  }
+
   return {
-    total_declarations: validees + en_attente,
+    // FE contract: length of closed rows (heure_fin not null)
+    total_declarations: rows.length,
     validees,
     en_attente,
+    total_heures: Math.round(total_heures * 100) / 100,
+  };
+}
+
+/**
+ * FE user-payroll.tsx — declarations for one user in date range (reporting read).
+ * Exporter roles only; chef scoped to supervised chantiers.
+ */
+export async function listUserDeclarations(queryParams, actor) {
+  assertExporter(actor);
+  const parsed = userRangeSchema.safeParse({
+    from: queryParams.from,
+    to: queryParams.to,
+    user_id: queryParams.user_id,
+  });
+  if (!parsed.success) {
+    throw new AppError('user_id, from, to required', 400, {
+      code: 'VALIDATION_ERROR',
+    });
+  }
+  const { from, to, user_id: userId } = parsed.data;
+  if (from > to) {
+    throw new AppError('Invalid date range', 400, { code: 'VALIDATION_ERROR' });
+  }
+
+  const scope = await resolveChantierScope(actor);
+  if (Array.isArray(scope) && scope.length === 0) {
+    return { from, to, user_id: userId, declarations: [] };
+  }
+
+  const { rows } = await query(
+    `SELECT
+       d.id, d.date, d.user_id, d.chantier_id,
+       d.heures_normales, d.heures_supplementaires,
+       d.nb_paniers, d.nb_deplacements, d.statut,
+       c.nom AS chantier_nom, c.code AS chantier_code
+     FROM declarations_heures d
+     JOIN chantiers c ON c.id = d.chantier_id
+     WHERE d.user_id = $1
+       AND d.date >= $2::date AND d.date <= $3::date
+       AND ($4::uuid[] IS NULL OR d.chantier_id = ANY($4::uuid[]))
+     ORDER BY d.date DESC`,
+    [userId, from, to, scope],
+  );
+
+  return {
+    from,
+    to,
+    user_id: userId,
+    declarations: rows.map(mapDeclarationExport),
   };
 }

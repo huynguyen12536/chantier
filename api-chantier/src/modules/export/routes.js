@@ -10,5 +10,6 @@ router.use(exporters);
 
 router.get('/payroll', controller.payroll);
 router.get('/stats', controller.stats);
+router.get('/declarations', controller.userDeclarations);
 
 export default router;
