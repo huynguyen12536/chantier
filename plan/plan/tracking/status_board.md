@@ -7,8 +7,8 @@
 | Imp-01?05 | Done PASS |
 | Imp-06 Timesheet | Done PASS `cddc4e452e` |
 | Imp-07 Review & Approval | Done PASS `81b83e513a` |
-| Imp-08 Reporting & Export | **Done PASS** |
-| Imp-09 Notifications | Todo (next) |
+| Imp-08 Reporting & Export | **Done PASS** `29dab9bfa8` |
+| Imp-09 Notifications | In Progress (next) |
 | Imp-10?13 | Todo |
 
 Open DRs: none (Imp-06 resolved).
