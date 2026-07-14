@@ -16,8 +16,8 @@
 | ID | Module | Status | Depends On |
 |---|---|---|---|
 | Imp-01 | Infrastructure (Platform) | **Done — PASS** | — |
-| Imp-02 | Authentication | **In Progress** | Imp-01 |
-| Imp-03 | Users | Todo | Imp-02 |
+| Imp-02 | Authentication | **Done — PASS** | Imp-01 |
+| Imp-03 | Users | **In Progress** | Imp-02 |
 | Imp-04 | Construction Sites (chantiers) | Todo | Imp-01, Imp-03 |
 | Imp-05 | Assignments & Zones | Todo | Imp-03, Imp-04 |
 | Imp-06 | Timesheet | Todo | Imp-04, Imp-05 |
