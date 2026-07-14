@@ -114,6 +114,7 @@ describe('Imp-06 Timesheet API', () => {
       assert.equal(res.status, 201);
       const body = await res.json();
       assert.ok(body.period.id);
+      assert.equal(body.period.panier_repas, true);
       assert.equal(body.declaration.statut, 'soumise');
       assert.ok(body.declaration.heures_normales > 0);
     } finally {
