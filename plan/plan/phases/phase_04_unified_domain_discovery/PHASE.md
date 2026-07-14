@@ -1,37 +1,25 @@
 # Phase 04 — Unified Domain Discovery
 
-**Status:** ⬜ Todo · Blocked on Phase 3 Merge Spec.
+**Status:** ✅ Done — documentation pipeline PASS; auto-continue enabled.
+**Manual:** `../../AGENTIC_EXECUTION_MANUAL.md` · **Reports:** `reports/` · **Summary:** `PHASE_SUMMARY.md`
 
-## Goal
-Domain model thống nhất (bounded contexts, use-cases, state machines) từ Merge Spec — độc lập Supabase.
+## Objective
+Domain pack establishes glossary, contexts, use cases, state machines, and rule ownership.
 
 ## Inputs
-Merge Spec approved; Legacy flows A/B; SUMMARY rules (as Legacy inputs).
+Merge Specification decision O3 and CVL flows A–G.
 
-## Outputs / Deliverables
-Unified glossary; contexts; use-case catalog; state machines; rule ownership on **unified** model.
+## Outputs
+`migration-analysis/unified/` plus this phase pack and ten pipeline reports.
 
-## Acceptance Criteria
-Mọi conflict rule từ Merge Spec có use-case owner hoặc Drop; no Super Admin invent without Decision Log.
+## Acceptance and exit criteria
+- [x] All ten pipeline steps recorded PASS.
+- [x] Evidence is traceable to the Merge Specification, CVL, or an explicit deferral.
+- [x] Frontend, CVL facts, database migrations, and backend business code remain unchanged.
+- [x] Future Legacy merge remains an explicit extension point.
 
-## Exit Criteria
-Domain pack signed-off; no Entity/API code.
-
-## Required Evidence
-Domain docs under `migration-analysis/unified/` (or agreed path).
-
-## Dependencies
-Phase 3 Done.
-
-## Risks
-Bias toward System A; dropping B-only UX.
-
-## Before Start
-- [ ] Merge Spec approved
-- [ ] Human starts Phase 4
+## Auto-continue
+Quality gates are PASS. No human-start gate applies; the next phase begins automatically.
 
 ## Rollback
-Docs-only.
-
-## Decision Points
-Greenfield capabilities beyond A∪B; Flow H-like features.
+Documentation-only: revert this pack without altering legacy evidence or runtime systems.

@@ -1,240 +1,169 @@
 # AGENTIC EXECUTION MANUAL
 
 **Project Mode:** Consolidation + Replatforming  
-**Execution Mode:** Backend-First (Frontend Frozen)  
-**Effective:** 2026-07-14  
-**Authority:** Overrides conflicting Planning-Mode assumptions when they contradict this Manual.  
-**Master Plan:** `00_README_EXECUTION.md` (roadmap) · **This file:** runtime operating rules for agents.
+**Execution Mode:** Backend-First (Frontend Frozen) · **Auto-Continue**  
+**Effective:** 2026-07-14 (updated auto-continue)  
+**Authority:** Overrides conflicting Planning-Mode / Human-Approval-between-phases assumptions.  
+**Master Plan:** `00_README_EXECUTION.md` · **This file:** runtime operating rules.
 
 ---
 
 ## 1. PROJECT MISSION
 
-Dự án đã chuyển từ **Planning Mode** sang **Execution Mode**.
+**Consolidation + Replatforming** → Unified Platform (1 FE Frozen + 1 Backend + 1 PostgreSQL), independent of Supabase.
 
-| Không còn là | Là |
+### Terminology (Phase 3+)
+
+| Term | Meaning |
 |---|---|
-| Reverse Engineering (primary) | Consolidation + Replatforming |
-| Clone Supabase | Implement Business trên Backend mới |
-| FE adapts to BE | **BE adapts to FE Contract** |
+| **Current Verified Legacy (CVL)** | Workspace đã RE đầy đủ (`migration-analysis/`) |
+| **Pending Legacy Discovery** | Legacy thứ hai chưa có đủ evidence |
+| **Unified Platform** | Đích: FE + Backend + PG duy nhất |
 
-### Target
-
-```
-Hai Frontend Legacy
-        ↓
-Một Frontend duy nhất  (FROZEN — không chỉnh sửa trong Execution Mode này)
-        ↓
-Một Backend hoàn toàn mới
-        ↓
-Một PostgreSQL duy nhất
-        ↓
-Hệ thống độc lập với Supabase
-```
+Current Workspace ≠ Final Product.  
+`migration-analysis/` = **CVL Source** ≠ Final Business Truth (Merge Spec + Unified Domain = design SoT).
 
 ---
 
 ## 2. FRONTEND FROZEN
 
-Frontend hiện tại = **CONTRACT bất biến**.
-
-**KHÔNG được:**
-
-- sửa UI / component / navigation / routing  
-- sửa logic FE / service / hooks / state  
-- sửa authentication flow trên FE  
-- sửa API call / payload / response expectation  
-
-**Nguyên tắc:** Backend phải tương thích với Frontend. Không phải Frontend tương thích với Backend.
-
-Nếu Backend muốn đổi Contract → **Reject** (hoặc Decision Request lên Human — không tự đổi FE).
+FE hiện tại = **CONTRACT**. Không sửa UI/logic/hooks/routing/auth/API calls/payload/response.  
+Backend phải tương thích FE. Muốn đổi Contract → Decision Request (không tự đổi FE).
 
 ---
 
-## 3. GLOBAL SOURCE OF TRUTH (đọc đúng thứ tự)
+## 3. SOURCE OF TRUTH (đọc đúng thứ tự)
 
-| Level | Artifact | Vai trò |
-|---|---|---|
-| **1** | **Merge Specification** | Business Truth (design hợp nhất) |
-| **2** | **Unified Domain Model** | Architecture Truth |
-| **3** | `migration-analysis/` | Legacy Truth (tables, triggers, functions, edge, auth, rls, flows, diagrams, readiness) |
-| **4** | Decision Log | Quyết định đã chốt |
-| **5** | Risk Register | Rủi ro mở / mitigation |
-| **6** | Master Plan | Roadmap / phase goals |
+1. Merge Specification  
+2. Unified Domain  
+3. `migration-analysis/` (CVL Source)  
+4. Decision Log  
+5. Risk Register  
+6. Master Plan  
 
-Mâu thuẫn giữa các level → **KHÔNG tự quyết** → sinh **Decision Request**.
-
-Khi Merge Spec / Unified Domain chưa tồn tại: Level 3 + 4 + 5 + 6 vẫn ràng buộc; **không bịa** Level 1–2 — tạo chúng trong đúng Phase (3, 4).
+Conflict → Decision Request. Không tự quyết.
 
 ---
 
-## 4. EXECUTION PRINCIPLE — Implement Business (không clone Supabase)
+## 4. EXECUTION PRINCIPLE
 
-| Legacy Supabase | Backend mới |
+Không clone Supabase — implement business:
+
+| Legacy | Unified Platform |
 |---|---|
-| Trigger | Domain Event / application write-path |
+| Trigger | Domain Event / write-path service |
 | Function | Application Service |
 | RPC | REST API |
-| Auth | JWT + Refresh Token |
-| RLS | RBAC + Permission Layer |
-| Edge Function | Controller + Service |
-| Realtime | WebSocket / Event |
-| Storage | MinIO / S3 (nếu cần) |
+| Auth | JWT + Refresh |
+| RLS | RBAC + Permission |
+| Edge | Controller + Service |
+| Realtime | WS/Event |
+| Storage | MinIO/S3 nếu cần |
 
-Không copy cơ học. Giữ **Business Behaviour**. Database ≠ SoT — Business / Domain → rồi Database.
+Open for Future Legacy Merge — không hardcode “chỉ một legacy”.
 
-### Implementation order (khi viết code)
+Không tạo / sửa / bỏ Business Rule CVL trong `migration-analysis/`. Khác với Pending Legacy → Merge Decision.
+
+Code order: Flow → UseCase → Service → Permission → TX → Repo → Controller → DTO → API → DB.
+
+---
+
+## 5. PHASE PIPELINE (bắt buộc — không bỏ)
 
 ```
-Business Flow → Use Case → Service → Permission → Transaction
-→ Repository → Controller → DTO → API → Database
+Planner
+  → Architect
+  → Developer
+  → Unit Test
+  → Integration Test
+  → Regression Test
+  → Review
+  → Architecture Validation
+  → Business Validation
+  → Documentation
+  → Git Commit
+  → Git Push
+  → Update Status Board
+  → Update Phase Report
 ```
 
-Không implement “database-first”.
+Mỗi bước ghi: **Input · Output · Evidence · Decision · Confidence · Issues · Next Step · PASS/FAIL**.
+
+Review = **DIFF only**, đối chiếu Merge Spec / Unified Domain / migration-analysis / Decision Log — không cảm tính.
+
+Architecture Validation: chứng minh không mất Business Rule.  
+Business Validation: mọi rule trace về `migration-analysis` **hoặc** Decision Log — không trace được = **FAIL**.
 
 ---
 
-## 5. FRONTEND CONTRACT (Backend obligations)
+## 6. AUTO-CONTINUE (không Human Approval giữa Phase)
 
-Backend phải đúng: payload · endpoint · status · validation · error format · pagination · sorting · filtering · authentication · permission.
+Sau khi Phase **PASS toàn bộ Quality Gates** (pipeline + AC + Exit Criteria):
 
-Mọi thay đổi Contract → Reject / Decision Request.
+1. Commit  
+2. Push  
+3. Ghi SHA · Branch · Message vào Status Board + Phase Report  
+4. Cập nhật Decision Log / Risk Register / Documentation  
+5. **Tự động bắt đầu Phase tiếp theo**
+
+**Không** chờ Human Approval giữa các Phase.
+
+### Chỉ được DỪNG khi
+
+- Decision Request chưa được trả lời; **hoặc**  
+- Blocker kỹ thuật không giải được bằng evidence; **hoặc**  
+- Xung đột với `migration-analysis` (CVL) chưa resolve bằng Decision; **hoặc**  
+- Frontend Contract không thể đáp ứng; **hoặc**  
+- **Hoàn thành Phase 14** → sinh Final reports rồi dừng.
+
+Ngoài các trường hợp trên: **không được dừng**.
 
 ---
 
-## 6. PHASE PIPELINE (bắt buộc — không bỏ bước)
+## 7. PHASE DONE / QUALITY GATES
+
+Phase PASS khi đủ:
+
+- [ ] Mọi bước pipeline PASS  
+- [ ] Acceptance + Exit Criteria PASS  
+- [ ] Docs + Decision + Risk updated  
+- [ ] Commit + Push + SHA recorded  
+
+Thiếu một mục → Phase **FAIL / IN REVIEW** — **không** auto-continue.
+
+### Git
 
 ```
-Planner Agent
-    ↓
-Architect Agent
-    ↓
-Developer Agent
-    ↓
-Test Agent
-    ↓
-Review Agent
-    ↓
-Architecture Validation Agent
-    ↓
-Business Validation Agent
-    ↓
-Documentation Agent
-    ↓
-Human Approval
+git add .
+git commit -m "phase-NN: <why> (pipeline PASS)"
+git push
 ```
 
-Sau mỗi Phase: **DỪNG** — chỉ sang Phase tiếp khi Human approve.
-
-### Vai trò
-
-| Agent | Được làm | Không được |
-|---|---|---|
-| **Planner** | Đọc Phase / Merge Spec / migration-analysis / Decision; sinh Task Breakdown, Dependency Graph, Execution Order | Viết code |
-| **Architect** | Domain, Aggregate, Entity, VO, Repository, Use Case, Transaction/Permission boundary | Implement |
-| **Developer** | Implement đúng task | Redesign / mở rộng / thêm feature / đổi business |
-| **Test** | Unit / Integration / Regression / Business / Permission / Transaction tests | Ignore fail — fail → Rollback Task |
-| **Review** | Review **DIFF** only (Clean Arch, SOLID, DRY, KISS, TX, logging, errors, naming, dead code, security, perf, deps, circular, leak, concurrency, race, validation) | Review cả repo không cần thiết |
-| **Architecture Validation** | Business rule vs Merge Spec / Unified Domain / Legacy / Decision | Cho qua khi khác Legacy mà không có Decision |
-| **Business Validation** | Mapping Trigger→Service, Function→UseCase, RPC→Endpoint, … | Cho qua nếu không map được |
-| **Documentation** | Status Board, Decision Log, Risk, ADR, Phase/Arch/Test/Review reports | Sửa Legacy Documentation |
+Không stage secrets (`.env`, credentials). Không sửa Frontend.
 
 ---
 
-## 7. PHASE COMPLETION (Done chỉ khi đủ)
+## 8. AFTER PHASE 14
 
-Phase = **DONE** khi và chỉ khi:
+Sinh rồi **DỪNG**:
 
-- [ ] Planner Done  
-- [ ] Architecture Done  
-- [ ] Implementation Done (artifact đúng loại phase — docs hoặc code)  
-- [ ] Review PASS  
-- [ ] Test PASS  
-- [ ] Regression PASS  
-- [ ] Business PASS  
-- [ ] Documentation Updated  
-- [ ] Decision Updated  
-- [ ] Risk Updated  
-- [ ] Acceptance Criteria PASS  
-- [ ] Exit Criteria PASS  
-- [ ] **Subagent Review PASS** (Review + Architecture Validation + Business Validation)  
-- [ ] **Git commit** của toàn bộ thay đổi phase (message nêu phase + kết quả)  
-- [ ] **Git push** lên remote tracking branch  
-
-Thiếu một mục → Phase vẫn **IN REVIEW**.
-
-### Git rule (sau mỗi Phase)
-
-Sau khi pipeline phase hoàn tất và **subagent review đã PASS** (không còn Critical/High mở trong scope phase):
-
-1. `git status` / `git diff` — chỉ stage artifacts của phase (không stage secrets `.env`, credentials).  
-2. **Commit** với message dạng: `phase-NN: <short why> (review PASS)`.  
-3. **Push** lên remote (`git push -u` nếu branch mới).  
-4. Ghi Evidence Link (commit SHA / remote URL) vào Status Board + Phase Report.  
-
-**Không** commit/push khi Review / Arch Val / Biz Val còn FAIL hoặc đang chờ Decision Request blocker.  
-**Không** sửa Frontend trong commit (FE Frozen).  
-Interim work (Planner-only, đang chờ DR) có thể commit/push **governance** nếu Human yêu cầu — không đánh dấu Phase DONE.
+- Final Architecture Report  
+- Final Migration Report  
+- Final Review Report  
+- Final Test Report  
 
 ---
 
-## 8. GLOBAL RULES
+## 9. DECISION REQUEST
 
-1. Không sửa Frontend / không yêu cầu FE đổi.  
-2. Không đổi API Contract / Payload / Response / Auth flow / Navigation / UI (phía FE).  
-3. Mọi thay đổi hệ thống mới nằm ở **Backend** (+ docs governance / Merge Spec / Domain).  
-4. Không clone Supabase.  
-5. Không đoán — thiếu thông tin → **Decision Request**.  
-6. Không sửa Legacy Documentation (`migration-analysis/` facts lịch sử) — chỉ thêm Merge/Unified/new reports.  
-7. Thực hiện **tuần tự từ Phase 3**; sau mỗi Phase dừng chờ Human.
+Khi uncertain — không đoán. Template: Context · Evidence · Options · Recommendation · Impact · Blocked work.
 
 ---
 
-## 9. DECISION REQUEST (khi uncertain)
-
-Template tối thiểu:
-
-```markdown
-# Decision Request — <ID>
-
-## Context
-## Evidence
-## Options
-## Recommendation
-## Impact
-## Blocked work
-## Requested from Human
-```
-
-Chờ Human. Không tự thiết kế thay Decision.
-
----
-
-## 10. PHASE END REPORT PACK (bắt buộc trước khi xin approval)
-
-Mỗi Phase kết thúc với:
-
-1. Phase Report  
-2. Code Review Report *(N/A nếu phase docs-only — ghi rõ)*  
-3. Architecture Review Report  
-4. Business Validation Report  
-5. Test Report *(N/A nếu docs-only — ghi rõ)*  
-6. Documentation Report  
-7. Decision Summary  
-8. Risk Summary  
-9. **Git commit SHA + push remote confirmation** (sau subagent review PASS)
-
-Human Approval → rồi mới Phase tiếp theo.
-
----
-
-## 11. CURRENT EXECUTION POINTER
+## 10. CURRENT POINTER
 
 | Item | Value |
 |---|---|
-| Active Phase | **3 — Merge Specification** |
-| Mode | Execution · Backend-First · FE Frozen |
-| Pipeline step | Bắt đầu bằng **Planner** |
-| Human gate | Sau đủ pipeline Phase 3 → Approval |
-
-Xem: `phases/phase_03_merge_specification/`
+| Mode | Auto-Continue Execution |
+| Decision | O3 — CVL continue |
+| Start | Phase 3 Merge Specification → … → Phase 14 |

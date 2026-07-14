@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: Unified Platform Compatibility API
+  version: 0.1.0-design
+  description: Design-only contract. Backend adapters preserve the frozen frontend's observable CVL Supabase patterns; this specification does not require frontend changes.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /auth/token:
+    post: {summary: "Compatibility session sign-in", responses: {'200': {description: "Session-compatible identity response"}, '401': {description: "Invalid credentials"}}}
+  /auth/refresh:
+    post: {summary: "Refresh a session", responses: {'200': {description: "Refreshed session"}, '401': {description: "Refresh rejected"}}}
+  /profiles/{id}:
+    get: {summary: "Read profile (table-compatible adapter)", responses: {'200': {description: "Profile"}, '403': {description: "Scope denied"}}}
+    patch: {summary: "Update profile (table-compatible adapter)", responses: {'200': {description: "Profile"}, '403': {description: "Scope denied"}}}
+  /functions/create-user:
+    post: {summary: "Edge-compatible user creation for Flow A", responses: {'201': {description: "Created user"}, '403': {description: "Role denied"}}}
+  /functions/delete-user:
+    post: {summary: "Edge-compatible user removal", responses: {'204': {description: "User removed"}, '409': {description: "CVL dependency guard"}}}
+  /tables/{table}:
+    get: {summary: "Read adapter for approved CVL contract tables", responses: {'200': {description: "Rows"}, '403': {description: "Scoped read denied"}}}
+    post: {summary: "Write adapter for approved CVL contract tables", responses: {'201': {description: "Created row"}, '409': {description: "Business guard"}}}
+  /tables/{table}/{id}:
+    patch: {summary: "Update adapter for approved CVL contract tables", responses: {'200': {description: "Updated row"}, '403': {description: "Scoped write denied"}}}
+    delete: {summary: "Delete adapter where CVL permits it", responses: {'204': {description: "Deleted"}, '409': {description: "Lifecycle guard"}}}
+  /rpc/delete_chantier_cascade:
+    post: {summary: "Active CVL RPC compatibility adapter for Flow B", responses: {'204': {description: "Retired worksite"}, '403': {description: "Role denied"}, '409': {description: "Transaction rejected"}}}
+  /events:
+    get: {summary: "Realtime-compatible period/declaration event stream", responses: {'200': {description: "Contract-equivalent event stream"}, '403': {description: "Scope denied"}}}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  schemas:
+    Error:
+      type: object
+      required: [code, message, correlation_id]
+      properties:
+        code: {type: string, example: FORBIDDEN}
+        message: {type: string}
+        correlation_id: {type: string}

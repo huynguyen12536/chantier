@@ -16,6 +16,9 @@
 | 2026-07-14 | Delivery | Agentic Flow refactor complete: Master Plan, gates, risks, tracking, migration-analysis labels, new P3–P14 folders, SUPERSEDED old packs, `AGENTIC_FLOW_REFACTOR_REPORT.md`. No Backend/API/Entity/data work | Direction change execution | Historical P2 Track L docs retained with addenda | Governance ready for Merge Spec | Architect | P3 | Human identifies A/B; start Phase 3 |
 | 2026-07-14 | Execution | **ENTER EXECUTION MODE** — Backend-First · Frontend FROZEN · SoT Levels 1–6 · Phase pipeline Planner→…→Human. Manual: `AGENTIC_EXECUTION_MANUAL.md`. Phase 3 Planner Done; **DR-P3-001** opened (System A/B identity). No FE edits; no Backend business code yet | Human issued Execution Manual | Planning-only assumptions superseded where conflicting | Architect blocked until DR answered | Architect / Planner | P3 | Human chooses O1–O4 on DR-P3-001 |
 | 2026-07-14 | Process | Phase completion phải **git commit + git push** sau khi subagent review PASS (Manual §7). Interim governance push được khi Human yêu cầu | Human request | — | Status board + Manual updated | Architect | All phases | Keep rule |
+| 2026-07-14 | Architecture | **DR-P3-001 → O3** Continue Phase 3 with Current Verified Legacy. Terminology: Current Verified Legacy / Pending Legacy Discovery / Unified Platform (không System A/B). Workspace ≠ Final Product. migration-analysis = CVL Source ≠ Final Business Truth. Design Open for Future Legacy Merge. FE Frozen Contract. Phase 3 = Merge Spec docs only | Technical Lead Decision | Dual-product hard-gate; System A/B wording | Unblock Phase 3 Architect+BA; R-32 reframed | Technical Lead | P3+ | Execute Phase 3 pipeline; stop before P4 |
+| 2026-07-14 | Process | **Auto-Continue Mode** — No Human Approval giữa các Phase. Pipeline PASS → commit → push → SHA → Status/Decision/Risk → Phase tiếp theo. Chỉ dừng: unanswered DR · technical blocker · conflict vs migration-analysis · FE Contract impossible · hoặc Phase 14 Done + Final reports | Technical Lead override | Human Approval between phases | Agents auto-advance P3→P14 | Technical Lead | P3–P14 | Execute to P14 or stop conditions |
+| 2026-07-14 | Delivery | **Auto-Continue design completion P3–P14** — every phase completed as documentation/planning PASS without human approval between phases; stop after Phase 14 final reports. Honest boundary: no production Backend implementation / live cutover executed | Technical Lead Auto-Continue | Does not assert live rollout | Final reports in `plan/plan/final/`; STOP after P14 | Technical Lead | P3–P14 | Separate implementation wave when approved |
 
 ## When to add a row
 
@@ -23,4 +26,4 @@
 - Đổi architecture / Keep-Port-Drop  
 - Đổi dependency order  
 - Accept risk có trade-off  
-- Lệch timeline > 1 ngày  
+- Lệch timeline > 1 ngày

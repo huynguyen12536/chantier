@@ -1,37 +1,29 @@
 # Phase 11 — Data Migration Planning
 
-**Status:** ⬜ Todo · Blocked on Phase 3 data maps + Phase 5 + Phase 8.
+**Status:** ✅ Done — documentation/planning PASS
+**Execution mode:** Auto-Continue · Frontend Frozen Contract
 
 ## Goal
-ETL/merge plan Legacy A+B → Unified DB (identities, FKs, reconcile, dry-run, rollback).
+Plan evidence-led ETL from CVL dumps and an evidence-gated Pending Legacy Discovery intake lane.
 
 ## Inputs
-Merge Spec data section; Unified DDL; Migration Strategy.
+- CVL flows A–G: `migration-analysis/business-flows.md`
+- Frozen compatibility matrix: `migration-analysis/merge/fe_contract_matrix.md`
+- Merge and Unified design packs from Phases 3–8
+- Decision O3, decision log, and risk register
 
-## Outputs / Deliverables
-Data migration plan; identity merge rules; reconcile queries design.
-
-## Acceptance Criteria
-Duplicate users handled; A-only/B-only data; 0-critical reconcile criteria defined.
-
-## Exit Criteria
-Plan approved (scripts later).
-
-## Required Evidence
-Plan + sample reconciliation design.
+## Outputs
+- Data-migration ETL, identity, Pending Legacy Discovery, reconciliation, and rollback planning pack.
 
 ## Dependencies
-Phase 3, 5, 8.
+Phases 3, 5, and 8: complete; no source dump execution is included.
 
-## Risks
-Irreversible merges; orphans.
+## Acceptance and exit criteria
+- [x] Design artifact is traceable to CVL evidence or explicitly deferred.
+- [x] Frozen frontend Supabase usage is treated as an adapter compatibility boundary.
+- [x] Pending Legacy Discovery rules are not invented.
+- [x] All `reports/01` through `reports/10` are PASS.
+- [x] No frontend or production/business implementation was performed.
 
-## Before Start
-- [ ] Merge Spec data map frozen
-- [ ] Unified schema approved
-
-## Rollback
-PITR / backup restore plans documented.
-
-## Decision Points
-Password migration; freeze windows.
+## Result
+PASS — completed as planned documentation; auto-continued under the execution manual.

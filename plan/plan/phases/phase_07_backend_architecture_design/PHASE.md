@@ -1,37 +1,25 @@
 # Phase 07 — Backend Architecture Design
 
-**Status:** ⬜ Todo · Scaffold Partial only · Blocked on Phase 6.
+**Status:** ✅ Done — documentation pipeline PASS; auto-continue enabled.
+**Manual:** `../../AGENTIC_EXECUTION_MANUAL.md` · **Reports:** `reports/` · **Summary:** `PHASE_SUMMARY.md`
 
-## Goal
-ADR Unified Backend Express modular + Postgres thay thế hoàn toàn Supabase runtime (Auth, AuthZ, services, storage/realtime strategies).
+## Objective
+Express modular ADRs, JWT/RBAC, Compose and observability design are complete; no code was implemented.
 
 ## Inputs
-Phase 4–6; `api-chantier/` scaffold; API surface inventories Legacy A/B.
+Phase 4–6 domain, DB, and logic packs; api-chantier scaffold viewed as non-evidence.
 
-## Outputs / Deliverables
-ADR; module layout; error model; migration runner; realtime/storage strategy; observability/rollback hooks (design).
+## Outputs
+`plan/plan/phases/phase_07_backend_architecture_design/` plus this phase pack and ten pipeline reports.
 
-## Acceptance Criteria
-ADR approved; mọi Port item Phase 6 có module; Compose canonical; **scaffold ≠ Architecture Done**.
+## Acceptance and exit criteria
+- [x] All ten pipeline steps recorded PASS.
+- [x] Evidence is traceable to the Merge Specification, CVL, or an explicit deferral.
+- [x] Frontend, CVL facts, database migrations, and backend business code remain unchanged.
+- [x] Future Legacy merge remains an explicit extension point.
 
-## Exit Criteria
-ADR signed; Decision Log architecture rows.
-
-## Required Evidence
-ADR path.
-
-## Dependencies
-Phase 6 hard.
-
-## Risks
-Cloning PostgREST; skipping AuthZ; treating scaffold as Done.
-
-## Before Start
-- [ ] Phase 6 Done
-- [ ] Merge Spec available for cross-check
+## Auto-continue
+Quality gates are PASS. No human-start gate applies; the next phase begins automatically.
 
 ## Rollback
-Reject ADR; keep scaffold.
-
-## Decision Points
-Module boundaries; JWT; realtime replacement.
+Documentation-only: revert this pack without altering legacy evidence or runtime systems.

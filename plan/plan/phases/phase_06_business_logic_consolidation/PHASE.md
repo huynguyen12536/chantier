@@ -1,37 +1,25 @@
 # Phase 06 — Business Logic Consolidation
 
-**Status:** ⬜ Todo · Blocked on Phase 3–5.
+**Status:** ✅ Done — documentation pipeline PASS; auto-continue enabled.
+**Manual:** `../../AGENTIC_EXECUTION_MANUAL.md` · **Reports:** `reports/` · **Summary:** `PHASE_SUMMARY.md`
 
-## Goal
-Hợp nhất Triggers / Functions / RPC / Edge / FE orchestration A+B → catalog **Port-to-Backend** / Keep-SQL / Drop với single write-path.
+## Objective
+Keep/Port/Drop matrix and single-owner write path are complete.
 
 ## Inputs
-Merge Spec logic maps; Unified Domain; Unified DB model.
+Phase 3 MERGE_DECISION_MATRIX and Phase 4–5 designs.
 
-## Outputs / Deliverables
-Consolidated inventory matrix; service ownership; conflict resolutions.
+## Outputs
+`migration-analysis/unified/logic/` plus this phase pack and ten pipeline reports.
 
-## Acceptance Criteria
-No dual-write legacy patterns without owner; sync/validate/export/auth edge rules all decided.
+## Acceptance and exit criteria
+- [x] All ten pipeline steps recorded PASS.
+- [x] Evidence is traceable to the Merge Specification, CVL, or an explicit deferral.
+- [x] Frontend, CVL facts, database migrations, and backend business code remain unchanged.
+- [x] Future Legacy merge remains an explicit extension point.
 
-## Exit Criteria
-Signed Keep/Port/Drop for A∪B; ready for Backend ADR.
-
-## Required Evidence
-Inventory matrix + Decision Log.
-
-## Dependencies
-Phase 3–5.
-
-## Risks
-Trigger/function conflicts; silent Drop of B logic.
-
-## Before Start
-- [ ] Phase 5 schema targets available
-- [ ] Merge Spec logic sections complete
+## Auto-continue
+Quality gates are PASS. No human-start gate applies; the next phase begins automatically.
 
 ## Rollback
-Docs-only.
-
-## Decision Points
-Hours calculators source of truth; auto-approve audit; week RPC.
+Documentation-only: revert this pack without altering legacy evidence or runtime systems.

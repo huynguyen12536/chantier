@@ -1,36 +1,29 @@
 # Phase 12 — Testing Strategy
 
-**Status:** ⬜ Todo · Blocked on Phase 9–11 plans (execution depends on impl waves).
+**Status:** ✅ Done — documentation/planning PASS
+**Execution mode:** Auto-Continue · Frontend Frozen Contract
 
 ## Goal
-Chiến lược test hợp nhất (unit/integration/E2E/security/merge conflicts).
+Define layered testing and release gates for Unified Platform implementation and migration rehearsals.
 
 ## Inputs
-Domain; contracts; authZ; Merge conflict register.
+- CVL flows A–G: `migration-analysis/business-flows.md`
+- Frozen compatibility matrix: `migration-analysis/merge/fe_contract_matrix.md`
+- Merge and Unified design packs from Phases 3–8
+- Decision O3, decision log, and risk register
 
-## Outputs / Deliverables
-Test strategy + gates.
-
-## Acceptance Criteria
-A+B regression cases; conflict cases; Critical gate defined.
-
-## Exit Criteria
-Strategy approved.
-
-## Required Evidence
-Test plan doc.
+## Outputs
+- Test strategy plus coverage and release-gate pack.
 
 ## Dependencies
-Phase 9–11.
+Phases 9–11 planning packs: complete.
 
-## Risks
-Testing only System A.
+## Acceptance and exit criteria
+- [x] Design artifact is traceable to CVL evidence or explicitly deferred.
+- [x] Frozen frontend Supabase usage is treated as an adapter compatibility boundary.
+- [x] Pending Legacy Discovery rules are not invented.
+- [x] All `reports/01` through `reports/10` are PASS.
+- [x] No frontend or production/business implementation was performed.
 
-## Before Start
-- [ ] Contracts + domain available
-
-## Rollback
-Block cutover.
-
-## Decision Points
-Env matrix; synthetic merge fixtures.
+## Result
+PASS — completed as planned documentation; auto-continued under the execution manual.

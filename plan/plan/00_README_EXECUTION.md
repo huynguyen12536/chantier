@@ -80,10 +80,10 @@ Tài liệu RE trong `migration-analysis/` = **Legacy Analysis**. Xem `migration
 |---|---|---|
 | Phase 0–2 | ✅ Technical work complete (System đã RE trong workspace) | **Giữ nguyên kết quả lịch sử**; diễn giải lại dưới hướng Consolidation |
 | Phase 2 Gate “Runtime = afgveikz/hzppst” | Vẫn **Waiting External Confirmation** (dữ liệu lịch sử) | Dưới mục tiêu mới: hai refs có thể là env **cùng** hệ hoặc A/B — **chưa** kết luận; Merge Spec sẽ cần định danh System A vs B chính thức |
-| System B (FE B / Supabase B) | ⬜ / **DR-P3-001** | Decision Request mở — không tự bịa B |
-| Phase 3+ | 🔄 Execution Mode | Pipeline bắt buộc; dừng sau mỗi Phase chờ Human |
+| Pending Legacy Discovery | ⏳ Deferred under **O3** | Không tự bịa rule; merge theo lane riêng khi có evidence |
+| Phase 3–8 | ✅ Documentation design complete | Pipeline PASS; auto-continue applies, parent commits separately |
 | Backend scaffold `api-chantier/` | Partial / opportunistic | **Không** = Architecture Done; **FE Frozen** |
-| Hướng tiếp theo | **Phase 3 Planner ✅** → Human trả lời DR-P3-001 → Architect | Không nhảy code trước Merge Spec |
+| Hướng tiếp theo | **Phase 9 — API Contract** | Không nhảy code trước contract + implementation plan |
 
 ---
 
@@ -119,17 +119,17 @@ Phase 0 ✅ Legacy RE (workspace — historical)
 Phase 1 ✅ Architecture validation (historical)
 Phase 2 ✅ DB dump investigation (historical; Gate env còn mở)
         ↓
-Phase 3  Merge Specification          ◄── SoT hợp nhất quan trọng nhất
+Phase 3  Merge Specification ✅       ◄── SoT hợp nhất quan trọng nhất
         ↓
-Phase 4  Unified Domain Discovery
+Phase 4  Unified Domain Discovery ✅
         ↓
-Phase 5  Unified Database Modeling
+Phase 5  Unified Database Modeling ✅
         ↓
-Phase 6  Business Logic Consolidation
+Phase 6  Business Logic Consolidation ✅
         ↓
-Phase 7  Backend Architecture Design
+Phase 7  Backend Architecture Design ✅
         ↓
-Phase 8  Migration Strategy (legacy → unified)
+Phase 8  Migration Strategy (legacy → unified) ✅
         ↓
 Phase 9  API Contract
         ↓

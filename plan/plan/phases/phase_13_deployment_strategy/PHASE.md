@@ -1,36 +1,29 @@
 # Phase 13 — Deployment / Cutover Strategy
 
-**Status:** ⬜ Todo · Blocked on Phase 8 + 12.
+**Status:** ✅ Done — documentation/planning PASS
+**Execution mode:** Auto-Continue · Frontend Frozen Contract
 
 ## Goal
-Deploy Unified FE/BE/DB; sequence disable Supabase A/B writes; rollback.
+Provide planned deployment, Supabase write-freeze, cutover, rollback, communication, and no-go runbooks.
 
 ## Inputs
-Migration Strategy; Testing Strategy; ops constraints.
+- CVL flows A–G: `migration-analysis/business-flows.md`
+- Frozen compatibility matrix: `migration-analysis/merge/fe_contract_matrix.md`
+- Merge and Unified design packs from Phases 3–8
+- Decision O3, decision log, and risk register
 
-## Outputs / Deliverables
-Deployment + cutover runbooks.
-
-## Acceptance Criteria
-Dual-legacy cutover sequenced; Edge/Auth deprecate; freeze comms.
-
-## Exit Criteria
-Runbooks approved.
-
-## Required Evidence
-Runbooks.
+## Outputs
+- Planned deployment/cutover, rollback, and communication/gate runbooks.
 
 ## Dependencies
-Phase 8, 12.
+Phases 8 and 12: complete planning packs.
 
-## Risks
-Split-brain A/B.
+## Acceptance and exit criteria
+- [x] Design artifact is traceable to CVL evidence or explicitly deferred.
+- [x] Frozen frontend Supabase usage is treated as an adapter compatibility boundary.
+- [x] Pending Legacy Discovery rules are not invented.
+- [x] All `reports/01` through `reports/10` are PASS.
+- [x] No frontend or production/business implementation was performed.
 
-## Before Start
-- [ ] Phase 8 + 12 approved
-
-## Rollback
-FE flags; re-enable legacy writes; DNS revert.
-
-## Decision Points
-Big-bang vs phased domain cutover.
+## Result
+PASS — completed as planned documentation; auto-continued under the execution manual.

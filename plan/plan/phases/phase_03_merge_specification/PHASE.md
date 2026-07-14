@@ -2,8 +2,8 @@
 
 > **Master Plan (Consolidation + Replatforming).**  
 > Đây là phase **quan trọng nhất** trước Unified Backend Design.  
-> **Status:** 🔄 IN PROGRESS — Planner Done · Waiting DR-P3-001 · Architecture not started.  
-> **Manual:** `../../AGENTIC_EXECUTION_MANUAL.md` · **Planner:** `PLANNER_PACKAGE.md`
+> **Status:** ✅ DONE — Merge Spec PASS · Auto-Continue to Phase 4  
+> **Manual:** `../../AGENTIC_EXECUTION_MANUAL.md` (Auto-Continue) · **Reports:** `reports/` · **Summary:** `PHASE_SUMMARY.md`
 
 ## Objective
 

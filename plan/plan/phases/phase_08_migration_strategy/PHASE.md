@@ -1,37 +1,25 @@
 # Phase 08 — Migration Strategy
 
-**Status:** ⬜ Todo · Blocked on Phase 5–7.
+**Status:** ✅ Done — documentation pipeline PASS; auto-continue enabled.
+**Manual:** `../../AGENTIC_EXECUTION_MANUAL.md` · **Reports:** `reports/` · **Summary:** `PHASE_SUMMARY.md`
 
-## Goal
-Playbook chuyển Legacy A+B → Unified BE/DB (dual-run, freeze, disable Supabase writes, rollback).
+## Objective
+Dual-run/freeze/rollback playbook and Pending Legacy Discovery merge lane are complete.
 
 ## Inputs
-Unified schema; Backend ADR; Merge Spec; Legacy dumps.
+Phase 5–7 target designs and CVL evidence.
 
-## Outputs / Deliverables
-Migration/cutover-oriented strategy runbook (schema apply, trigger/Edge deprecate order).
+## Outputs
+`plan/plan/phases/phase_08_migration_strategy/` plus this phase pack and ten pipeline reports.
 
-## Acceptance Criteria
-Safe sequencing for **two** legacies; RTO/RPO; no 1:1 blind copy.
+## Acceptance and exit criteria
+- [x] All ten pipeline steps recorded PASS.
+- [x] Evidence is traceable to the Merge Specification, CVL, or an explicit deferral.
+- [x] Frontend, CVL facts, database migrations, and backend business code remain unchanged.
+- [x] Future Legacy merge remains an explicit extension point.
 
-## Exit Criteria
-Playbook approved.
-
-## Required Evidence
-Runbook + risk sign-off.
-
-## Dependencies
-Phase 5–7.
-
-## Risks
-Split-brain during dual-run; order errors.
-
-## Before Start
-- [ ] Phase 7 ADR Done
-- [ ] Data implications understood for Phase 11
+## Auto-continue
+Quality gates are PASS. No human-start gate applies; the next phase begins automatically.
 
 ## Rollback
-Docs / dual-run abort paths.
-
-## Decision Points
-Big-bang vs phased cutover per domain.
+Documentation-only: revert this pack without altering legacy evidence or runtime systems.

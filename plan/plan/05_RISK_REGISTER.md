@@ -34,13 +34,17 @@
 | R-29 | **Migration rollback** incomplete for dual-legacy cutover | Medium | Critical | Phase 8/13 runbooks; PITR | DevOps Automator | Open |
 | R-30 | **Data integrity** post-merge (counts, soft-cancel, hours) | High | Critical | Reconcile gates; testing strategy Phase 12 | API Tester | Open |
 | R-31 | **Tenant isolation** mistakes if multi-company slips in | Medium | Critical | Architecture Scope + Merge Spec tenancy decision | Security Engineer | Open |
-| R-32 | System B missing from workspace → false “unified” from A only | High | Critical | Phase 3 Gate: identify B or Decision Log defer | Product Manager | Open — **DR-P3-001** |
+| R-32 | **Pending Legacy Discovery** evidence is absent; future source schema, identity, rules, permissions, and data may require a Merge Decision before inclusion | High | High | Maintain separate evidence intake, source provenance, mapping, identity review, reconciliation baseline, and explicit Merge Decision; do not infer behavior | Product Manager | Open — Deferred (O3); residual for implementation wave |
 | R-33 | Treating Consolidation as **clone Supabase / 1:1 migrate** | Medium | High | Master Plan goal; ADR reviews | Software Architect | Open |
 | R-34 | Backend changes break **Frontend Frozen Contract** | High | Critical | FE contract matrix in Merge Spec; Contract change = Reject/DR | Backend Architect | Open |
-| R-35 | Skipping phase pipeline / Human Approval | Medium | High | Execution Manual; status board checklist | Software Architect | Open |
+| R-35 | Skipping phase pipeline / Auto-Continue without Quality Gates | Medium | High | Execution Manual; status board checklist | Software Architect | Open |
+| R-36 | Env/ref drift afgveikz vs hzppst unresolved at cutover | High | High | Track L labeling; Conflict Matrix Expected Change | Database Optimizer | Open |
+
+
+**Residual implementation-wave risks:** R-01–R-05, R-08–R-16, R-20–R-36 remain open until implementation, rehearsal, security review, and live operational evidence are completed. Documentation PASS does not mitigate them by execution.
 
 ## When to add a row
 
 - Phát hiện trong review / test  
 - Accept trade-off có rủi ro  
-- Blocker > 24h liên quan kỹ thuật  
+- Blocker > 24h liên quan kỹ thuật

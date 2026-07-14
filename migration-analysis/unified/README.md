@@ -1,7 +1,11 @@
-# Unified Analysis — placeholder
+# Consolidation design basis
 
-Tag: **Unified Analysis**
+**Terminology:** Current Verified Legacy (CVL) is the reverse-engineered workspace evidence; Pending Legacy Discovery is a future merge input with no asserted facts; Unified Platform is the target.
+**Authority:** Decision O3 and `migration-analysis/merge/`. **Frontend is FROZEN.** This pack changes no frontend, legacy fact, database, or backend service.
+**Rule:** A CVL rule is preserved as evidence or explicitly deferred. No Pending Legacy behavior is invented; extension points remain open.
 
-Deliverables from Phase 4+ (Domain, and later cross-links to Unified DB / Logic) sẽ được đặt hoặc linked tại đây.
+# Unified Domain Discovery
 
-**Status:** ⬜ Empty — blocked on Merge Specification (Phase 3).
+This is the Unified Platform domain-design pack derived from the Phase 3 merge specification. It translates CVL evidence into bounded contexts and use cases without making implementation decisions.
+
+Read in order: glossary, bounded contexts, use cases, state machines, rule ownership.

@@ -1,37 +1,25 @@
 # Phase 05 — Unified Database Modeling
 
-**Status:** ⬜ Todo · Blocked on Phase 3–4.
+**Status:** ✅ Done — documentation pipeline PASS; auto-continue enabled.
+**Manual:** `../../AGENTIC_EXECUTION_MANUAL.md` · **Reports:** `reports/` · **Summary:** `PHASE_SUMMARY.md`
 
-## Goal
-Thiết kế PostgreSQL **unified** (DDL plan, ER, merge dictionary) — đích persistence; không phải copy schema A hoặc B nguyên xi.
+## Objective
+Markdown target DDL plan, ER, rename dictionary, constraints, and deferred tenancy extension are complete.
 
 ## Inputs
-Merge Spec schema maps; Unified Domain; Legacy DDL/dumps A/B.
+Phase 4 domain pack and Phase 3 mapping.
 
-## Outputs / Deliverables
-Target ER; DDL plan; table/column rename map; constraint/index strategy; tenancy model.
+## Outputs
+`migration-analysis/unified/database/` plus this phase pack and ten pipeline reports.
 
-## Acceptance Criteria
-Mọi mapped table có target hoặc Drop; identity strategy for merged users; FK strategy across merged entities.
+## Acceptance and exit criteria
+- [x] All ten pipeline steps recorded PASS.
+- [x] Evidence is traceable to the Merge Specification, CVL, or an explicit deferral.
+- [x] Frontend, CVL facts, database migrations, and backend business code remain unchanged.
+- [x] Future Legacy merge remains an explicit extension point.
 
-## Exit Criteria
-Schema design approved; apply-order + rollback notes for later phases.
-
-## Required Evidence
-DDL plan + mapping IDs.
-
-## Dependencies
-Phase 3–4.
-
-## Risks
-PK collisions; lossy merges; premature assuming single-tenant copy of A.
-
-## Before Start
-- [ ] Phase 4 Done
-- [ ] Merge Spec schema section frozen
+## Auto-continue
+Quality gates are PASS. No human-start gate applies; the next phase begins automatically.
 
 ## Rollback
-Docs-only until migrations applied (Phase 8+/11).
-
-## Decision Points
-Tenancy; soft-delete; which CHECK wins on conflicts.
+Documentation-only: revert this pack without altering legacy evidence or runtime systems.

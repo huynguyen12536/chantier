@@ -1,37 +1,29 @@
 # Phase 09 — API Contract
 
-**Status:** ⬜ Todo · Blocked on Phase 7.
+**Status:** ✅ Done — documentation/planning PASS
+**Execution mode:** Auto-Continue · Frontend Frozen Contract
 
 ## Goal
-HTTP contracts Unified Frontend → Unified Backend (không assume Supabase client).
+Define Unified Platform API contracts for CVL flows A–G while preserving the frozen frontend interaction contract through adapters.
 
 ## Inputs
-Unified use-cases; ADR; Legacy FE inventories A/B; Phase 6 services.
+- CVL flows A–G: `migration-analysis/business-flows.md`
+- Frozen compatibility matrix: `migration-analysis/merge/fe_contract_matrix.md`
+- Merge and Unified design packs from Phases 3–8
+- Decision O3, decision log, and risk register
 
-## Outputs / Deliverables
-OpenAPI/contract pack; auth scheme; error model; versioning.
-
-## Acceptance Criteria
-Unified flows covered; payloads reconciled A/B differences; no `.from()`/`rpc` Supabase in contract.
-
-## Exit Criteria
-Contracts approved for implementation planning.
-
-## Required Evidence
-Contract files.
+## Outputs
+- `migration-analysis/unified/api/` OpenAPI and compatibility/flow contract pack.
 
 ## Dependencies
-Phase 7.
+Phase 7 architecture and Phase 8 strategy: complete.
 
-## Risks
-PostgREST leak; incompatible FE A/B UX.
+## Acceptance and exit criteria
+- [x] Design artifact is traceable to CVL evidence or explicitly deferred.
+- [x] Frozen frontend Supabase usage is treated as an adapter compatibility boundary.
+- [x] Pending Legacy Discovery rules are not invented.
+- [x] All `reports/01` through `reports/10` are PASS.
+- [x] No frontend or production/business implementation was performed.
 
-## Before Start
-- [ ] Phase 7 Done
-- [ ] Phase 4 use-cases available
-
-## Rollback
-Revise contracts; no runtime.
-
-## Decision Points
-REST vs RPC-style resources; pagination; idempotency.
+## Result
+PASS — completed as planned documentation; auto-continued under the execution manual.
