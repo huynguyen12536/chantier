@@ -39,9 +39,11 @@
 | R-34 | Backend changes break **Frontend Frozen Contract** | High | Critical | FE contract matrix in Merge Spec; Contract change = Reject/DR | Backend Architect | Open |
 | R-35 | Skipping phase pipeline / Auto-Continue without Quality Gates | Medium | High | Execution Manual; status board checklist | Software Architect | Open |
 | R-36 | Env/ref drift afgveikz vs hzppst unresolved at cutover | High | High | Track L labeling; Conflict Matrix Expected Change | Database Optimizer | Open |
+| R-37 | Prematurely marking Wave 1 planning or a Wave 2 module **Done** without executable code and pipeline evidence | Medium | Critical | Separate Wave 1 planning completion from Wave 2 coding; require module reports, tests, review, validations, commit, push, and recorded SHA | Technical Director | Open |
+| R-38 | Wave 2 implementation breaks the frozen frontend contract | High | Critical | Treat `fe_contract_matrix.md` as a compatibility gate; add adapter/contract tests; require a Decision Request for any incompatibility and never edit `chantier1/` | Backend Architect | Open |
 
 
-**Residual implementation-wave risks:** R-01–R-05, R-08–R-16, R-20–R-36 remain open until implementation, rehearsal, security review, and live operational evidence are completed. Documentation PASS does not mitigate them by execution.
+**Residual implementation-wave risks:** R-01–R-05, R-08–R-16, R-20–R-38 remain open until implementation, rehearsal, security review, and live operational evidence are completed. Documentation PASS does not mitigate them by execution.
 
 ## When to add a row
 

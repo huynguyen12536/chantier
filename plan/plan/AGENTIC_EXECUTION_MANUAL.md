@@ -1,169 +1,131 @@
 # AGENTIC EXECUTION MANUAL
 
-**Project Mode:** Consolidation + Replatforming  
-**Execution Mode:** Backend-First (Frontend Frozen) · **Auto-Continue**  
-**Effective:** 2026-07-14 (updated auto-continue)  
-**Authority:** Overrides conflicting Planning-Mode / Human-Approval-between-phases assumptions.  
-**Master Plan:** `00_README_EXECUTION.md` · **This file:** runtime operating rules.
+**Project mode:** Consolidation + Replatforming
+**Execution mode:** Backend-first · **Frontend Frozen** · **Auto-Continue**
+**Effective:** 2026-07-14
+**Authority:** Operating rules for both waves. It overrides conflicting planning-mode or human-approval-between-module assumptions.
 
----
+## 1. Two-wave boundary
 
-## 1. PROJECT MISSION
+| Wave | Scope | State | Boundary |
+|---|---|---|---|
+| **Wave 1** | Phases 0–14: reverse engineering, consolidation, design, planning, test/deployment strategy | **DONE** | Documentation/planning only; it does not assert working backend, live migration, cutover, rollout, or hypercare. Historical phase and final reports remain unchanged. |
+| **Wave 2** | Implementation-01 onward: coding and verification of the Unified Platform | **START NOW** | Follow `WAVE2_IMPLEMENTATION_ROADMAP.md`; current module is **Imp-01 Infrastructure**. |
 
-**Consolidation + Replatforming** → Unified Platform (1 FE Frozen + 1 Backend + 1 PostgreSQL), independent of Supabase.
+`plan/plan/final/WAVE2_TRANSITION.md` is the formal boundary statement. A Wave 1 “Done” status means its documentation quality gates passed, not that runtime behavior exists.
 
-### Terminology (Phase 3+)
+## 2. Mission and terminology
+
+Build the Unified Platform: one frozen frontend contract, one backend, and one PostgreSQL target independent of Supabase.
 
 | Term | Meaning |
 |---|---|
-| **Current Verified Legacy (CVL)** | Workspace đã RE đầy đủ (`migration-analysis/`) |
-| **Pending Legacy Discovery** | Legacy thứ hai chưa có đủ evidence |
-| **Unified Platform** | Đích: FE + Backend + PG duy nhất |
+| **Current Verified Legacy (CVL)** | Reverse-engineered workspace evidence in `migration-analysis/`. |
+| **Pending Legacy Discovery (PLD)** | Future legacy input without sufficient evidence. |
+| **Unified Platform** | Target backend and PostgreSQL compatible with the frozen frontend. |
 
-Current Workspace ≠ Final Product.  
-`migration-analysis/` = **CVL Source** ≠ Final Business Truth (Merge Spec + Unified Domain = design SoT).
+The workspace is not automatically the final product. `migration-analysis/` is CVL evidence, not a mutable target-business source.
 
----
+## 3. Non-negotiable constraints
 
-## 2. FRONTEND FROZEN
+### Frontend Frozen
 
-FE hiện tại = **CONTRACT**. Không sửa UI/logic/hooks/routing/auth/API calls/payload/response.  
-Backend phải tương thích FE. Muốn đổi Contract → Decision Request (không tự đổi FE).
+The frontend under `chantier1/` is a **contract**. Do not edit its UI, logic, hooks, routing, authentication, API calls, payloads, or responses. Wave 2 backend work must preserve compatibility. A required contract change is a Decision Request; it never authorizes an unreviewed frontend edit.
 
----
+### Source of truth order
 
-## 3. SOURCE OF TRUTH (đọc đúng thứ tự)
+Read and resolve conflicts in this order:
 
-1. Merge Specification  
-2. Unified Domain  
-3. `migration-analysis/` (CVL Source)  
-4. Decision Log  
-5. Risk Register  
-6. Master Plan  
+1. Merge Specification (`migration-analysis/merge/`)
+2. Unified Domain / ADRs
+3. `migration-analysis/` CVL evidence
+4. Decision Log
+5. Risk Register
+6. Master Plan and Wave 2 roadmap
 
-Conflict → Decision Request. Không tự quyết.
+Do not rewrite CVL factual records. PLD behavior is never invented. A conflict or missing evidence requires a Decision Request.
 
----
+### Design-to-code translation
 
-## 4. EXECUTION PRINCIPLE
+Do not clone Supabase. Port business behavior into application boundaries:
 
-Không clone Supabase — implement business:
-
-| Legacy | Unified Platform |
+| Legacy behavior | Unified Platform implementation |
 |---|---|
-| Trigger | Domain Event / write-path service |
-| Function | Application Service |
-| RPC | REST API |
-| Auth | JWT + Refresh |
-| RLS | RBAC + Permission |
-| Edge | Controller + Service |
-| Realtime | WS/Event |
-| Storage | MinIO/S3 nếu cần |
+| Trigger / Edge function | domain event, controller, or write-path service |
+| Function / RPC | application service and REST endpoint |
+| Auth / RLS | JWT refresh lifecycle, RBAC, scoped policy |
+| Realtime | contract-compatible event transport where required |
+| Storage | **N/A for CVL; skip unless evidence or a new decision changes scope** |
 
-Open for Future Legacy Merge — không hardcode “chỉ một legacy”.
+Preferred code order: Flow → Use Case → Service → Permission → Transaction → Repository → Controller → DTO → API → DB.
 
-Không tạo / sửa / bỏ Business Rule CVL trong `migration-analysis/`. Khác với Pending Legacy → Merge Decision.
+## 4. Wave 2 module pipeline
 
-Code order: Flow → UseCase → Service → Permission → TX → Repo → Controller → DTO → API → DB.
+Every implementation module must run, in order:
 
----
-
-## 5. PHASE PIPELINE (bắt buộc — không bỏ)
-
-```
-Planner
-  → Architect
-  → Developer
-  → Unit Test
-  → Integration Test
-  → Regression Test
-  → Review
-  → Architecture Validation
-  → Business Validation
-  → Documentation
-  → Git Commit
-  → Git Push
-  → Update Status Board
-  → Update Phase Report
+```text
+Planner → Architect → Developer → Unit → Integration → Regression → Review
+→ ArchVal → BizVal → Documentation → Git Commit → Git Push → Next Module
 ```
 
-Mỗi bước ghi: **Input · Output · Evidence · Decision · Confidence · Issues · Next Step · PASS/FAIL**.
+At each step record: **Input, Output, Evidence, Decision, Confidence, Issues, Next Step, PASS/FAIL** in that module’s `implementation-reports/implementation-NN/` folder.
 
-Review = **DIFF only**, đối chiếu Merge Spec / Unified Domain / migration-analysis / Decision Log — không cảm tính.
+- **Review:** inspect the diff against Merge Spec, Unified Domain, CVL evidence, Decision Log, and frozen FE contract.
+- **ArchVal:** prove module boundaries and no loss of required business behavior.
+- **BizVal:** every implemented rule traces to CVL evidence or an explicit Decision Log row; otherwise **FAIL**.
+- **Documentation:** update the module report, status board, decisions, risks, and contract evidence as applicable.
 
-Architecture Validation: chứng minh không mất Business Rule.  
-Business Validation: mọi rule trace về `migration-analysis` **hoặc** Decision Log — không trace được = **FAIL**.
+## 5. Auto-Continue and quality gates
 
----
+Do not wait for human approval between modules. When all module quality gates pass:
 
-## 6. AUTO-CONTINUE (không Human Approval giữa Phase)
+1. Commit the completed module.
+2. Push the commit.
+3. Record SHA, branch, and message in the module report and status board.
+4. Update Decision Log, Risk Register, and relevant documentation.
+5. Start the next roadmap module automatically.
 
-Sau khi Phase **PASS toàn bộ Quality Gates** (pipeline + AC + Exit Criteria):
+Module PASS requires:
 
-1. Commit  
-2. Push  
-3. Ghi SHA · Branch · Message vào Status Board + Phase Report  
-4. Cập nhật Decision Log / Risk Register / Documentation  
-5. **Tự động bắt đầu Phase tiếp theo**
+- [ ] All pipeline steps PASS
+- [ ] Module acceptance criteria and exit criteria PASS
+- [ ] Unit, integration, and regression evidence recorded
+- [ ] FE contract compatibility verified
+- [ ] Documentation, decisions, and risks updated
+- [ ] Commit, push, and SHA recorded
 
-**Không** chờ Human Approval giữa các Phase.
+Any missing item is **FAIL / IN REVIEW** and prevents auto-continue.
 
-### Chỉ được DỪNG khi
+## 6. Wave 2 stop conditions
 
-- Decision Request chưa được trả lời; **hoặc**  
-- Blocker kỹ thuật không giải được bằng evidence; **hoặc**  
-- Xung đột với `migration-analysis` (CVL) chưa resolve bằng Decision; **hoặc**  
-- Frontend Contract không thể đáp ứng; **hoặc**  
-- **Hoàn thành Phase 14** → sinh Final reports rồi dừng.
+Stop the current module only when one of these conditions is true:
 
-Ngoài các trường hợp trên: **không được dừng**.
+- an unanswered Decision Request blocks the module;
+- a technical blocker cannot be resolved with available evidence;
+- CVL evidence conflicts with design and no decision resolves it;
+- frozen frontend contract compatibility cannot be achieved;
+- tests, review, ArchVal, or BizVal fail;
+- a security, data-integrity, or production-readiness gate fails.
 
----
+Otherwise continue through the pipeline and next module. Do not mark the backend or a module “Done” merely because planning documentation exists.
 
-## 7. PHASE DONE / QUALITY GATES
+## 7. Git safety
 
-Phase PASS khi đủ:
+Never stage secrets such as `.env` or credentials. Do not use `git add .` blindly. Commit message format:
 
-- [ ] Mọi bước pipeline PASS  
-- [ ] Acceptance + Exit Criteria PASS  
-- [ ] Docs + Decision + Risk updated  
-- [ ] Commit + Push + SHA recorded  
-
-Thiếu một mục → Phase **FAIL / IN REVIEW** — **không** auto-continue.
-
-### Git
-
-```
-git add .
-git commit -m "phase-NN: <why> (pipeline PASS)"
-git push
+```text
+implementation-NN: <why> (pipeline PASS)
 ```
 
-Không stage secrets (`.env`, credentials). Không sửa Frontend.
+Before each commit, inspect the changed scope and verify it belongs to the active module.
 
----
+## 8. Decision Requests and current pointer
 
-## 8. AFTER PHASE 14
-
-Sinh rồi **DỪNG**:
-
-- Final Architecture Report  
-- Final Migration Report  
-- Final Review Report  
-- Final Test Report  
-
----
-
-## 9. DECISION REQUEST
-
-Khi uncertain — không đoán. Template: Context · Evidence · Options · Recommendation · Impact · Blocked work.
-
----
-
-## 10. CURRENT POINTER
+When uncertain, do not guess. Use: **Context · Evidence · Options · Recommendation · Impact · Blocked work**.
 
 | Item | Value |
 |---|---|
-| Mode | Auto-Continue Execution |
-| Decision | O3 — CVL continue |
-| Start | Phase 3 Merge Specification → … → Phase 14 |
+| Current wave | Wave 2 — Coding |
+| Current module | Imp-01 Infrastructure (Platform) |
+| Governing decision | O3 — continue with CVL; PLD stays evidence-gated |
+| Roadmap | `WAVE2_IMPLEMENTATION_ROADMAP.md` |

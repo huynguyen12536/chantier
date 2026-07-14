@@ -1,5 +1,8 @@
 ﻿# Chantier — Agentic Flow (Execution Framework)
 
+> **WAVE 1 (Phases 0–14): DONE as documentation/planning/design.** Historical phase and final reports are retained; “Done” does not claim runtime backend, migration, cutover, or rollout execution.
+> **WAVE 2 (Implementation-01 onward): CODING STARTED** at Imp-01 Infrastructure. Follow [`WAVE2_IMPLEMENTATION_ROADMAP.md`](WAVE2_IMPLEMENTATION_ROADMAP.md) and [`AGENTIC_EXECUTION_MANUAL.md`](AGENTIC_EXECUTION_MANUAL.md); Frontend remains FROZEN.
+
 > **Master Plan** cho dự án **Consolidation + Replatforming**: hợp nhất **hai hệ thống legacy** (2 Frontend × 2 Supabase) thành **1 Frontend + 1 Backend + 1 PostgreSQL**.  
 > **Không** phải migration 1:1 / clone Supabase / rebuild PostgREST+Edge nguyên trạng.
 
