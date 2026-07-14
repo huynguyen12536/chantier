@@ -34,8 +34,10 @@
 | R-29 | **Migration rollback** incomplete for dual-legacy cutover | Medium | Critical | Phase 8/13 runbooks; PITR | DevOps Automator | Open |
 | R-30 | **Data integrity** post-merge (counts, soft-cancel, hours) | High | Critical | Reconcile gates; testing strategy Phase 12 | API Tester | Open |
 | R-31 | **Tenant isolation** mistakes if multi-company slips in | Medium | Critical | Architecture Scope + Merge Spec tenancy decision | Security Engineer | Open |
-| R-32 | System B missing from workspace → false “unified” from A only | High | Critical | Phase 3 Gate: identify B or Decision Log defer | Product Manager | Open |
+| R-32 | System B missing from workspace → false “unified” from A only | High | Critical | Phase 3 Gate: identify B or Decision Log defer | Product Manager | Open — **DR-P3-001** |
 | R-33 | Treating Consolidation as **clone Supabase / 1:1 migrate** | Medium | High | Master Plan goal; ADR reviews | Software Architect | Open |
+| R-34 | Backend changes break **Frontend Frozen Contract** | High | Critical | FE contract matrix in Merge Spec; Contract change = Reject/DR | Backend Architect | Open |
+| R-35 | Skipping phase pipeline / Human Approval | Medium | High | Execution Manual; status board checklist | Software Architect | Open |
 
 ## When to add a row
 

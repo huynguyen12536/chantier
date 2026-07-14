@@ -1,10 +1,12 @@
-# Merge Analysis — placeholder
+# Merge Analysis — awaiting Decision
 
 Tag: **Merge Analysis**
 
-Nội dung Phase 3 sẽ sống tại đây (hoặc được link từ `plan/plan/phases/phase_03_merge_specification/`).
+**Status:** ⬜ Blocked on [DR-P3-001](../../plan/plan/tracking/DECISION_REQUESTS/DR-P3-001_system_ab_identity.md)
 
-Expected artifacts after Phase 3:
+Execution Mode started Phase 3 Planner (see `plan/plan/phases/phase_03_merge_specification/PLANNER_PACKAGE.md`).
+
+Expected artifacts after Architect + Developer* continue:
 
 - `00_MERGE_OVERVIEW.md`
 - `schema_mapping.md`
@@ -18,5 +20,6 @@ Expected artifacts after Phase 3:
 - `realtime_mapping.md`
 - `data_merge_mapping.md`
 - `conflict_register.md`
+- `fe_contract_matrix.md` (Backend-First: FE Frozen contract)
 
-**Status:** ⬜ Empty — waiting Phase 3 start.
+**Do not** invent System B content without Decision.

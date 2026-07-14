@@ -1,72 +1,69 @@
 ﻿# PRP: AI Execution Playbook — Chantier
 
+## 0. Mandatory first read
+
+1. [`AGENTIC_EXECUTION_MANUAL.md`](AGENTIC_EXECUTION_MANUAL.md)  
+2. Active Phase folder + Planner package  
+3. Open Decision Requests under `tracking/DECISION_REQUESTS/`
+
 ## 1. Mission
 
-Khi **đã có task file**, agent thực thi đúng scope, đọc SoT đúng tầng, review đủ, cập nhật tracking.
+**Execution Mode:** Consolidation + Replatforming · **Backend-First** · **Frontend FROZEN**.
 
-**Project goal:** Consolidation + Replatforming (không clone / 1:1 Supabase).
+Khi **đã có task file** và phase pipeline cho phép bước hiện tại: thực thi đúng scope, đọc SoT đúng Level, review đủ, cập nhật tracking.
 
-Không có task file → **không** implement nghiệp vụ. Có thể nhờ agent **soạn task** trước (cần duyệt).
+Không có task / sai bước pipeline → **không** implement. Thiếu thông tin → **Decision Request** (không đoán).
 
 ## 2. Repository roots
 
 | Work | Root |
 |---|---|
-| Unified Backend (scaffold) | `api-chantier/` |
-| Frontend legacy (workspace / candidate A) | `chantier1/Chantier-web-app-main/Chantier-web-app-main/` |
+| Unified Backend | `api-chantier/` only (business code) |
+| Frontend (FROZEN) | `chantier1/...` — **read-only contract** |
 | Legacy Analysis | `migration-analysis/` |
-| Merge Analysis (Phase 3+) | `migration-analysis/merge/` |
-| Unified Analysis (Phase 4+) | `migration-analysis/unified/` |
+| Merge Analysis | `migration-analysis/merge/` |
+| Unified Analysis | `migration-analysis/unified/` |
 | Governance | `plan/plan/` |
 
-## Design SoT chain
+## 3. SoT read order (Manual Levels)
 
-Legacy Sources → **Merge Specification** → Unified Domain → Unified Backend → Unified PostgreSQL
+1. Merge Specification  
+2. Unified Domain Model  
+3. `migration-analysis/` (Legacy)  
+4. Decision Log (+ open DRs)  
+5. Risk Register  
+6. Master Plan  
 
-## 3. Inputs per task execution
+Conflict → Decision Request.
 
-Agent **bắt buộc** đọc:
+## 4. Inputs per task execution
 
-1. Task file (`phases/.../tasks/<ID>.md`)
-2. SoT đúng tầng (Legacy / Merge Spec / Unified) — không suy đoán từ Hawk/legacy khác
-3. `01_CURRENT_SYSTEM_STATE.md` (tóm tắt)
-4. `00_README_EXECUTION.md` — Consolidation phases
-5. `03_AGENT_ROUTING.md`, `04_GLOBAL_GATES.md`
-6. `tracking/status_board.md`
+1. Task file  
+2. SoT levels applicable  
+3. `01_CURRENT_SYSTEM_STATE.md`  
+4. `00_README_EXECUTION.md`  
+5. `03_AGENT_ROUTING.md`, `04_GLOBAL_GATES.md`  
+6. `tracking/status_board.md`  
+7. FE Contract inventory (when touching API) — **không sửa FE**
 
-## 4. Standard loop
+## 5. Phase pipeline (no skip)
 
-1. Read task + linked SoT docs  
-2. Confirm In Scope / Out of Scope + **Task Type** (Analysis|Design|Implementation|Validation|Documentation)  
-3. Status board → **In Progress**  
-4. **Senior Developer** first nếu Implementation/feature  
-5. **Primary Agent** executes  
-6. **Required Review Agents**  
-7. Output: summary · evidence · risks · files changed · SoT refs used  
-8. Status board → **In Review** → **Done**  
-9. `decision_log.md` nếu đổi scope / architecture / Keep-Port-Drop / Merge conflicts  
+Planner → Architect → Developer → Test → Review → Architecture Validation → Business Validation → Documentation → **Human Approval**
 
----
+## 6. Standard loop (within allowed pipeline step)
 
-*(Sections 5+ unchanged in spirit — honor Consolidation bans: no premature Backend code, no inventing System B.)*
+1. Confirm pipeline step + In/Out of Scope + Task Type  
+2. Status → In Progress  
+3. Execute only allowed work for role  
+4. Tests / validations as required  
+5. Review **diff**  
+6. Docs + Decision + Risk updates  
+7. Status → In Review → Done (or Blocked + DR)
 
-## 5. Quality
+## 7. Hard bans
 
-- No Done without acceptance criteria evidence  
-- No unresolved Critical/High findings  
-- **Security Engineer** nếu auth, DB, RLS→authZ, Edge/JWT, Docker secrets, data migration  
-- **API Tester** nếu đóng E2E flow (login → declare → validate → export)  
-- Implementation trong `api-chantier/` hoặc FE path đúng task — **không** sửa SoT trừ Documentation được phép  
-
-## 6. Phase discipline
-
-- Không nhảy cóc graph trong `00_README_EXECUTION.md` (trừ Analysis Phase 1–2).  
-- Scaffold Docker ≠ Phase 4/9 Done.  
-- Mọi Trigger/Function/RPC/Edge trong inventory SoT phải có Keep/Port/Drop trước khi tắt legacy path.
-
-## 7. Escalation (>24h blocked)
-
-1. Blocker trên status board  
-2. Hai options + trade-offs  
-3. Log `decision_log.md`  
-4. Continue hoặc reprioritize  
+- No Frontend edits  
+- No Contract changes without Human Decision  
+- No Supabase clone-as-goal  
+- No inventing System B / business rules  
+- No Legacy doc rewrite (facts)  
