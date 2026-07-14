@@ -51,4 +51,5 @@
 
 - Execution Manual: `AGENTIC_EXECUTION_MANUAL.md`  
 - Planner pack: `phases/phase_03_merge_specification/PLANNER_PACKAGE.md`  
-- DR-P3-001: `tracking/DECISION_REQUESTS/DR-P3-001_system_ab_identity.md`
+- DR-P3-001: `tracking/DECISION_REQUESTS/DR-P3-001_system_ab_identity.md`  
+- Interim commit (Planner / Manual — **not** Phase 3 Done): `496a9b60723c648081b6fa5dcefa1a53d02d61e6` → pushed `origin/main`
