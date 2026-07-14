@@ -1,22 +1,27 @@
 # Status Board ? Chantier (Wave 2)
 
 > Wave 1 (Phases 0?14): Documentation DONE  
-> Wave 2: Coding IN PROGRESS · Auto-Continue · FE Frozen
+> Wave 2: Coding · FE Frozen · Auto-Continue with stop on unanswered DR
 
 ## Wave 2 progress
 
-| Module | Status | Commit |
-|---|---|---|
-| Imp-01 Infrastructure | Done PASS | d9bc40b36e |
-| Imp-02 Authentication | Done PASS | fc2ca3362c |
-| Imp-03 Users | Done PASS | (this push) |
-| Imp-04 Construction Sites | Done PASS | (this push) |
-| Imp-05 Assignments & Zones | Todo ? next | |
-| Imp-06?13 | Todo | |
+| Module | Status |
+|---|---|
+| Imp-01 Infrastructure | Done PASS |
+| Imp-02 Authentication | Done PASS |
+| Imp-03 Users | Done PASS |
+| Imp-04 Construction Sites | Done PASS |
+| Imp-05 Assignments & Zones | Done PASS |
+| Imp-06 Timesheet | Analysis PASS · **Implementation BLOCKED** |
+| Imp-07?13 | Todo |
 
-Company / Super Admin / Storage: Deferred or N/A per Decision Log.
+## Open Decision Requests (Imp-06)
+
+| ID | Topic | Status |
+|---|---|---|
+| [DR-IMP06-001](DECISION_REQUESTS/DR-IMP06-001_declaration_empty_day.md) | Empty day: hard DELETE vs soft annulee (C-04) | Waiting Human |
+| [DR-IMP06-002](DECISION_REQUESTS/DR-IMP06-002_hours_calculation.md) | Hours: 7h vs cadre (C-03) | Waiting Human |
+| [DR-IMP06-003](DECISION_REQUESTS/DR-IMP06-003_field_audit_quirks.md) | nb_deplacements + validated_by (C-08/C-09) | Waiting Human |
 
 ## Evidence
-- Roadmap: `WAVE2_IMPLEMENTATION_ROADMAP.md`
-- Reports: `implementation-reports/implementation-0N/`
-- Manual: `AGENTIC_EXECUTION_MANUAL.md`
+- Analysis: `implementation-reports/implementation-06/TIMESHEET_DOMAIN_ANALYSIS.md`
