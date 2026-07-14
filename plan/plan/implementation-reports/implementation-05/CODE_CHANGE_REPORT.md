@@ -4,7 +4,8 @@
 
 | File | Change | Why (CVL) | API impact | FE | Imp-06 |
 |---|---|---|---|---|---|
-| `migrations/006_imp05_parity.sql` | CHECK, indexes, description, drop UNIQUE zones_ouvriers | dump schema | none (DDL) | no | no |
+| `migrations/006_imp05_parity.sql` | ADD CHECK/INDEX/COLUMN only (DROP removed in rework) | dump + Consolidation | none (DDL) | no | no |
+| `migrations/007_imp05_parity_rework_restore_unique.sql` | ADD UNIQUE if missing | restore 004 / UNION rule | none | no | no |
 | `src/modules/affectations/service.js` | chef write; scoped list; date refine | rls §62–66 | list now scoped | no | no |
 | `src/modules/affectations/routes.js` | roles + chef | dump INSERT policies | chef can POST/PATCH | no | no |
 | `src/modules/affectations/controller.js` | pass `req.user` to list | scoped query | same path | no | no |

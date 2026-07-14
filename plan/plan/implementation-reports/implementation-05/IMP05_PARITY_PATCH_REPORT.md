@@ -25,8 +25,8 @@ Align Backend Imp-05 with **Current Verified Legacy** in `migration-analysis/` (
 | Zone RBAC | administratif **no** `is_admin` zone policies | Remove administratif from zone writes |
 | Ownership | `chef_equipe_id = auth.uid()` / `is_zone_owner` | Assert on all zone mutations |
 | Scoped lists | SELECT policies | Scope by role |
-| Schema | CHECK dates, indexes chef/dates, `description` | Migration `006_imp05_parity.sql` |
-| UNIQUE zones_ouvriers | **Absent** in dump | Dropped |
+| Schema | CHECK dates, indexes chef/dates, `description` (additive) | Migration `006` (+ `007` restore UNIQUE) |
+| UNIQUE zones_ouvriers | Present in Unified `004` | **Kept** — destructive DROP revoked (see IMP05_PARITY_REWORK_REPORT) |
 | Flow C unlink/soft/delete | DELETE chantier link; UPDATE/DELETE ouvriers; DELETE zone | API completed |
 
 ## Tests

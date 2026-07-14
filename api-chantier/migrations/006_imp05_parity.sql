@@ -1,5 +1,6 @@
--- Imp-05 Parity Patch — schema alignment to CVL (production-dump + database-schema.md)
--- Keep Zone RESTRICT (already PASS). Idempotent under parallel test runners.
+-- Imp-05 Parity (reworked) — ADDITIVE ONLY
+-- Unified DB = UNION of legacy sources. No DROP / destructive ALTER.
+-- Source: production-dump CHECK + indexes; repo zones_equipe.description.
 
 DO $$
 BEGIN
@@ -16,5 +17,6 @@ CREATE INDEX IF NOT EXISTS idx_affectations_dates ON affectations_chantiers (use
 ALTER TABLE zones_equipe
   ADD COLUMN IF NOT EXISTS description TEXT;
 
-ALTER TABLE zones_ouvriers
-  DROP CONSTRAINT IF EXISTS zones_ouvriers_zone_id_user_id_key;
+-- UNIQUE(zone_id, user_id) retained from migration 004 (Unified Platform).
+-- NEVER drop — Consolidation rule: preserve information from either legacy /
+-- prior unified migrations unless Decision Log authorizes removal.

@@ -26,6 +26,7 @@
 | 2026-07-14 | Delivery | **Imp-07 Review & Approval PASS** — `/api/validation/*` queue/approve/reject/cancel + period decide; chef scope; 409 concurrency; 23/23 tests. Auto-Continue Imp-08 | Module DoD | — | Reporting next | Implementer | Imp-07→08 | Imp-08 export |
 | 2026-07-14 | Delivery | **Imp-08 Reporting & Export PASS** — payroll validee-only + stats; canExport roles; 26/26 tests. Auto-Continue Imp-09 | Module DoD | — | Notifications next | Implementer | Imp-08→09 | Imp-09 |
 | 2026-07-14 | Delivery | **Imp-05 Parity Patch PASS** — CVL RBAC/ownership/scope/schema/Flow C; no FE/Timesheet change; 31/31 tests. Imp-07 may resume Auto-Continue only after this SHA | Technical Lead directive | Prior Imp-07/08 already on main | Affectations/Zones = CVL | Implementer | Imp-05 | Record SHA; then Imp-07 resume |
+| 2026-07-14 | Database | **Unified DB = UNION of both legacy Supabases** — additive migrations only; no DROP without Decision Log. Imp-05 rework: revoke DROP UNIQUE on `zones_ouvriers`; keep UNIQUE from `004` | Consolidation rule | Clone-of-dump approach invalid | All future Imp migrations | Technical Lead | Imp-05+ | See IMP05_PARITY_REWORK_REPORT |
 
 ## When to add a row
 
