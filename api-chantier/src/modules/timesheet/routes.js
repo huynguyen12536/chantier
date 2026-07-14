@@ -1,12 +1,21 @@
 import { Router } from 'express';
-import { notImplemented } from '../../shared/utils/notImplemented.js';
+import { requireAuth, requireRoles } from '../../shared/middleware/auth.js';
+import * as controller from './controller.js';
 
 const router = Router();
 
-router.get('/periods', notImplemented('timesheet.listPeriods'));
-router.post('/periods', notImplemented('timesheet.createPeriod'));
-router.patch('/periods/:id', notImplemented('timesheet.updatePeriod'));
-router.delete('/periods/:id', notImplemented('timesheet.deletePeriod'));
-router.get('/declarations', notImplemented('timesheet.listDeclarations'));
+router.use(requireAuth);
+
+router.get('/periods', controller.listPeriods);
+router.post('/periods', controller.createPeriod);
+router.patch('/periods/:id', controller.updatePeriod);
+router.delete('/periods/:id', controller.deletePeriod);
+
+router.get('/declarations', controller.listDeclarations);
+router.post(
+  '/declarations/:id/decide',
+  requireRoles('admin', 'administratif', 'chef_equipe'),
+  controller.decideDeclaration,
+);
 
 export default router;

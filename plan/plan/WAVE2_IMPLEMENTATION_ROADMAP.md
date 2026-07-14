@@ -20,8 +20,8 @@
 | Imp-03 | Users | **Done — PASS** | Imp-02 |
 | Imp-04 | Construction Sites (chantiers) | **Done — PASS** | Imp-01, Imp-03 |
 | Imp-05 | Assignments & Zones | **Done — PASS** | Imp-03, Imp-04 |
-| Imp-06 | Timesheet | **Analysis PASS · Implementation BLOCKED (DR-IMP06-001/002/003)** | Imp-04, Imp-05 |
-| Imp-07 | Review & Approval | Todo (after Imp-06 code PASS) | Imp-06 |
+| Imp-06 | Timesheet | **Done PASS** | Imp-04, Imp-05 |
+| Imp-07 | Review & Approval | In Progress | Imp-06 |
 | Imp-08 | Reporting & Export | Todo | Imp-06, Imp-07 |
 | Imp-09 | Notifications | Todo | Imp-02, Imp-07 |
 | Imp-10 | Background Jobs | Todo | Imp-06, Imp-07, Imp-09 |
@@ -67,14 +67,14 @@
 - **Acceptance criteria:** Assignment and zone commands preserve evidenced constraints; scope checks are tested; frontend payload/response compatibility is proven.
 
 ### Imp-06 — Timesheet
-- **Status:** Todo
+- **Status:** Done PASS
 - **Goal:** Implement time-recording period commands, declaration projection, and evidenced calculations in a single write path.
 - **SoT refs:** ADR-001 Time Recording; `migration-analysis/merge/triggers_mapping.md`; `migration-analysis/merge/functions_rpc_mapping.md`; `migration-analysis/merge/SHARED_BUSINESS_RULES.md`; `migration-analysis/merge/fe_contract_matrix.md`.
 - **Depends On:** Imp-04, Imp-05.
 - **Acceptance criteria:** Timesheet writes are transactional and traceable; calculations and state rules are regression-tested; no trigger/RPC behavior is silently omitted; frozen FE contract passes integration tests.
 
 ### Imp-07 — Review & Approval
-- **Status:** Todo
+- **Status:** In Progress
 - **Goal:** Implement review transitions, approval policy, audit fields, and authorized approval commands.
 - **SoT refs:** ADR-001 Review & Approval; `migration-analysis/merge/permissions_mapping.md`; `migration-analysis/merge/SHARED_BUSINESS_RULES.md`; `migration-analysis/merge/triggers_mapping.md`.
 - **Depends On:** Imp-06.

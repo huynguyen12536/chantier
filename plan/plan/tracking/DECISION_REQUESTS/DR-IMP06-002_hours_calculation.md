@@ -1,30 +1,16 @@
-# Decision Request — DR-IMP06-002
+# Decision Request — DR-IMP06-002 — RESOLVED
 
-**Status:** ⏳ Waiting Human  
-**Module:** Wave 2 Imp-06 Timesheet  
-**Blocks:** TimesheetCalculationService  
-**Related:** Conflict Matrix **C-03**; SUMMARY #10
+**Status:** ✅ RESOLVED  
+**Resolved by:** Product Decision  
+**Date:** 2026-07-14  
+**Winner:** **CADRE**
 
-## Context
+## Decision
 
-| Source | Hours synthesis |
-|---|---|
-| Dump `hzppst` view `synthese_heures_journalieres` | `LEAST(total,7)` / `GREATEST(total-7,0)` — **fixed 7h** |
-| Repo | `calculer_heures_cadre_chantier` using chantier cadre times; fallback 7h if no cadre |
+Hours calculation follows chantier cadre configuration (`heure_*`).
 
-FE displays heures from DB/view path; chantier form stores `heure_*` cadre fields.
+- If cadre configuration exists and is valid → use cadre split (normales / supplémentaires).
+- If no valid chantier configuration → fallback **7h**.
+- Never hardcode 7h when chantier configuration is available.
 
-## Options
-
-| ID | Choice |
-|---|---|
-| **7H** | Always fixed 7h split (dump) |
-| **CADRE** | Cadre function when set; else 7h (repo) |
-
-## Recommendation
-
-**CADRE** — matches chantier data FE already collects; dump 7h treated as undeployed migration drift — **Product must confirm**.
-
-## Requested
-
-Reply **7H** or **CADRE**.
+Supersedes Conflict Matrix **C-03** dump fixed-7h-only view for Unified Platform.

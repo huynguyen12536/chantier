@@ -343,17 +343,15 @@ Evidence: `frontend-supabase-usage.md`.
 
 ---
 
-## 20. Decision Requests (blocking Implementation)
+## 20. Decision Requests — RESOLVED
 
-Analysis can complete. **Code implementation of sync/cancel/hours variants MUST NOT choose winners without Decision** (`ASSUMPTION_REGISTER` A-08).
-
-| ID | Conflict | Question |
+| ID | Winner | Binding |
 |---|---|---|
-| **DR-IMP06-001** | C-04 | When 0 active periods: **hard DELETE** declaration (hzppst dump) or **soft `annulee`** (repo migrations)? |
-| **DR-IMP06-002** | C-03 | Hours synthesis: **fixed 7h** (hzppst view) or **cadre chantier** function (repo)? |
-| **DR-IMP06-003** | C-08 / C-09 | Preserve omit `nb_deplacements` + missing `validated_by` on auto-approve as CVL nuances, or fix with audit attribution? |
+| DR-IMP06-001 | Soft Annulee | No hard DELETE |
+| DR-IMP06-002 | CADRE (+7h fallback) | Cadre when configured |
+| DR-IMP06-003 | P+Fsplit | Omit nb_deplacements on sync; fix validated_by+at on auto-approve |
 
-Until answered → **Imp-06 Implementation STOP** (allowed stop condition: unanswered Decision Request).
+**Implementation:** UNBLOCKED.
 
 ---
 

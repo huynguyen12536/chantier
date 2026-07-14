@@ -11,10 +11,10 @@
 | Password floor, matricule default, create-user authorization | Identity & Access use case | Port with CVL outcome preserved | Flow A |
 | Worksite code, assignments, soft end | Worksite & Assignment | Port/centralize | Flow B |
 | Prevent unsafe supervisor demotion | Worksite & Assignment | Port | Flow C |
-| Period-to-declaration synchronization | Time Recording write path | Transform; single owner | Merge matrix |
+| Period-to-declaration synchronization | Time Recording write path | Transform; Soft Annulee (DR-IMP06-001); omit nb_deplacements write (DR-IMP06-003) | Merge matrix + DRs |
 | Declaration-to-period reconciliation | Review & Approval write path | Transform; single owner | Merge matrix |
-| Matching-shift auto-approval | Approval policy | Transform; condition pending drift decision | Merge matrix |
-| Duration/cadre calculation | Calculation policy | Keep/transform; no 7h/cadre winner asserted | Merge matrix |
+| Matching-shift auto-approval | Approval policy | Transform; **must set validated_by + validated_at** (DR-IMP06-003) | Merge matrix + DR |
+| Duration/cadre calculation | Calculation policy | **CADRE with 7h fallback** (DR-IMP06-002) | DR-IMP06-002 |
 | Cascade worksite deletion | Worksite retirement transaction | Transform and audit | Merge matrix |
 | Export permission and validated filter | Payroll Export | Port | Flow F |
 | Commented week auto-approve RPC | No active owner | Deferred | Merge matrix |

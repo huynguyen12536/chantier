@@ -1,27 +1,13 @@
-# Decision Request — DR-IMP06-003
+# Decision Request — DR-IMP06-003 — RESOLVED
 
-**Status:** ⏳ Waiting Human  
-**Module:** Wave 2 Imp-06 Timesheet  
-**Blocks:** Field write parity + auto-approve audit  
-**Related:** C-08, C-09; SUMMARY §4
+**Status:** ✅ RESOLVED  
+**Resolved by:** Product Decision  
+**Date:** 2026-07-14  
+**Winner:** **P+Fsplit**
 
-## Context
+## Decision
 
-1. **C-08:** Column/view `nb_deplacements` exists; sync UPSERT **does not write** it → possible drift.  
-2. **C-09:** Auto-approve sets `validee` + `validated_at` but **not** `validated_by`.
+1. **Preserve** CVL sync quirk for `nb_deplacements`: DeclarationSync does **not** overwrite `nb_deplacements` on upsert (FE compatibility / C-08 preserved).
+2. **Fix** auto-approval audit: when AutoApproval sets `validee`, must set complete audit trail including **`validated_by`** and **`validated_at`**.
 
-## Options
-
-| ID | Choice |
-|---|---|
-| **P** | Preserve CVL quirks (omit nb_deplacements on sync; auto-approve without validated_by) |
-| **F** | Fix: write nb_deplacements; set `validated_by` to system sentinel / null policy documented |
-| **P+Fsplit** | Preserve nb_deplacements omit; fix validated_by only (or reverse) |
-
-## Recommendation
-
-**P** for strict Legacy parity until Product wants audit hardening — then **F** for validated_by at minimum.
-
-## Requested
-
-Reply **P / F / P+Fsplit**.
+Supersedes open C-08/C-09 as: C-08 preserve omit-on-sync; C-09 fixed for Unified Platform.

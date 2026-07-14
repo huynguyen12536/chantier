@@ -12,16 +12,19 @@
 | Imp-03 Users | Done PASS |
 | Imp-04 Construction Sites | Done PASS |
 | Imp-05 Assignments & Zones | Done PASS |
-| Imp-06 Timesheet | Analysis PASS · **Implementation BLOCKED** |
-| Imp-07?13 | Todo |
+| Imp-06 Timesheet | **Done PASS** |
+| Imp-07 Review & Approval | In Progress |
+| Imp-08?13 | Todo |
 
-## Open Decision Requests (Imp-06)
+## Decision Requests (Imp-06)
 
 | ID | Topic | Status |
 |---|---|---|
-| [DR-IMP06-001](DECISION_REQUESTS/DR-IMP06-001_declaration_empty_day.md) | Empty day: hard DELETE vs soft annulee (C-04) | Waiting Human |
-| [DR-IMP06-002](DECISION_REQUESTS/DR-IMP06-002_hours_calculation.md) | Hours: 7h vs cadre (C-03) | Waiting Human |
-| [DR-IMP06-003](DECISION_REQUESTS/DR-IMP06-003_field_audit_quirks.md) | nb_deplacements + validated_by (C-08/C-09) | Waiting Human |
+| DR-IMP06-001 | Soft Annulee | **RESOLVED** |
+| DR-IMP06-002 | CADRE (+7h fallback) | **RESOLVED** |
+| DR-IMP06-003 | P+Fsplit (nb_deplacements + audit) | **RESOLVED** |
 
 ## Evidence
 - Analysis: `implementation-reports/implementation-06/TIMESHEET_DOMAIN_ANALYSIS.md`
+- Reports: IMPLEMENTATION / VALIDATION / TEST / REVIEW / ?
+- Tests: `npm test` 17/17 PASS

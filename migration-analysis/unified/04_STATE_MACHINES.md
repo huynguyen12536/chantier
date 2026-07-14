@@ -16,7 +16,8 @@ The exact CVL period labels and transitions remain contract/evidence references.
 
 - `soumise` is reviewable.
 - `validee` and `rejetee` record reviewer identity/time where CVL does.
-- `annulee` reconciles affected periods according to the single-owner policy.
-- Auto-approval remains a policy decision with the CVL matching-shift condition preserved as evidence, not broadened.
+- `annulee` reconciles affected periods according to Soft Annulee policy (**DR-IMP06-001** — no hard DELETE).
+- Auto-approval preserves matching-shift condition and **must** set `validated_by` + `validated_at` (**DR-IMP06-003**).
+- Hours synthesis uses **CADRE** when chantier hours configured; else 7h (**DR-IMP06-002**).
 
 Unknown Pending Legacy states are adapter candidates and must be mapped before activation.

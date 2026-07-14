@@ -21,6 +21,30 @@ export async function query(text, params) {
   return getPool().query(text, params);
 }
 
+/** Run fn(client) inside BEGIN/COMMIT; ROLLBACK on error. */
+export async function withTransaction(fn) {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function clientQuery(client, text, params) {
+  return client.query(text, params);
+}
+
 export async function pingDatabase() {
   const result = await query('SELECT 1 AS ok');
   return result.rows[0]?.ok === 1;

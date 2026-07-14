@@ -20,4 +20,4 @@
 | 14 | Export normally uses validated data at the UI. | SUMMARY §5 rule 14; Flow F |
 | 15 | A rejected period can be resubmitted as completed under authorization rules. | SUMMARY §5 rule 15; `rls-analysis.md` §72–80 |
 
-Where a dump and repository differ, the behavior remains preserved as a conflict requiring an explicit product decision; see `CONFLICT_MATRIX.md`.
+Where dump and repository once differed (C-03/C-04/C-08/C-09), Unified Platform winners are Decision Log **DR-IMP06-001 Soft Annulee**, **DR-IMP06-002 CADRE**, **DR-IMP06-003 P+Fsplit**.

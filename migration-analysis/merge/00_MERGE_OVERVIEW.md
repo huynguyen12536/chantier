@@ -35,3 +35,15 @@ This is a documentation-only merge specification. It proposes mappings and exten
 ## Phase 3 completion boundary
 
 The pack is complete when all CVL inventory classes are mapped, all 15 shared rules are traced, known drift is registered, and PLD gaps are explicitly deferred. It remains **PASS pending final Review agent confirmation and human/product sign-off**.
+
+## Wave 2 product decisions affecting Merge Spec (Imp-06)
+
+For Unified Platform Timesheet write-path, Decision Log winners supersede CVL dump/repo drift:
+
+| Conflict | Winner | Decision |
+|---|---|---|
+| C-04 empty-day sync | Soft Annulee (no hard DELETE) | DR-IMP06-001 |
+| C-03 hours calculation | CADRE; fallback 7h only if no cadre | DR-IMP06-002 |
+| C-08 / C-09 field quirks | Preserve omit `nb_deplacements` on sync; fix auto-approve `validated_by`+`validated_at` | DR-IMP06-003 |
+
+See `CONFLICT_MATRIX.md`, `triggers_mapping.md`, `functions_rpc_mapping.md`, `SHARED_BUSINESS_RULES.md`.
