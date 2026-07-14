@@ -17,9 +17,9 @@
 |---|---|---|---|
 | Imp-01 | Infrastructure (Platform) | **Done — PASS** | — |
 | Imp-02 | Authentication | **Done — PASS** | Imp-01 |
-| Imp-03 | Users | **In Progress** | Imp-02 |
-| Imp-04 | Construction Sites (chantiers) | Todo | Imp-01, Imp-03 |
-| Imp-05 | Assignments & Zones | Todo | Imp-03, Imp-04 |
+| Imp-03 | Users | **Done — PASS** | Imp-02 |
+| Imp-04 | Construction Sites (chantiers) | **Done — PASS** | Imp-01, Imp-03 |
+| Imp-05 | Assignments & Zones | **In Progress** | Imp-03, Imp-04 |
 | Imp-06 | Timesheet | Todo | Imp-04, Imp-05 |
 | Imp-07 | Review & Approval | Todo | Imp-06 |
 | Imp-08 | Reporting & Export | Todo | Imp-06, Imp-07 |

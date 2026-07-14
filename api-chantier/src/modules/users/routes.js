@@ -1,12 +1,14 @@
 import { Router } from 'express';
-import { notImplemented } from '../../shared/utils/notImplemented.js';
+import { requireAuth, requireRoles } from '../../shared/middleware/auth.js';
+import * as controller from './controller.js';
 
 const router = Router();
 
-router.get('/', notImplemented('users.list'));
-router.post('/', notImplemented('users.create'));
-router.get('/:id', notImplemented('users.get'));
-router.patch('/:id', notImplemented('users.update'));
-router.delete('/:id', notImplemented('users.delete'));
+router.use(requireAuth);
+
+router.get('/', requireRoles('admin', 'administratif'), controller.list);
+router.get('/:id', requireRoles('admin', 'administratif'), controller.getById);
+router.post('/', requireRoles('admin', 'administratif'), controller.create);
+router.delete('/:id', requireRoles('admin'), controller.remove);
 
 export default router;
