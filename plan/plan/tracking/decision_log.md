@@ -23,6 +23,7 @@
 | 2026-07-14 | Timesheet | **Imp-06 Domain Analysis PASS**; Implementation **blocked** on DR-IMP06-001 (C-04), DR-IMP06-002 (C-03), DR-IMP06-003 (C-08/C-09). No Timesheet code until DRs answered (A-08) | TIMESHEET_DOMAIN_ANALYSIS.md | Cannot invent drift winners | Waiting Human on three DRs | Architect | Imp-06 | Human answers DRs → implement |
 | 2026-07-14 | Timesheet | **DR-IMP06-001/002/003 RESOLVED** — Soft Annulee; CADRE(+7h fallback); P+Fsplit (preserve nb_deplacements omit-on-sync; fix auto-approve validated_by+validated_at). C-03/C-04/C-08/C-09 closed for Unified Platform. Imp-06 implementation unblocked | Product Decision | Analysis blockers | Planning sync then code Imp-06 | Product / Architect | Imp-06 | Implement Timesheet services |
 | 2026-07-14 | Delivery | **Imp-06 Timesheet PASS** — Soft Annulee / CADRE / P+Fsplit coded; no SQL triggers; FE Frozen; 17/17 tests PASS; R-39 Closed. Auto-Continue Imp-07 | Module DoD | — | Review & Approval next | Implementer | Imp-06→07 | Imp-07 analysis+code |
+| 2026-07-14 | Delivery | **Imp-07 Review & Approval PASS** — `/api/validation/*` queue/approve/reject/cancel + period decide; chef scope; 409 concurrency; 23/23 tests. Auto-Continue Imp-08 | Module DoD | — | Reporting next | Implementer | Imp-07→08 | Imp-08 export |
 
 ## When to add a row
 

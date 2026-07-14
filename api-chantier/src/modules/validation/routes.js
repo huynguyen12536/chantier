@@ -1,11 +1,17 @@
 import { Router } from 'express';
-import { notImplemented } from '../../shared/utils/notImplemented.js';
+import { requireAuth, requireRoles } from '../../shared/middleware/auth.js';
+import * as controller from './controller.js';
 
 const router = Router();
+const reviewers = requireRoles('admin', 'administratif', 'chef_equipe');
 
-router.get('/queue', notImplemented('validation.queue'));
-router.post('/declarations/:id/approve', notImplemented('validation.approve'));
-router.post('/declarations/:id/reject', notImplemented('validation.reject'));
-router.post('/declarations/:id/cancel', notImplemented('validation.cancel'));
+router.use(requireAuth);
+router.use(reviewers);
+
+router.get('/queue', controller.listQueue);
+router.post('/declarations/:id/approve', controller.approve);
+router.post('/declarations/:id/reject', controller.reject);
+router.post('/declarations/:id/cancel', controller.cancel);
+router.post('/periods/:id/decide', controller.decidePeriod);
 
 export default router;

@@ -52,7 +52,7 @@ DR-IMP06-001 / 002 / 003 — **RESOLVED** (no open Imp-06 DR).
 R-39 **Closed**.
 
 ## Commit
-*(filled after git push)*
+`cddc4e452e71ec3c4090c9e4c3700075b39b984c`
 
 ## Next Module
 Imp-07 Review & Approval

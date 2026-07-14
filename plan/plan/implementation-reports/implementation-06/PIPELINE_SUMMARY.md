@@ -7,5 +7,5 @@
 | Planning sync (Decision/Conflict/Merge/Unified/matrices/Risk/Trace) | ✅ PASS |
 | Implementation (DTO→…→Migration) | ✅ PASS |
 | Tests / Review / Validation reports | ✅ PASS |
-| Git commit + push | pending → filled after push |
+| Git commit + push | ✅ `cddc4e452e71ec3c4090c9e4c3700075b39b984c` |
 | Auto-Continue Imp-07 | ✅ starting after Imp-06 PASS |

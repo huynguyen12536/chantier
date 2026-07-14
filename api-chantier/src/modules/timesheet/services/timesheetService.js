@@ -3,12 +3,12 @@
  */
 import { AppError } from '../../../shared/errors/AppError.js';
 import { withTransaction, query } from '../../../shared/db/pool.js';
-import { periodCreateSchema, periodUpdateSchema, decideSchema } from '../validation.js';
+import { periodCreateSchema, periodUpdateSchema } from '../validation.js';
 import { mapPeriod, mapDeclaration } from '../dto.js';
 import * as repo from '../repository.js';
 import { syncDeclarationsFromPeriods } from './declarationSync.js';
-import { syncPeriodsFromDeclaration } from './periodPropagation.js';
 import { autoApproveIfMatchesLatestValidatedShift } from './autoApproval.js';
+import { decideDeclaration as reviewDecide } from '../../validation/services/reviewDecision.js';
 
 async function assertCanWritePeriod(actor, userId) {
   if (!actor?.id) throw new AppError('Unauthorized', 401, { code: 'UNAUTHORIZED' });
@@ -126,39 +126,7 @@ export async function listDeclarations(filters, actor) {
   return rows.map(mapDeclaration);
 }
 
-/** Validate / reject / cancel declaration — starts Review (Imp-07 overlaps) but required for sync TX. */
+/** Validate / reject / cancel — delegates to Review & Approval (single write path). */
 export async function decideDeclaration(id, input, actor) {
-  if (!actor || !['admin', 'administratif', 'chef_equipe'].includes(actor.role)) {
-    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
-  }
-  const parsed = decideSchema.safeParse(input);
-  if (!parsed.success) {
-    throw new AppError('Invalid decision', 400, { code: 'VALIDATION_ERROR' });
-  }
-  return withTransaction(async (client) => {
-    const { rows } = await client.query(`SELECT * FROM declarations_heures WHERE id = $1`, [id]);
-    const current = rows[0];
-    if (!current) throw new AppError('Declaration not found', 404, { code: 'NOT_FOUND' });
-    if (current.statut !== 'soumise' && parsed.data.statut !== 'annulee') {
-      throw new AppError('Invalid transition', 409, { code: 'CONFLICT' });
-    }
-    const updated = await repo.updateDeclarationDecision(
-      client,
-      id,
-      parsed.data.statut,
-      actor.id,
-    );
-    if (['validee', 'rejetee'].includes(updated.statut)) {
-      await syncPeriodsFromDeclaration(client, updated, actor.id);
-    }
-    if (updated.statut === 'annulee') {
-      await client.query(
-        `DELETE FROM periodes_travail
-         WHERE user_id = $1 AND chantier_id = $2 AND date = $3
-           AND statut IN ('terminee', 'en_cours', 'rejetee')`,
-        [updated.user_id, updated.chantier_id, updated.date],
-      );
-    }
-    return { declaration: mapDeclaration(updated) };
-  });
+  return reviewDecide(id, input, actor);
 }

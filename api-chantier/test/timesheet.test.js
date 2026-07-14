@@ -68,6 +68,12 @@ describe('Imp-06 Timesheet API', () => {
        VALUES ($1,$2) ON CONFLICT (user_id, chantier_id) DO NOTHING`,
       [ouvId, chantierId],
     );
+    const chef = await query(`SELECT id FROM profiles WHERE email = $1`, [chefEmail]);
+    await query(
+      `INSERT INTO affectations_chantiers (user_id, chantier_id)
+       VALUES ($1,$2) ON CONFLICT (user_id, chantier_id) DO NOTHING`,
+      [chef.rows[0].id, chantierId],
+    );
   });
 
   after(async () => {
