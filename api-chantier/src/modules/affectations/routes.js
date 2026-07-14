@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { notImplemented } from '../../shared/utils/notImplemented.js';
+import { requireAuth, requireRoles } from '../../shared/middleware/auth.js';
+import * as controller from './controller.js';
 
 const router = Router();
-
-router.get('/', notImplemented('affectations.list'));
-router.post('/', notImplemented('affectations.create'));
-router.patch('/:id', notImplemented('affectations.update'));
-
+router.use(requireAuth);
+router.get('/', controller.list);
+router.post('/', requireRoles('admin', 'administratif'), controller.create);
+router.patch('/:id/soft-remove', requireRoles('admin', 'administratif'), controller.softRemove);
 export default router;
