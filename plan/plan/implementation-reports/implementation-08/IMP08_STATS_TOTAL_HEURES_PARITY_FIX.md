@@ -21,4 +21,8 @@ Unchanged: `splitHours`, payroll filters, permissions, DTOs, declarations, schem
 
 ## Tests
 
-`npm test` — full suite + wall-clock regression cases.
+`npm test` — **53/53 PASS** (wall-clock regression included).
+
+## SHA
+
+`b6c7e442a3eff505c4572cfba748b3872a32dad5`
