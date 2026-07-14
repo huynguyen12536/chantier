@@ -32,18 +32,25 @@ The workspace is not automatically the final product. `migration-analysis/` is C
 
 The frontend under `chantier1/` is a **contract**. Do not edit its UI, logic, hooks, routing, authentication, API calls, payloads, or responses. Wave 2 backend work must preserve compatibility. A required contract change is a Decision Request; it never authorizes an unreviewed frontend edit.
 
-### Source of truth order
+### Source of truth / Evidence Priority (Rule 6)
 
-Read and resolve conflicts in this order:
+Resolve conflicts in this **exact** order. A lower source may never invalidate a higher one:
 
-1. Merge Specification (`migration-analysis/merge/`)
-2. Unified Domain / ADRs
-3. `migration-analysis/` CVL evidence
-4. Decision Log
-5. Risk Register
-6. Master Plan and Wave 2 roadmap
+1. Approved Decision Log  
+2. Merge Specification (`migration-analysis/merge/`)  
+3. Unified Domain Model / ADRs  
+4. Business Rules (CVL shared rules)  
+5. Frozen Frontend Contract  
+6. Legacy A  
+7. Legacy B  
+8. Production Dumps  
+9. Repository History  
+
+**Absence is not evidence.** A dump or repository missing an object does **not** authorize removing it from the Unified Database.
 
 Do not rewrite CVL factual records. PLD behavior is never invented. A conflict or missing evidence requires a Decision Request.
+
+**Database evolution:** mandatory invariants in §9 and binding policy `DATABASE_EVOLUTION_POLICY.md`.
 
 ### Design-to-code translation
 
@@ -70,10 +77,10 @@ Planner → Architect → Developer → Unit → Integration → Regression → 
 
 At each step record: **Input, Output, Evidence, Decision, Confidence, Issues, Next Step, PASS/FAIL** in that module’s `implementation-reports/implementation-NN/` folder.
 
-- **Review:** inspect the diff against Merge Spec, Unified Domain, CVL evidence, Decision Log, and frozen FE contract.
-- **ArchVal:** prove module boundaries and no loss of required business behavior.
-- **BizVal:** every implemented rule traces to CVL evidence or an explicit Decision Log row; otherwise **FAIL**.
-- **Documentation:** update the module report, status board, decisions, risks, and contract evidence as applicable.
+- **Review:** inspect the diff against Decision Log, Merge Spec, Unified Domain, CVL business rules, and frozen FE contract. Classify findings **P0** Business/Security/FE · **P1** Architecture · **P2** Legacy Difference · **P3** Improvement. **P2 is not automatically FAIL** — FAIL only if it violates higher-priority Business Rules (Evidence Priority).  
+- **ArchVal:** prove module boundaries and no loss of required business behavior; migrations must be **additive** unless Rule 7 removal package is complete.  
+- **BizVal:** every implemented rule traces to CVL evidence or an explicit Decision Log row; otherwise **FAIL**.  
+- **Documentation:** update the module report, status board, decisions, risks, and contract evidence as applicable. Implementations that add/remove schema, constraints, behavior, API, or domain rules must document **Origin · Reason · Evidence · Decision · Impact · Rollback**.
 
 ## 5. Auto-Continue and quality gates
 
@@ -126,6 +133,55 @@ When uncertain, do not guess. Use: **Context · Evidence · Options · Recommend
 | Item | Value |
 |---|---|
 | Current wave | Wave 2 — Coding |
-| Current module | Imp-01 Infrastructure (Platform) |
-| Governing decision | O3 — continue with CVL; PLD stays evidence-gated |
+| Current module | **STOP** — Governance update (Database Evolution Invariants). Imp-07 **not** authorized until human says continue |
+| Governing decision | O3 + **UNION database / additive migrations** (2026-07-14) |
+| Binding DB policy | `DATABASE_EVOLUTION_POLICY.md` |
 | Roadmap | `WAVE2_IMPLEMENTATION_ROADMAP.md` |
+| Manual changelog | `EXECUTION_MANUAL_CHANGELOG.md` |
+
+## 9. DATABASE EVOLUTION INVARIANTS
+
+> Binding detail: [`DATABASE_EVOLUTION_POLICY.md`](DATABASE_EVOLUTION_POLICY.md).  
+> These rules are **permanent**. Violating them is an automatic ArchVal/Review **FAIL**.
+
+### RULE 1 — UNION
+
+Unified Database is the **UNION** of all legacy systems (+ Unified decisions).  
+It is **not** Legacy A, Legacy B, Production Dump, or Repository alone.
+
+### RULE 2 — Absence is NOT evidence
+
+If one legacy has X and another does not, the missing object **does not authorize removal**.  
+**Forbidden:** “dump does not contain X ⇒ remove X.”
+
+### RULE 3 — Destructive SQL forbidden by default
+
+Forbidden without Rule 7 approval: `DROP TABLE/COLUMN/CONSTRAINT/INDEX`, rename table/column, semantic `ALTER COLUMN`, PK/FK behavior changes, removing CHECK/UNIQUE/NOT NULL/indexes/business constraints/triggers still required/views still used by FE.
+
+### RULE 4 — Additive preferred
+
+Prefer: `CREATE TABLE`, `ADD COLUMN/INDEX/CHECK/FK/VIEW/FUNCTION`, compatibility adapters, backfill, data migration; `CREATE TRIGGER` only if still required.
+
+### RULE 5 — Information Preservation
+
+On disagreement default is **KEEP**. Merge first; remove later only if proven obsolete under Rule 7.
+
+### RULE 6 — Evidence Priority
+
+See §3. Decision Log → Merge Spec → Unified Domain → Business Rules → FE Contract → Legacy A → Legacy B → Dumps → Repo history.
+
+### RULE 7 — Removal Standard
+
+Destructive work requires **all**: Architecture Review · Business Validation · Merge Spec support · Decision Log · **Human approval**. Otherwise forbidden.
+
+### RULE 8 — Migration Principle
+
+Do not rewrite migration history to undo applied effects. Correct with **new additive migrations** (e.g. 006 adverse → 007 restore).
+
+### RULE 9 — Review Rule
+
+Classify P0–P3. Legacy Difference (P2) ≠ automatic defect.
+
+### RULE 10 — No Silent Decisions
+
+Report every schema/behavior/API/domain/migration add or remove with Origin · Reason · Evidence · Decision · Impact · Rollback.

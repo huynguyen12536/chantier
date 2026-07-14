@@ -19,3 +19,7 @@ Actual production code implementation, live data migration, Supabase write freez
 ## Stop condition
 
 **Execution STOPPED after Phase 14.** No git commit was created by this documentation run.
+
+## Addendum — Wave 2 governance (2026-07-14)
+
+Implementation wave adds permanent **Database Evolution Invariants** (`DATABASE_EVOLUTION_POLICY.md`). Project identity remains Consolidation + Replatforming (UNION database). Incident: Imp-05 forbidden “dump missing ⇒ remove” assumption — corrected and encoded as Rules 1–10.

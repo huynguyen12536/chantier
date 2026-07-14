@@ -26,11 +26,13 @@ This is a documentation-only merge specification. It proposes mappings and exten
 ## Open-for-merge principles
 
 - Preserve every evidenced CVL rule until an approved merge decision changes it.
+- **Unified PostgreSQL = UNION of legacy sources** — absence in one dump is **not** evidence to drop objects present in another legacy or in Unified migrations (`DATABASE_EVOLUTION_POLICY.md`).
 - Do not infer PLD objects, policies, data, or conflicts without evidence.
 - Use stable capability and domain names, explicit source provenance, and optional tenancy/legacy-origin extension points.
 - Prefer CVL names where required by the frozen frontend contract; separate internal capability names can evolve later.
 - Treat Super Admin/company provisioning as deferred greenfield scope, not an existing CVL capability.
-- Resolve conflicting evidence by recording provenance and an explicit decision; never rewrite historical RE records.
+- Resolve conflicting evidence by recording provenance and an explicit decision; never rewrite historical RE records. Default on disagreement: **KEEP**.
+- Schema evolution is **additive by default**; destructive SQL requires Architecture Review + Business Validation + Merge Spec + Decision Log + Human approval.
 
 ## Phase 3 completion boundary
 

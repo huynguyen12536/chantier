@@ -11,3 +11,7 @@
 Phases 3–14 design/planning are PASS. The Unified Platform architecture is modular Express plus PostgreSQL, JWT/RBAC/scoped authorization, service-owned write paths, structured observability, and frozen-frontend compatibility adapters. CVL flows A–G are the design baseline; Pending Legacy Discovery remains an evidence-gated future merge lane.
 
 No production code implementation was executed. The existing frontend, CVL rules, runtime systems, and production infrastructure were not changed.
+
+## Addendum — Database Evolution (2026-07-14)
+
+Wave 2 binds agents to `plan/plan/DATABASE_EVOLUTION_POLICY.md` and Manual §9: Unified PostgreSQL is a **UNION** (not a dump clone); **absence is not evidence** for removal; destructive SQL requires Review + BizVal + Merge Spec + Decision Log + Human approval; Review P2 Legacy Difference is not an automatic defect.

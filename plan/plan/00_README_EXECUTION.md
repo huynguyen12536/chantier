@@ -8,7 +8,8 @@
 
 > **EXECUTION MODE (2026-07-14):** Backend-First · **Frontend FROZEN** (FE = Contract).  
 > Operating rules: [`AGENTIC_EXECUTION_MANUAL.md`](AGENTIC_EXECUTION_MANUAL.md) — **bắt buộc** đọc trước khi làm task.  
-> SoT đọc theo Manual Level 1→6 (Merge Spec → Unified Domain → Legacy → Decision → Risk → Master Plan).
+> Database invariants: [`DATABASE_EVOLUTION_POLICY.md`](DATABASE_EVOLUTION_POLICY.md) — Unified DB = **UNION**; **absence is not evidence**; destructive SQL forbidden without Decision Log + Human.  
+> SoT / Evidence Priority: Decision Log → Merge Spec → Unified Domain → Business Rules → FE Contract → Legacy A/B → Dumps → Repo (see Manual §3 / Rule 6).
 
 ## Mục tiêu dự án (đích)
 

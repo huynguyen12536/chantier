@@ -23,7 +23,7 @@ Agent compared:
 - `migration-analysis/production-dump/01_public_schema.sql` — `zones_ouvriers` has **PK only**, no UNIQUE
 - `004_affectations_zones.sql` — had UNIQUE
 
-Conclusion at the time: “invented vs dump → drop”.
+Conclusion at the time: “invented vs dump → drop” — **governed as FORBIDDEN**. Correct frame: **absence is not evidence** (`DATABASE_EVOLUTION_POLICY.md` Rule 2).
 
 ## 3. Why it was removed (rework)
 

@@ -11,7 +11,7 @@
 
 ## Decision
 - Use modular Express in `api-chantier/` as the target application boundary.
-- Use PostgreSQL as target persistence; database constraints support integrity, while business orchestration is service-owned.
+- Use PostgreSQL as target persistence; database constraints support integrity, while business orchestration is service-owned. **Wave 2:** schema evolution follows `DATABASE_EVOLUTION_POLICY.md` (UNION database; additive default; absence is not evidence).
 - Use JWT access tokens with refresh-token lifecycle design; authenticate once, authorize per command/query using RBAC plus scoped policy.
 - Compose is the canonical local topology for backend dependencies; exact deployment topology is deferred.
 - Emit structured logs, correlation IDs, health/readiness signals, metrics, and auditable sensitive transitions.

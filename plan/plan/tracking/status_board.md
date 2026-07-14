@@ -1,15 +1,16 @@
 # Status Board ? Chantier (Wave 2)
 
-> Wave 1 DONE · Wave 2 Coding · FE Frozen · Auto-Continue  
-> **Gate:** Imp-05 Parity Patch must PASS before treating Imp-07 as officially unblocked again.
+> Wave 1 DONE · Wave 2 Coding · FE Frozen  
+> **GOVERNANCE:** Database Evolution Invariants active (`DATABASE_EVOLUTION_POLICY.md`).  
+> **STOP Imp-07** until human explicitly authorizes resume after governance SHA.
 
 | Module | Status |
 |---|---|
 | Imp-01?04 | Done PASS |
-| Imp-05 Assignments & Zones | **Parity Rework PASS** `f40a896a4a` (non-destructive) |
-| Imp-06 Timesheet | Done PASS `cddc4e452e` (unchanged by parity) |
-| Imp-07 Review & Approval | Code present `81b83e513a` ? **resume Auto-Continue only after Imp-05 parity commit** |
-| Imp-08 Reporting & Export | Code present `29dab9bfa8` |
-| Imp-09+ | Todo |
+| Imp-05 Assignments & Zones | Parity Rework PASS `f40a896a4a` + **Governance update** (this cycle) |
+| Imp-06 Timesheet | Done PASS `cddc4e452e` |
+| Imp-07 Review & Approval | **STOP** ? do not continue |
+| Imp-08+ | Deferred until Imp-07 authorized |
 
-Open DRs: Imp-06 DR-001/002/003 RESOLVED. No Imp-05 DR.
+Open DRs: Imp-06 DR-001/002/003 RESOLVED. No Imp-05 DR.  
+Policy: **absence is not evidence**; Unified DB = UNION; additive migrations default.
