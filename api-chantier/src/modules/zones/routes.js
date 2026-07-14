@@ -1,43 +1,27 @@
 import { Router } from 'express';
 import { requireAuth, requireRoles } from '../../shared/middleware/auth.js';
-import { asyncHandler } from '../../shared/utils/asyncHandler.js';
-import * as aff from '../affectations/service.js';
+import * as controller from './controller.js';
 
 const router = Router();
+/** CVL: admin + chef_equipe only (administratif has no zone admin policies) */
+const zoneWriters = requireRoles('admin', 'chef_equipe');
+
 router.use(requireAuth);
 
-router.get(
-  '/',
-  asyncHandler(async (_req, res) => {
-    res.json({ zones: await aff.listZones() });
-  }),
-);
+router.get('/', controller.list);
+router.post('/', zoneWriters, controller.create);
+router.patch('/:id', zoneWriters, controller.update);
+router.delete('/:id', zoneWriters, controller.remove);
 
-router.post(
-  '/',
-  requireRoles('admin', 'administratif', 'chef_equipe'),
-  asyncHandler(async (req, res) => {
-    const zone = await aff.createZone(req.body ?? {}, req.user);
-    res.status(201).json({ zone });
-  }),
-);
+router.post('/:id/chantiers', zoneWriters, controller.linkChantier);
+router.delete('/:id/chantiers/:chantierId', zoneWriters, controller.unlinkChantier);
 
-router.post(
-  '/:id/chantiers',
-  requireRoles('admin', 'administratif', 'chef_equipe'),
-  asyncHandler(async (req, res) => {
-    const link = await aff.linkZoneChantier(req.params.id, req.body.chantier_id, req.user);
-    res.status(201).json({ link });
-  }),
+router.post('/:id/ouvriers', zoneWriters, controller.addOuvrier);
+router.patch(
+  '/:id/ouvriers/:userId/soft-remove',
+  zoneWriters,
+  controller.softRemoveOuvrier,
 );
-
-router.post(
-  '/:id/ouvriers',
-  requireRoles('admin', 'administratif', 'chef_equipe'),
-  asyncHandler(async (req, res) => {
-    const member = await aff.addZoneOuvrier(req.params.id, req.body.user_id, req.user);
-    res.status(201).json({ member });
-  }),
-);
+router.delete('/:id/ouvriers/:userId', zoneWriters, controller.unlinkOuvrier);
 
 export default router;

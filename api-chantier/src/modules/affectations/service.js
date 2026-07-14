@@ -1,30 +1,81 @@
+/**
+ * Affectations — Imp-05 Parity vs CVL rls-analysis §62–66 + production policies.
+ */
 import { z } from 'zod';
 import { AppError } from '../../shared/errors/AppError.js';
 import { query } from '../../shared/db/pool.js';
 
-const assignSchema = z.object({
-  user_id: z.string().uuid(),
-  chantier_id: z.string().uuid(),
-  chef_equipe_id: z.string().uuid().optional().nullable(),
-  date_debut: z.string().optional(),
-  date_fin: z.string().optional().nullable(),
-});
+const assignSchema = z
+  .object({
+    user_id: z.string().uuid(),
+    chantier_id: z.string().uuid(),
+    chef_equipe_id: z.string().uuid().optional().nullable(),
+    date_debut: z.string().optional(),
+    date_fin: z.string().optional().nullable(),
+  })
+  .superRefine((d, ctx) => {
+    if (d.date_fin && d.date_debut && d.date_fin < d.date_debut) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'date_fin must be >= date_debut',
+        path: ['date_fin'],
+      });
+    }
+  });
 
-export async function listAffectations(chantierId) {
+/** CVL insert/update: admin | administratif | chef_equipe */
+function assertCanWriteAffectation(actor) {
+  if (!actor || !['admin', 'administratif', 'chef_equipe'].includes(actor.role)) {
+    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
+  }
+}
+
+/**
+ * Scoped list — CVL SELECT policies:
+ * - admin/administratif: all
+ * - chef: chef_equipe_id = actor (team rows)
+ * - ouvrier: own user_id
+ */
+export async function listAffectations(filters, actor) {
+  if (!actor?.id) throw new AppError('Unauthorized', 401, { code: 'UNAUTHORIZED' });
+
+  const chantierId = filters?.chantier_id ?? null;
+
+  if (['admin', 'administratif'].includes(actor.role)) {
+    const { rows } = await query(
+      `SELECT * FROM affectations_chantiers
+       WHERE ($1::uuid IS NULL OR chantier_id = $1)
+       ORDER BY created_at DESC`,
+      [chantierId],
+    );
+    return rows;
+  }
+
+  if (actor.role === 'chef_equipe') {
+    const { rows } = await query(
+      `SELECT * FROM affectations_chantiers
+       WHERE chef_equipe_id = $1
+         AND ($2::uuid IS NULL OR chantier_id = $2)
+       ORDER BY created_at DESC`,
+      [actor.id, chantierId],
+    );
+    return rows;
+  }
+
+  // ouvrier — own only
   const { rows } = await query(
     `SELECT * FROM affectations_chantiers
-     WHERE ($1::uuid IS NULL OR chantier_id = $1)
+     WHERE user_id = $1
+       AND ($2::uuid IS NULL OR chantier_id = $2)
      ORDER BY created_at DESC`,
-    [chantierId ?? null],
+    [actor.id, chantierId],
   );
   return rows;
 }
 
 /** Unique (user, chantier); soft-end via date_fin — SUMMARY §5 #4 */
 export async function assignUser(input, actor) {
-  if (!actor || !['admin', 'administratif'].includes(actor.role)) {
-    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
-  }
+  assertCanWriteAffectation(actor);
   const parsed = assignSchema.safeParse(input);
   if (!parsed.success) {
     throw new AppError('Invalid affectation', 400, {
@@ -46,73 +97,22 @@ export async function assignUser(input, actor) {
     );
     return rows[0];
   } catch (err) {
-    if (err.code === '23503') throw new AppError('Referenced user/chantier missing', 400, { code: 'FK' });
+    if (err.code === '23503') {
+      throw new AppError('Referenced user/chantier missing', 400, { code: 'FK' });
+    }
+    if (err.code === '23514') {
+      throw new AppError('Invalid date range', 400, { code: 'VALIDATION_ERROR' });
+    }
     throw err;
   }
 }
 
 export async function softRemoveAffectation(id, actor) {
-  if (!actor || !['admin', 'administratif'].includes(actor.role)) {
-    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
-  }
+  assertCanWriteAffectation(actor);
   const { rows } = await query(
     `UPDATE affectations_chantiers SET date_fin = CURRENT_DATE WHERE id = $1 RETURNING *`,
     [id],
   );
   if (!rows[0]) throw new AppError('Affectation not found', 404, { code: 'NOT_FOUND' });
   return rows[0];
-}
-
-const zoneSchema = z.object({
-  nom: z.string().min(1).max(200),
-  chef_equipe_id: z.string().uuid(),
-});
-
-export async function createZone(input, actor) {
-  if (!actor || !['admin', 'administratif', 'chef_equipe'].includes(actor.role)) {
-    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
-  }
-  const parsed = zoneSchema.safeParse(input);
-  if (!parsed.success) {
-    throw new AppError('Invalid zone', 400, { code: 'VALIDATION_ERROR' });
-  }
-  if (actor.role === 'chef_equipe' && actor.id !== parsed.data.chef_equipe_id) {
-    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
-  }
-  const { rows } = await query(
-    `INSERT INTO zones_equipe (nom, chef_equipe_id) VALUES ($1,$2) RETURNING *`,
-    [parsed.data.nom, parsed.data.chef_equipe_id],
-  );
-  return rows[0];
-}
-
-export async function linkZoneChantier(zoneId, chantierId, actor) {
-  if (!actor || !['admin', 'administratif', 'chef_equipe'].includes(actor.role)) {
-    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
-  }
-  const { rows } = await query(
-    `INSERT INTO zones_chantiers (zone_id, chantier_id) VALUES ($1,$2)
-     ON CONFLICT (zone_id, chantier_id) DO NOTHING
-     RETURNING *`,
-    [zoneId, chantierId],
-  );
-  return rows[0] ?? { zone_id: zoneId, chantier_id: chantierId, linked: true };
-}
-
-export async function addZoneOuvrier(zoneId, userId, actor) {
-  if (!actor || !['admin', 'administratif', 'chef_equipe'].includes(actor.role)) {
-    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
-  }
-  const { rows } = await query(
-    `INSERT INTO zones_ouvriers (zone_id, user_id) VALUES ($1,$2)
-     ON CONFLICT (zone_id, user_id) DO UPDATE SET date_fin = NULL
-     RETURNING *`,
-    [zoneId, userId],
-  );
-  return rows[0];
-}
-
-export async function listZones() {
-  const { rows } = await query(`SELECT * FROM zones_equipe ORDER BY created_at DESC`);
-  return rows;
 }

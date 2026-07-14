@@ -25,6 +25,7 @@
 | 2026-07-14 | Delivery | **Imp-06 Timesheet PASS** — Soft Annulee / CADRE / P+Fsplit coded; no SQL triggers; FE Frozen; 17/17 tests PASS; R-39 Closed. Auto-Continue Imp-07 | Module DoD | — | Review & Approval next | Implementer | Imp-06→07 | Imp-07 analysis+code |
 | 2026-07-14 | Delivery | **Imp-07 Review & Approval PASS** — `/api/validation/*` queue/approve/reject/cancel + period decide; chef scope; 409 concurrency; 23/23 tests. Auto-Continue Imp-08 | Module DoD | — | Reporting next | Implementer | Imp-07→08 | Imp-08 export |
 | 2026-07-14 | Delivery | **Imp-08 Reporting & Export PASS** — payroll validee-only + stats; canExport roles; 26/26 tests. Auto-Continue Imp-09 | Module DoD | — | Notifications next | Implementer | Imp-08→09 | Imp-09 |
+| 2026-07-14 | Delivery | **Imp-05 Parity Patch PASS** — CVL RBAC/ownership/scope/schema/Flow C; no FE/Timesheet change; 31/31 tests. Imp-07 may resume Auto-Continue only after this SHA | Technical Lead directive | Prior Imp-07/08 already on main | Affectations/Zones = CVL | Implementer | Imp-05 | Record SHA; then Imp-07 resume |
 
 ## When to add a row
 

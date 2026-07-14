@@ -36,31 +36,38 @@ export async function getAppliedMigrations() {
  */
 export async function runMigrations() {
   await ensureMigrationsTable();
-  const files = await listMigrationFiles();
-  const applied = await getAppliedMigrations();
-  const newly = [];
-  const skipped = [];
+  // Serialize migration across parallel test processes / suites
+  await query(`SELECT pg_advisory_lock(87251405)`);
+  try {
+    const files = await listMigrationFiles();
+    const applied = await getAppliedMigrations();
+    const newly = [];
+    const skipped = [];
 
-  for (const file of files) {
-    if (applied.has(file)) {
-      skipped.push(file);
-      continue;
+    for (const file of files) {
+      if (applied.has(file)) {
+        skipped.push(file);
+        continue;
+      }
+      const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
+      logger.info('applying migration', { file });
+      await query('BEGIN');
+      try {
+        await query(sql);
+        await query('INSERT INTO schema_migrations (id) VALUES ($1)', [file]);
+        await query('COMMIT');
+        newly.push(file);
+        applied.add(file);
+      } catch (err) {
+        await query('ROLLBACK');
+        throw err;
+      }
     }
-    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
-    logger.info('applying migration', { file });
-    await query('BEGIN');
-    try {
-      await query(sql);
-      await query('INSERT INTO schema_migrations (id) VALUES ($1)', [file]);
-      await query('COMMIT');
-      newly.push(file);
-    } catch (err) {
-      await query('ROLLBACK');
-      throw err;
-    }
+
+    return { applied: newly, skipped };
+  } finally {
+    await query(`SELECT pg_advisory_unlock(87251405)`);
   }
-
-  return { applied: newly, skipped };
 }
 
 export async function migrationsStatus() {

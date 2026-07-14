@@ -19,7 +19,7 @@
 | Imp-02 | Authentication | **Done — PASS** | Imp-01 |
 | Imp-03 | Users | **Done — PASS** | Imp-02 |
 | Imp-04 | Construction Sites (chantiers) | **Done — PASS** | Imp-01, Imp-03 |
-| Imp-05 | Assignments & Zones | **Done — PASS** | Imp-03, Imp-04 |
+| Imp-05 | Assignments & Zones | **Done — PASS + Parity Patch PASS** | Imp-03, Imp-04 |
 | Imp-06 | Timesheet | **Done PASS** | Imp-04, Imp-05 |
 | Imp-07 | Review & Approval | **Done PASS** | Imp-06 |
 | Imp-08 | Reporting & Export | **Done PASS** | Imp-06, Imp-07 |

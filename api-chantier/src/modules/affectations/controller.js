@@ -2,7 +2,7 @@ import { asyncHandler } from '../../shared/utils/asyncHandler.js';
 import * as service from './service.js';
 
 export const list = asyncHandler(async (req, res) => {
-  const affectations = await service.listAffectations(req.query.chantier_id);
+  const affectations = await service.listAffectations(req.query, req.user);
   res.json({ affectations });
 });
 

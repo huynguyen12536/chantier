@@ -1,5 +1,12 @@
-# IMPLEMENTATION_REPORT — Imp-05 Assignments & Zones
+# IMPLEMENTATION_REPORT — Imp-05 (updated after Parity Patch)
 
-Status: PASS  
-Rules: SUMMARY §5 #4 unique assignment + soft date_fin; zones RESTRICT for chef delete (schema)  
-Next: Imp-06 Timesheet
+| Field | Value |
+|---|---|
+| Status | **PASS** (initial) + **Parity Patch PASS** |
+| Date | 2026-07-14 |
+
+See `IMP05_PARITY_PATCH_REPORT.md` and sibling parity reports.
+
+Initial keep: UNIQUE, soft `date_fin`, UPSERT, FK, Zone RESTRICT.
+
+Parity closed: RBAC, ownership, scoped lists, schema, Flow C lifecycle, validation, tests.
