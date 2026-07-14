@@ -1,0 +1,8 @@
+# Copy to .env for local dev (optional — app.config.js already sets Supabase for Bolt)
+EXPO_PUBLIC_SUPABASE_URL=https://afgveikzneaablcuzwdb.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmZ3ZlaWt6bmVhYWJsY3V6d2RiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODIwOTUxMSwiZXhwIjoyMDkzNzg1NTExfQ.LawGEwPM8VCqw9gC7a-aPPQFsB2_9HQBEgmeO7sISro 
+EXPO_FORCE_WEBCONTAINER_ENV=1
+# Copy to .env for local dev (optional — app.config.js already sets Supabase for Bolt)
+EXPO_PUBLIC_SUPABASE_URL=https://hzppsttpzzeuslnpcdkv.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6cHBzdHRwenpldXNsbnBjZGt2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTc0ODQ2MCwiZXhwIjoyMDk3MzI0NDYwfQ.8NUtZPuf4ZOes4XIMELfqApWpHMlDvKfOZXBuleuMRE
+EXPO_FORCE_WEBCONTAINER_ENV=1

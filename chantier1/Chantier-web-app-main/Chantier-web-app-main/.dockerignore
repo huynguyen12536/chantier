@@ -1,0 +1,12 @@
+node_modules
+dist
+.expo
+web-build
+.git
+.gitignore
+.env*.local
+android
+ios
+*.md
+npm-debug.*
+.metro-health-check*

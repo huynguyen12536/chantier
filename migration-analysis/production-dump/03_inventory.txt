@@ -1,0 +1,342 @@
+      ?column?      
+--------------------
+ === EXTENSIONS ===
+(1 row)
+
+      extname       | extversion 
+--------------------+------------
+ pg_stat_statements | 1.11
+ pgcrypto           | 1.3
+ plpgsql            | 1.0
+ supabase_vault     | 0.3.1
+ uuid-ossp          | 1.1
+(5 rows)
+
+    ?column?     
+-----------------
+ === SCHEMAS ===
+(1 row)
+
+       nspname       
+---------------------
+ auth
+ extensions
+ graphql
+ graphql_public
+ public
+ realtime
+ storage
+ supabase_migrations
+ vault
+(9 rows)
+
+       ?column?        
+-----------------------
+ === TABLES public ===
+(1 row)
+
+       tablename        
+------------------------
+ affectations_chantiers
+ chantiers
+ declarations_heures
+ periodes_travail
+ profiles
+ zones_chantiers
+ zones_equipe
+ zones_ouvriers
+(8 rows)
+
+       ?column?       
+----------------------
+ === VIEWS public ===
+(1 row)
+
+           viewname           
+------------------------------
+ synthese_heures_journalieres
+(1 row)
+
+         ?column?         
+--------------------------
+ === SEQUENCES public ===
+(1 row)
+
+ sequencename 
+--------------
+(0 rows)
+
+        ?column?        
+------------------------
+ === INDEXES public ===
+(1 row)
+
+                    indexname                     |       tablename        
+--------------------------------------------------+------------------------
+ affectations_chantiers_pkey                      | affectations_chantiers
+ affectations_chantiers_user_id_chantier_id_key   | affectations_chantiers
+ idx_affectations_chantier                        | affectations_chantiers
+ idx_affectations_chef                            | affectations_chantiers
+ idx_affectations_dates                           | affectations_chantiers
+ idx_affectations_user                            | affectations_chantiers
+ chantiers_code_key                               | chantiers
+ chantiers_pkey                                   | chantiers
+ idx_chantiers_actif                              | chantiers
+ idx_chantiers_code                               | chantiers
+ declarations_heures_pkey                         | declarations_heures
+ declarations_heures_user_id_chantier_id_date_key | declarations_heures
+ idx_declarations_chantier                        | declarations_heures
+ idx_declarations_date                            | declarations_heures
+ idx_declarations_statut                          | declarations_heures
+ idx_declarations_user                            | declarations_heures
+ idx_periodes_chantier                            | periodes_travail
+ idx_periodes_date                                | periodes_travail
+ idx_periodes_statut                              | periodes_travail
+ idx_periodes_user_date                           | periodes_travail
+ periodes_travail_pkey                            | periodes_travail
+ idx_profiles_matricule                           | profiles
+ idx_profiles_role                                | profiles
+ profiles_matricule_key                           | profiles
+ profiles_pkey                                    | profiles
+ zones_chantiers_pkey                             | zones_chantiers
+ zones_chantiers_zone_id_chantier_id_key          | zones_chantiers
+ zones_equipe_pkey                                | zones_equipe
+ zones_ouvriers_pkey                              | zones_ouvriers
+(29 rows)
+
+      ?column?       
+---------------------
+ === CONSTRAINTS ===
+(1 row)
+
+       table_name       |                     conname                      | contype |                                                                                        def                                                                                         
+------------------------+--------------------------------------------------+---------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ profiles               | profiles_id_fkey                                 | f       | FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
+ profiles               | profiles_matricule_key                           | u       | UNIQUE (matricule)
+ profiles               | profiles_pkey                                    | p       | PRIMARY KEY (id)
+ profiles               | profiles_role_check                              | c       | CHECK ((role = ANY (ARRAY['ouvrier'::text, 'chef_equipe'::text, 'administratif'::text, 'admin'::text])))
+ zones_equipe           | zones_equipe_chef_equipe_id_fkey                 | f       | FOREIGN KEY (chef_equipe_id) REFERENCES profiles(id) ON DELETE CASCADE
+ zones_equipe           | zones_equipe_pkey                                | p       | PRIMARY KEY (id)
+ zones_ouvriers         | zones_ouvriers_pkey                              | p       | PRIMARY KEY (id)
+ zones_ouvriers         | zones_ouvriers_user_id_fkey                      | f       | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+ zones_ouvriers         | zones_ouvriers_zone_id_fkey                      | f       | FOREIGN KEY (zone_id) REFERENCES zones_equipe(id) ON DELETE CASCADE
+ chantiers              | chantiers_code_key                               | u       | UNIQUE (code)
+ chantiers              | chantiers_pkey                                   | p       | PRIMARY KEY (id)
+ zones_chantiers        | zones_chantiers_chantier_id_fkey                 | f       | FOREIGN KEY (chantier_id) REFERENCES chantiers(id) ON DELETE CASCADE
+ zones_chantiers        | zones_chantiers_pkey                             | p       | PRIMARY KEY (id)
+ zones_chantiers        | zones_chantiers_zone_id_chantier_id_key          | u       | UNIQUE (zone_id, chantier_id)
+ zones_chantiers        | zones_chantiers_zone_id_fkey                     | f       | FOREIGN KEY (zone_id) REFERENCES zones_equipe(id) ON DELETE CASCADE
+ affectations_chantiers | affectations_chantiers_chantier_id_fkey          | f       | FOREIGN KEY (chantier_id) REFERENCES chantiers(id) ON DELETE CASCADE
+ affectations_chantiers | affectations_chantiers_chef_equipe_id_fkey       | f       | FOREIGN KEY (chef_equipe_id) REFERENCES profiles(id) ON DELETE SET NULL
+ affectations_chantiers | affectations_chantiers_pkey                      | p       | PRIMARY KEY (id)
+ affectations_chantiers | affectations_chantiers_user_id_chantier_id_key   | u       | UNIQUE (user_id, chantier_id)
+ affectations_chantiers | affectations_chantiers_user_id_fkey              | f       | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+ affectations_chantiers | valid_affectation_date_range                     | c       | CHECK (((date_fin IS NULL) OR (date_fin >= date_debut)))
+ periodes_travail       | periodes_travail_chantier_id_fkey                | f       | FOREIGN KEY (chantier_id) REFERENCES chantiers(id) ON DELETE CASCADE
+ periodes_travail       | periodes_travail_check                           | c       | CHECK ((((heure_fin IS NULL) AND (statut = 'en_cours'::text)) OR ((heure_fin IS NOT NULL) AND (statut <> 'en_cours'::text))))
+ periodes_travail       | periodes_travail_check1                          | c       | CHECK ((((latitude_fin IS NULL) AND (longitude_fin IS NULL) AND (heure_fin IS NULL)) OR ((latitude_fin IS NOT NULL) AND (longitude_fin IS NOT NULL) AND (heure_fin IS NOT NULL))))
+ periodes_travail       | periodes_travail_pkey                            | p       | PRIMARY KEY (id)
+ periodes_travail       | periodes_travail_statut_check                    | c       | CHECK ((statut = ANY (ARRAY['en_cours'::text, 'terminee'::text, 'validee'::text, 'rejetee'::text])))
+ periodes_travail       | periodes_travail_user_id_fkey                    | f       | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+ periodes_travail       | periodes_travail_validated_by_fkey               | f       | FOREIGN KEY (validated_by) REFERENCES profiles(id) ON DELETE SET NULL
+ declarations_heures    | declarations_heures_chantier_id_fkey             | f       | FOREIGN KEY (chantier_id) REFERENCES chantiers(id) ON DELETE CASCADE
+ declarations_heures    | declarations_heures_heures_normales_check        | c       | CHECK (((heures_normales >= (0)::numeric) AND (heures_normales <= (24)::numeric)))
+ declarations_heures    | declarations_heures_heures_supplementaires_check | c       | CHECK (((heures_supplementaires >= (0)::numeric) AND (heures_supplementaires <= (24)::numeric)))
+ declarations_heures    | declarations_heures_nb_paniers_check             | c       | CHECK (((nb_paniers >= 0) AND (nb_paniers <= 2)))
+ declarations_heures    | declarations_heures_pkey                         | p       | PRIMARY KEY (id)
+ declarations_heures    | declarations_heures_statut_check                 | c       | CHECK ((statut = ANY (ARRAY['brouillon'::text, 'soumise'::text, 'validee'::text, 'rejetee'::text, 'annulee'::text])))
+ declarations_heures    | declarations_heures_user_id_chantier_id_date_key | u       | UNIQUE (user_id, chantier_id, date)
+ declarations_heures    | declarations_heures_user_id_fkey                 | f       | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+ declarations_heures    | declarations_heures_validated_by_fkey            | f       | FOREIGN KEY (validated_by) REFERENCES profiles(id) ON DELETE SET NULL
+(37 rows)
+
+     ?column?     
+------------------
+ === TRIGGERS ===
+(1 row)
+
+ event_object_schema | event_object_table  |                     trigger_name                     | action_timing | event_manipulation |                         action_statement                          
+---------------------+---------------------+------------------------------------------------------+---------------+--------------------+-------------------------------------------------------------------
+ public              | declarations_heures | trigger_auto_approve_matching_latest_validated_shift | AFTER         | UPDATE             | EXECUTE FUNCTION auto_approve_if_matches_latest_validated_shift()
+ public              | declarations_heures | trigger_auto_approve_matching_latest_validated_shift | AFTER         | INSERT             | EXECUTE FUNCTION auto_approve_if_matches_latest_validated_shift()
+ public              | declarations_heures | trigger_sync_periods_from_declaration                | AFTER         | UPDATE             | EXECUTE FUNCTION sync_periods_from_declaration()
+ public              | periodes_travail    | trigger_sync_declarations                            | AFTER         | DELETE             | EXECUTE FUNCTION sync_declarations_from_periods()
+ public              | periodes_travail    | trigger_sync_declarations                            | AFTER         | INSERT             | EXECUTE FUNCTION sync_declarations_from_periods()
+ public              | periodes_travail    | trigger_sync_declarations                            | AFTER         | UPDATE             | EXECUTE FUNCTION sync_declarations_from_periods()
+ realtime            | subscription        | tr_check_filters                                     | BEFORE        | UPDATE             | EXECUTE FUNCTION realtime.subscription_check_filters()
+ realtime            | subscription        | tr_check_filters                                     | BEFORE        | INSERT             | EXECUTE FUNCTION realtime.subscription_check_filters()
+ storage             | buckets             | enforce_bucket_name_length_trigger                   | BEFORE        | UPDATE             | EXECUTE FUNCTION storage.enforce_bucket_name_length()
+ storage             | buckets             | enforce_bucket_name_length_trigger                   | BEFORE        | INSERT             | EXECUTE FUNCTION storage.enforce_bucket_name_length()
+ storage             | buckets             | protect_buckets_delete                               | BEFORE        | DELETE             | EXECUTE FUNCTION storage.protect_delete()
+ storage             | objects             | protect_objects_delete                               | BEFORE        | DELETE             | EXECUTE FUNCTION storage.protect_delete()
+ storage             | objects             | update_objects_updated_at                            | BEFORE        | UPDATE             | EXECUTE FUNCTION storage.update_updated_at_column()
+(13 rows)
+
+         ?column?         
+--------------------------
+ === FUNCTIONS public ===
+(1 row)
+
+                    proname                     |                                 args                                 |   kind   
+------------------------------------------------+----------------------------------------------------------------------+----------
+ auto_approve_if_matches_latest_validated_shift |                                                                      | function
+ calculer_duree_periode                         | heure_debut time without time zone, heure_fin time without time zone | function
+ delete_chantier_cascade                        | p_chantier_id uuid                                                   | function
+ get_chef_chantier_ids                          | chef_id uuid                                                         | function
+ get_my_role                                    |                                                                      | function
+ is_admin                                       |                                                                      | function
+ is_zone_owner                                  | p_zone_id uuid                                                       | function
+ rls_auto_enable                                |                                                                      | function
+ sync_declarations_from_periods                 |                                                                      | function
+ sync_periods_from_declaration                  |                                                                      | function
+(10 rows)
+
+      ?column?       
+---------------------
+ === RLS ENABLED ===
+(1 row)
+
+        relname         | relrowsecurity | relforcerowsecurity 
+------------------------+----------------+---------------------
+ affectations_chantiers | t              | f
+ chantiers              | t              | f
+ declarations_heures    | t              | f
+ periodes_travail       | t              | f
+ profiles               | t              | f
+ zones_chantiers        | t              | f
+ zones_equipe           | t              | f
+ zones_ouvriers         | t              | f
+(8 rows)
+
+     ?column?     
+------------------
+ === POLICIES ===
+(1 row)
+
+ schemaname |       tablename        |                    policyname                     | permissive |      roles      |  cmd   |                                                                                                   qual                                                                                                   |                                                                with_check                                                                 
+------------+------------------------+---------------------------------------------------+------------+-----------------+--------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------
+ public     | affectations_chantiers | Admins can insert affectations                    | PERMISSIVE | {authenticated} | INSERT |                                                                                                                                                                                                          | (EXISTS ( SELECT 1                                                                                                                       +
+            |                        |                                                   |            |                 |        |                                                                                                                                                                                                          |    FROM profiles                                                                                                                         +
+            |                        |                                                   |            |                 |        |                                                                                                                                                                                                          |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text, 'chef_equipe'::text])))))
+ public     | affectations_chantiers | Admins can update affectations                    | PERMISSIVE | {authenticated} | UPDATE | (EXISTS ( SELECT 1                                                                                                                                                                                      +| (EXISTS ( SELECT 1                                                                                                                       +
+            |                        |                                                   |            |                 |        |    FROM profiles                                                                                                                                                                                        +|    FROM profiles                                                                                                                         +
+            |                        |                                                   |            |                 |        |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text, 'chef_equipe'::text])))))                                                                      |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text, 'chef_equipe'::text])))))
+ public     | affectations_chantiers | Admins can view all affectations                  | PERMISSIVE | {authenticated} | SELECT | (EXISTS ( SELECT 1                                                                                                                                                                                      +| 
+            |                        |                                                   |            |                 |        |    FROM profiles                                                                                                                                                                                        +| 
+            |                        |                                                   |            |                 |        |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text])))))                                                                                           | 
+ public     | affectations_chantiers | Chefs can view their team affectations            | PERMISSIVE | {authenticated} | SELECT | (chef_equipe_id = auth.uid())                                                                                                                                                                            | 
+ public     | affectations_chantiers | Users can view own affectations                   | PERMISSIVE | {authenticated} | SELECT | (user_id = auth.uid())                                                                                                                                                                                   | 
+ public     | chantiers              | Admins can insert chantiers                       | PERMISSIVE | {authenticated} | INSERT |                                                                                                                                                                                                          | (EXISTS ( SELECT 1                                                                                                                       +
+            |                        |                                                   |            |                 |        |                                                                                                                                                                                                          |    FROM profiles                                                                                                                         +
+            |                        |                                                   |            |                 |        |                                                                                                                                                                                                          |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text])))))
+ public     | chantiers              | Admins can update chantiers                       | PERMISSIVE | {authenticated} | UPDATE | (EXISTS ( SELECT 1                                                                                                                                                                                      +| (EXISTS ( SELECT 1                                                                                                                       +
+            |                        |                                                   |            |                 |        |    FROM profiles                                                                                                                                                                                        +|    FROM profiles                                                                                                                         +
+            |                        |                                                   |            |                 |        |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text])))))                                                                                           |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text])))))
+ public     | chantiers              | Authenticated users can view active chantiers     | PERMISSIVE | {authenticated} | SELECT | true                                                                                                                                                                                                     | 
+ public     | declarations_heures    | Admins can delete any declaration                 | PERMISSIVE | {authenticated} | DELETE | (EXISTS ( SELECT 1                                                                                                                                                                                      +| 
+            |                        |                                                   |            |                 |        |    FROM profiles                                                                                                                                                                                        +| 
+            |                        |                                                   |            |                 |        |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text])))))                                                                                           | 
+ public     | declarations_heures    | Admins can update all declarations                | PERMISSIVE | {authenticated} | UPDATE | (EXISTS ( SELECT 1                                                                                                                                                                                      +| (EXISTS ( SELECT 1                                                                                                                       +
+            |                        |                                                   |            |                 |        |    FROM profiles                                                                                                                                                                                        +|    FROM profiles                                                                                                                         +
+            |                        |                                                   |            |                 |        |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text])))))                                                                                           |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text])))))
+ public     | declarations_heures    | Admins can view all declarations                  | PERMISSIVE | {authenticated} | SELECT | (EXISTS ( SELECT 1                                                                                                                                                                                      +| 
+            |                        |                                                   |            |                 |        |    FROM profiles                                                                                                                                                                                        +| 
+            |                        |                                                   |            |                 |        |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text])))))                                                                                           | 
+ public     | declarations_heures    | Chefs can delete team declarations                | PERMISSIVE | {authenticated} | DELETE | (chantier_id IN ( SELECT c.chantier_id                                                                                                                                                                  +| 
+            |                        |                                                   |            |                 |        |    FROM get_chef_chantier_ids(auth.uid()) c(chantier_id)))                                                                                                                                               | 
+ public     | declarations_heures    | Chefs can update team declarations for validation | PERMISSIVE | {authenticated} | UPDATE | ((chantier_id IN ( SELECT c.chantier_id                                                                                                                                                                 +| (chantier_id IN ( SELECT c.chantier_id                                                                                                   +
+            |                        |                                                   |            |                 |        |    FROM get_chef_chantier_ids(auth.uid()) c(chantier_id))) AND (statut = ANY (ARRAY['soumise'::text, 'validee'::text])))                                                                                 |    FROM get_chef_chantier_ids(auth.uid()) c(chantier_id)))
+ public     | declarations_heures    | Chefs can view their team declarations            | PERMISSIVE | {authenticated} | SELECT | (chantier_id IN ( SELECT c.chantier_id                                                                                                                                                                  +| 
+            |                        |                                                   |            |                 |        |    FROM get_chef_chantier_ids(auth.uid()) c(chantier_id)))                                                                                                                                               | 
+ public     | declarations_heures    | Users can delete own draft declarations           | PERMISSIVE | {authenticated} | DELETE | ((user_id = auth.uid()) AND (statut = 'brouillon'::text))                                                                                                                                                | 
+ public     | declarations_heures    | Users can delete own rejected declarations        | PERMISSIVE | {authenticated} | DELETE | ((user_id = auth.uid()) AND (statut = 'rejetee'::text))                                                                                                                                                  | 
+ public     | declarations_heures    | Users can insert own declarations                 | PERMISSIVE | {authenticated} | INSERT |                                                                                                                                                                                                          | (user_id = auth.uid())
+ public     | declarations_heures    | Users can update own draft declarations           | PERMISSIVE | {authenticated} | UPDATE | ((user_id = auth.uid()) AND (statut = 'brouillon'::text))                                                                                                                                                | (user_id = auth.uid())
+ public     | declarations_heures    | Users can view own declarations                   | PERMISSIVE | {authenticated} | SELECT | (user_id = auth.uid())                                                                                                                                                                                   | 
+ public     | periodes_travail       | Admins can delete any period                      | PERMISSIVE | {authenticated} | DELETE | (EXISTS ( SELECT 1                                                                                                                                                                                      +| 
+            |                        |                                                   |            |                 |        |    FROM profiles                                                                                                                                                                                        +| 
+            |                        |                                                   |            |                 |        |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text])))))                                                                                           | 
+ public     | periodes_travail       | Admins can update all periods                     | PERMISSIVE | {authenticated} | UPDATE | (EXISTS ( SELECT 1                                                                                                                                                                                      +| (EXISTS ( SELECT 1                                                                                                                       +
+            |                        |                                                   |            |                 |        |    FROM profiles                                                                                                                                                                                        +|    FROM profiles                                                                                                                         +
+            |                        |                                                   |            |                 |        |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text])))))                                                                                           |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text])))))
+ public     | periodes_travail       | Admins can view all periods                       | PERMISSIVE | {authenticated} | SELECT | (EXISTS ( SELECT 1                                                                                                                                                                                      +| 
+            |                        |                                                   |            |                 |        |    FROM profiles                                                                                                                                                                                        +| 
+            |                        |                                                   |            |                 |        |   WHERE ((profiles.id = auth.uid()) AND (profiles.role = ANY (ARRAY['admin'::text, 'administratif'::text])))))                                                                                           | 
+ public     | periodes_travail       | Chefs can delete team periods                     | PERMISSIVE | {authenticated} | DELETE | ((chantier_id IN ( SELECT c.chantier_id                                                                                                                                                                 +| 
+            |                        |                                                   |            |                 |        |    FROM get_chef_chantier_ids(auth.uid()) c(chantier_id))) OR (EXISTS ( SELECT 1                                                                                                                        +| 
+            |                        |                                                   |            |                 |        |    FROM (zones_ouvriers zo                                                                                                                                                                              +| 
+            |                        |                                                   |            |                 |        |      JOIN zones_equipe ze ON ((ze.id = zo.zone_id)))                                                                                                                                                    +| 
+            |                        |                                                   |            |                 |        |   WHERE ((zo.user_id = periodes_travail.user_id) AND (ze.chef_equipe_id = auth.uid()) AND (zo.date_fin IS NULL)))))                                                                                      | 
+ public     | periodes_travail       | Chefs can update team periods for validation      | PERMISSIVE | {authenticated} | UPDATE | ((EXISTS ( SELECT 1                                                                                                                                                                                     +| (EXISTS ( SELECT 1                                                                                                                       +
+            |                        |                                                   |            |                 |        |    FROM affectations_chantiers a                                                                                                                                                                        +|    FROM affectations_chantiers a                                                                                                         +
+            |                        |                                                   |            |                 |        |   WHERE ((a.user_id = periodes_travail.user_id) AND (a.chantier_id = periodes_travail.chantier_id) AND (a.chef_equipe_id = auth.uid())))) AND (statut = ANY (ARRAY['terminee'::text, 'validee'::text]))) |   WHERE ((a.user_id = periodes_travail.user_id) AND (a.chantier_id = periodes_travail.chantier_id) AND (a.chef_equipe_id = auth.uid()))))
+ public     | periodes_travail       | Chefs can view their team periods                 | PERMISSIVE | {authenticated} | SELECT | (EXISTS ( SELECT 1                                                                                                                                                                                      +| 
+            |                        |                                                   |            |                 |        |    FROM affectations_chantiers a                                                                                                                                                                        +| 
+            |                        |                                                   |            |                 |        |   WHERE ((a.user_id = periodes_travail.user_id) AND (a.chantier_id = periodes_travail.chantier_id) AND (a.chef_equipe_id = auth.uid()))))                                                                | 
+ public     | periodes_travail       | Users can delete own non-validated periods        | PERMISSIVE | {authenticated} | DELETE | ((user_id = auth.uid()) AND (statut = ANY (ARRAY['en_cours'::text, 'terminee'::text])))                                                                                                                  | 
+ public     | periodes_travail       | Users can delete own rejected periods             | PERMISSIVE | {authenticated} | DELETE | ((user_id = auth.uid()) AND (statut = 'rejetee'::text))                                                                                                                                                  | 
+ public     | periodes_travail       | Users can insert own periods                      | PERMISSIVE | {authenticated} | INSERT |                                                                                                                                                                                                          | (user_id = auth.uid())
+ public     | periodes_travail       | Users can update own non-validated periods        | PERMISSIVE | {authenticated} | UPDATE | ((user_id = auth.uid()) AND (statut = ANY (ARRAY['en_cours'::text, 'terminee'::text])))                                                                                                                  | (user_id = auth.uid())
+ public     | periodes_travail       | Users can update own rejected periods             | PERMISSIVE | {authenticated} | UPDATE | ((user_id = auth.uid()) AND (statut = 'rejetee'::text))                                                                                                                                                  | ((user_id = auth.uid()) AND (statut = 'terminee'::text))
+ public     | periodes_travail       | Users can view own periods                        | PERMISSIVE | {authenticated} | SELECT | (user_id = auth.uid())                                                                                                                                                                                   | 
+ public     | profiles               | Admins can insert any profile                     | PERMISSIVE | {authenticated} | INSERT |                                                                                                                                                                                                          | (get_my_role() = 'admin'::text)
+ public     | profiles               | Admins can update any profile                     | PERMISSIVE | {authenticated} | UPDATE | (get_my_role() = 'admin'::text)                                                                                                                                                                          | (get_my_role() = 'admin'::text)
+ public     | profiles               | Authenticated users can view profiles             | PERMISSIVE | {authenticated} | SELECT | true                                                                                                                                                                                                     | 
+ public     | profiles               | Users can update own profile                      | PERMISSIVE | {authenticated} | UPDATE | (auth.uid() = id)                                                                                                                                                                                        | (auth.uid() = id)
+ public     | profiles               | Users can view own profile                        | PERMISSIVE | {authenticated} | SELECT | (auth.uid() = id)                                                                                                                                                                                        | 
+ public     | zones_chantiers        | Admin can delete zone chantiers                   | PERMISSIVE | {authenticated} | DELETE | is_admin()                                                                                                                                                                                               | 
+ public     | zones_chantiers        | Admin can insert zone chantiers                   | PERMISSIVE | {authenticated} | INSERT |                                                                                                                                                                                                          | is_admin()
+ public     | zones_chantiers        | Admin can view all zone chantiers                 | PERMISSIVE | {authenticated} | SELECT | is_admin()                                                                                                                                                                                               | 
+ public     | zones_chantiers        | Chef can delete zone chantiers                    | PERMISSIVE | {authenticated} | DELETE | is_zone_owner(zone_id)                                                                                                                                                                                   | 
+ public     | zones_chantiers        | Chef can insert zone chantiers                    | PERMISSIVE | {authenticated} | INSERT |                                                                                                                                                                                                          | is_zone_owner(zone_id)
+ public     | zones_chantiers        | Chef can view zone chantiers                      | PERMISSIVE | {authenticated} | SELECT | is_zone_owner(zone_id)                                                                                                                                                                                   | 
+ public     | zones_chantiers        | Ouvrier can view chantiers in assigned zones      | PERMISSIVE | {authenticated} | SELECT | (EXISTS ( SELECT 1                                                                                                                                                                                      +| 
+            |                        |                                                   |            |                 |        |    FROM zones_ouvriers zo                                                                                                                                                                               +| 
+            |                        |                                                   |            |                 |        |   WHERE ((zo.zone_id = zones_chantiers.zone_id) AND (zo.user_id = auth.uid()) AND (zo.date_fin IS NULL))))                                                                                               | 
+ public     | zones_equipe           | Admin can delete zones                            | PERMISSIVE | {authenticated} | DELETE | is_admin()                                                                                                                                                                                               | 
+ public     | zones_equipe           | Admin can insert zones                            | PERMISSIVE | {authenticated} | INSERT |                                                                                                                                                                                                          | is_admin()
+ public     | zones_equipe           | Admin can update zones                            | PERMISSIVE | {authenticated} | UPDATE | is_admin()                                                                                                                                                                                               | is_admin()
+ public     | zones_equipe           | Admin can view all zones                          | PERMISSIVE | {authenticated} | SELECT | is_admin()                                                                                                                                                                                               | 
+ public     | zones_equipe           | Chef can delete own zones                         | PERMISSIVE | {authenticated} | DELETE | (chef_equipe_id = auth.uid())                                                                                                                                                                            | 
+ public     | zones_equipe           | Chef can insert own zones                         | PERMISSIVE | {authenticated} | INSERT |                                                                                                                                                                                                          | (chef_equipe_id = auth.uid())
+ public     | zones_equipe           | Chef can update own zones                         | PERMISSIVE | {authenticated} | UPDATE | (chef_equipe_id = auth.uid())                                                                                                                                                                            | (chef_equipe_id = auth.uid())
+ public     | zones_equipe           | Chef can view own zones                           | PERMISSIVE | {authenticated} | SELECT | (chef_equipe_id = auth.uid())                                                                                                                                                                            | 
+ public     | zones_equipe           | Ouvrier can view assigned zones                   | PERMISSIVE | {authenticated} | SELECT | (EXISTS ( SELECT 1                                                                                                                                                                                      +| 
+            |                        |                                                   |            |                 |        |    FROM zones_ouvriers zo                                                                                                                                                                               +| 
+            |                        |                                                   |            |                 |        |   WHERE ((zo.zone_id = zones_equipe.id) AND (zo.user_id = auth.uid()) AND (zo.date_fin IS NULL))))                                                                                                       | 
+ public     | zones_ouvriers         | Admin can delete zone ouvriers                    | PERMISSIVE | {authenticated} | DELETE | is_admin()                                                                                                                                                                                               | 
+ public     | zones_ouvriers         | Admin can insert zone ouvriers                    | PERMISSIVE | {authenticated} | SELECT | is_admin()                                                                                                                                                                                               | 
+ public     | zones_ouvriers         | Admin can update zone ouvriers                    | PERMISSIVE | {authenticated} | UPDATE | is_admin()                                                                                                                                                                                               | is_admin()
+ public     | zones_ouvriers         | Admin can view all zone ouvriers                  | PERMISSIVE | {authenticated} | SELECT | is_admin()                                                                                                                                                                                               | 
+ public     | zones_ouvriers         | Chef can delete zone ouvriers                     | PERMISSIVE | {authenticated} | DELETE | is_zone_owner(zone_id)                                                                                                                                                                                   | 
+ public     | zones_ouvriers         | Chef can insert zone ouvriers                     | PERMISSIVE | {authenticated} | INSERT |                                                                                                                                                                                                          | is_zone_owner(zone_id)
+ public     | zones_ouvriers         | Chef can update zone ouvriers                     | PERMISSIVE | {authenticated} | UPDATE | is_zone_owner(zone_id)                                                                                                                                                                                   | is_zone_owner(zone_id)
+ public     | zones_ouvriers         | Chef can view zone ouvriers                       | PERMISSIVE | {authenticated} | SELECT | is_zone_owner(zone_id)                                                                                                                                                                                   | 
+ public     | zones_ouvriers         | Ouvrier can view own zone assignments             | PERMISSIVE | {authenticated} | SELECT | (user_id = auth.uid())                                                                                                                                                                                   | 
+(61 rows)
+
+              ?column?               
+-------------------------------------
+ === AUTH TRIGGERS ON auth.users ===
+(1 row)
+
+ trigger_name | action_timing | event_manipulation | action_statement 
+--------------+---------------+--------------------+------------------
+(0 rows)
+
+          ?column?          
+----------------------------
+ === PUBLICATION TABLES ===
+(1 row)
+
+                pubname                 | schemaname |      tablename      
+----------------------------------------+------------+---------------------
+ supabase_realtime_messages_publication | realtime   | messages_2026_07_05
+ supabase_realtime_messages_publication | realtime   | messages_2026_07_06
+ supabase_realtime_messages_publication | realtime   | messages_2026_07_07
+ supabase_realtime_messages_publication | realtime   | messages_2026_07_08
+ supabase_realtime_messages_publication | realtime   | messages_2026_07_09
+ supabase_realtime_messages_publication | realtime   | messages_2026_07_10
+ supabase_realtime_messages_publication | realtime   | messages_2026_07_11
+(7 rows)
+

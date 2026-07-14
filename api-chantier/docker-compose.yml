@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: chantier-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-chantier}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chantier}
+      POSTGRES_DB: ${POSTGRES_DB:-chantier}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - chantier_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chantier} -d ${POSTGRES_DB:-chantier}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chantier-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-chantier}:${POSTGRES_PASSWORD:-chantier}@db:5432/${POSTGRES_DB:-chantier}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-use-long-random-string}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    ports:
+      - "${API_PORT:-3000}:3000"
+
+volumes:
+  chantier_pg_data:

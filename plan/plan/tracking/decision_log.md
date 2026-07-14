@@ -1,0 +1,24 @@
+﻿# Decision Log — Chantier
+
+| Date | Type | Decision | Why | Trade-off | Impact | Owner | Affected | Follow-up |
+|---|---|---|---|---|---|---|---|---|
+| 2026-07-14 | Architecture | SoT = `migration-analysis/` (không dùng Hawk `01`) | Reverse engineer Chantier hoàn tất | Plan cũ Hawk bị thay | Mọi task cite SoT Chantier | Architect | All phases | Phase 1–2 |
+| 2026-07-14 | Architecture | Target BE = Express modular + Postgres + Docker Compose (`api-chantier/`) | Master Plan Phase 4 | Chưa chọn migration runner chi tiết | Scaffold sống; ADR còn thiếu | Architect | P4, P9 | ADR Phase 4 |
+| 2026-07-14 | Scope | Super Admin / multi-company = **out of scope mặc định** | SoT: không có trong code (`00-IMPORTANT-FINDINGS`) | Brief 2-DB chưa implement | Tránh scope creep | PM | P3, P8 | decision nếu mở Flow H |
+| 2026-07-14 | Delivery | Phase 0 marked Done; Phase 4/9 Partial (scaffold only) | `/health` + Compose ≠ nghiệp vụ Done | Gates ngăn nhảy cóc | Status board cập nhật | PM | P0, P4, P9 | Phase 1 next |
+| 2026-07-14 | Runtime | **Runtime FE committed = project `afgveikzneaablcuzwdb` + anon key** (`app.config.js`, `eas.json`). Không dual-client. `hzppsttpzzeuslnpcdkv` = CLI link + optional notes trong file `env`, không phải Super Admin DB | Phase 1 validation source | Local `.env` thủ công có thể lệch | Design BE/env theo afgveikz cho đến khi Phase 2 dump chốt prod | Architect | P1, P2, P5, P10 | Phase 2: dump prod (xác nhận ref thật) |
+| 2026-07-14 | Scope | **Xác nhận lại** Super Admin / multi-company / Flow H = **out of scope** migrate hiện tại; single-tenant 4 roles. `auth.users.is_super_admin` trong seed ≠ app Super Admin | Phase 1 P1_T03 + code grep | Brief 2-DB vẫn là greenfield tương lai | Domain model Phase 3 không mở Company entity trừ decision mới | PM | P3, P8, P9 | Mở Flow H chỉ qua decision_log mới |
+| 2026-07-14 | Risk accept | File `env` chứa service_role JWT dưới tên ANON_KEY + 2 project blocks — **không rotate trong Phase 1**; escalate R-08/R-13 | Phase 1 chỉ Validation | Secret vẫn trong repo notes | FE/ops phải gỡ trước prod | Security | P10, P13, P14 | Rotate + .gitignore `.env`; xóa `env` secrets |
+| 2026-07-14 | Scope | **Architecture Scope Confirmed** — workspace + docs phản ánh **toàn bộ hệ thống implemented** cần migrate theo Master Plan: **1 Company Portal (BTP timesheet single-tenant)**, không Super Admin Portal, không evidence repo sibling bắt buộc. `afgveikz…` = runtime committed/EAS; `hzppst…` = CLI/local notes; prod VM = secret CI (chưa xác nhận ref) | Architecture Scope Validation (evidence inventory) | Không inventory được private org ngoài URL trong repo | Phase 1 có thể đóng; Phase 2 chỉ sau approve + chốt dump ref | Architect | P1 Done; P2 gate | Human: confirm dump project; không mở Flow H |
+| 2026-07-14 | Database | Phase 2 **Verified Dump** of **`hzppst…`**. Runtime(`afgveikz`/CI) == Dump **unproven**. Status: **Technical Investigation Complete** · **Waiting External Confirmation**. Do not promote Production SoT; do not start Phase 3 | Production Source Validation + Ready package | Waiting human Scenario A/B/C/D | See `SOURCE_OF_TRUTH_DECISION.md`, `NEXT_ACTION_MATRIX.md`, `READY_FOR_EXTERNAL_CONFIRMATION.md` | Architect | P2 Gate | Human confirms Runtime project |
+| 2026-07-14 | Delivery | Framework prep for Phases 3–14 while Waiting External Confirmation: prerequisite checklists, P3–P5 PHASE docs, dependency proposals, migration readiness review, PROJECT_EXECUTION_READINESS — **no** Phase execution, **no** SoT/Phase 2 status change | Idle wait productivity | — | Ready to resume after Scenario A/B/C | Architect | P3–P14 prep | Await Runtime confirmation |
+| 2026-07-14 | Architecture | **Project direction → Consolidation + Replatforming** (2 FE × 2 Supabase → 1 FE + 1 Backend + 1 PG). Reject clone/1:1 Supabase migrate as goal. Roadmap redesigned from Phase 3 (Merge Specification first). Phase 0–2 results kept as Legacy Analysis | Product direction change | Prior P3–P14 prep for 1:1 migrate superseded | New Master Plan; risks R-20+; Merge Spec = design SoT | Architect / PM | All phases 3+ | Identify System B; start Phase 3 |
+| 2026-07-14 | Delivery | Agentic Flow refactor complete: Master Plan, gates, risks, tracking, migration-analysis labels, new P3–P14 folders, SUPERSEDED old packs, `AGENTIC_FLOW_REFACTOR_REPORT.md`. No Backend/API/Entity/data work | Direction change execution | Historical P2 Track L docs retained with addenda | Governance ready for Merge Spec | Architect | P3 | Human identifies A/B; start Phase 3 |
+
+## When to add a row
+
+- Scope khác task / Master Plan  
+- Đổi architecture / Keep-Port-Drop  
+- Đổi dependency order  
+- Accept risk có trade-off  
+- Lệch timeline > 1 ngày  

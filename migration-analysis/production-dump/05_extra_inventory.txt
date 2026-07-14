@@ -1,0 +1,121 @@
+         section          
+--------------------------
+ === ALL PUBLIC FUNCS ===
+(1 row)
+
+                    proname                     
+------------------------------------------------
+ auto_approve_if_matches_latest_validated_shift
+ calculer_duree_periode
+ delete_chantier_cascade
+ get_chef_chantier_ids
+ get_my_role
+ is_admin
+ is_zone_owner
+ rls_auto_enable
+ sync_declarations_from_periods
+ sync_periods_from_declaration
+(10 rows)
+
+             section              
+----------------------------------
+ === EXPECTED MISSING ON PROD ===
+(1 row)
+
+                    x                     
+------------------------------------------
+ auto_approve_week_suggestion_replication
+ calculer_heures_cadre_chantier
+ minutes_from_time
+(3 rows)
+
+        section        
+-----------------------
+ === REALTIME PUBS ===
+(1 row)
+
+                pubname                 
+----------------------------------------
+ supabase_realtime
+ supabase_realtime_messages_publication
+(2 rows)
+
+                    section                    
+-----------------------------------------------
+ === REALTIME PUB TABLES supabase_realtime ===
+(1 row)
+
+ schemaname | tablename 
+------------+-----------
+(0 rows)
+
+                    section                    
+-----------------------------------------------
+ === ALL PUBLICATION TABLES (non messages) ===
+(1 row)
+
+ pubname | schemaname | tablename 
+---------+------------+-----------
+(0 rows)
+
+          section          
+---------------------------
+ === MIGRATION HISTORY ===
+(1 row)
+
+    version     |                name                 
+----------------+-------------------------------------
+ 20260311051724 | create_btp_timesheet_schema
+ 20260311083529 | fix_profiles_rls_infinite_recursion
+ 20260311095008 | add_dates_to_affectations_chantiers
+ 20260311204428 | create_work_periods_system
+ 20260311211649 | add_meal_and_travel_to_time_entries
+(5 rows)
+
+       section       
+---------------------
+ === KEY COLUMNS ===
+(1 row)
+
+          table_name          |   column_name   | data_type | is_nullable | column_default 
+------------------------------+-----------------+-----------+-------------+----------------
+ declarations_heures          | nb_deplacements | integer   | YES         | 0
+ periodes_travail             | deplacement     | boolean   | YES         | false
+ periodes_travail             | panier_repas    | boolean   | YES         | false
+ profiles                     | matricule       | text      | YES         | ''::text
+ profiles                     | phone           | text      | YES         | ''::text
+ synthese_heures_journalieres | nb_deplacements | integer   | YES         | 
+(6 rows)
+
+     section      
+------------------
+ === VIEW DEF ===
+(1 row)
+
+                                             pg_get_viewdef                                              
+---------------------------------------------------------------------------------------------------------
+  SELECT user_id,                                                                                       +
+     chantier_id,                                                                                       +
+     date,                                                                                              +
+     sum(calculer_duree_periode(heure_debut, heure_fin)) AS total_heures,                               +
+     LEAST(sum(calculer_duree_periode(heure_debut, heure_fin)), 7.0) AS heures_normales,                +
+     GREATEST(sum(calculer_duree_periode(heure_debut, heure_fin)) - 7.0, 0.0) AS heures_supplementaires,+
+         CASE                                                                                           +
+             WHEN bool_or(panier_repas) THEN 1                                                          +
+             ELSE 0                                                                                     +
+         END AS nb_paniers,                                                                             +
+         CASE                                                                                           +
+             WHEN bool_or(deplacement) THEN 1                                                           +
+             ELSE 0                                                                                     +
+         END AS nb_deplacements,                                                                        +
+         CASE                                                                                           +
+             WHEN bool_and(statut = 'validee'::text) THEN 'validee'::text                               +
+             WHEN bool_or(statut = 'en_cours'::text) THEN 'brouillon'::text                             +
+             ELSE 'soumise'::text                                                                       +
+         END AS statut,                                                                                 +
+     max(updated_at) AS updated_at                                                                      +
+    FROM periodes_travail                                                                               +
+   WHERE statut <> 'rejetee'::text                                                                      +
+   GROUP BY user_id, chantier_id, date;
+(1 row)
+
