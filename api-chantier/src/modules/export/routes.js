@@ -1,8 +1,14 @@
 import { Router } from 'express';
-import { notImplemented } from '../../shared/utils/notImplemented.js';
+import { requireAuth, requireRoles } from '../../shared/middleware/auth.js';
+import * as controller from './controller.js';
 
 const router = Router();
+const exporters = requireRoles('admin', 'administratif', 'chef_equipe');
 
-router.get('/payroll', notImplemented('export.payroll'));
+router.use(requireAuth);
+router.use(exporters);
+
+router.get('/payroll', controller.payroll);
+router.get('/stats', controller.stats);
 
 export default router;

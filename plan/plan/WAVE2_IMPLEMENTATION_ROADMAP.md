@@ -22,7 +22,7 @@
 | Imp-05 | Assignments & Zones | **Done — PASS** | Imp-03, Imp-04 |
 | Imp-06 | Timesheet | **Done PASS** | Imp-04, Imp-05 |
 | Imp-07 | Review & Approval | **Done PASS** | Imp-06 |
-| Imp-08 | Reporting & Export | In Progress | Imp-06, Imp-07 |
+| Imp-08 | Reporting & Export | **Done PASS** | Imp-06, Imp-07 |
 | Imp-09 | Notifications | Todo | Imp-02, Imp-07 |
 | Imp-10 | Background Jobs | Todo | Imp-06, Imp-07, Imp-09 |
 | Imp-11 | Administration | Todo | Imp-02, Imp-03 |
@@ -81,7 +81,7 @@
 - **Acceptance criteria:** Valid and invalid transitions are tested; approver identity/audit evidence is persisted; RBAC and scoped policy deny unauthorized approval; auto-approval behavior matches evidence or a decision.
 
 ### Imp-08 — Reporting & Export
-- **Status:** In Progress
+- **Status:** Done PASS
 - **Goal:** Provide authorized validated-time reporting and export behavior without bypassing approval or scope policy.
 - **SoT refs:** ADR-001 Payroll Export; `migration-analysis/merge/functions_rpc_mapping.md`; `migration-analysis/merge/permissions_mapping.md`; `migration-analysis/merge/fe_contract_matrix.md`.
 - **Depends On:** Imp-06, Imp-07.
