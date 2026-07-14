@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { AppError } from '../../shared/errors/AppError.js';
 import { query } from '../../shared/db/pool.js';
 import { getChefChantierIds } from '../../shared/authz/chefScope.js';
-import { splitHours } from '../timesheet/domain/calculation.js';
+import { durationHours } from '../timesheet/domain/timeUtility.js';
 import { mapPayrollPeriod, mapDeclarationExport } from './dto.js';
 
 const rangeSchema = z.object({
@@ -47,15 +47,6 @@ function parseRange(queryParams) {
   return { from, to };
 }
 
-/** Cadre window from Imp-04 columns (DR-002) for stats total_heures. */
-function cadreWindow(chantier) {
-  if (!chantier) return { debut: null, fin: null };
-  return {
-    debut: chantier.heure_debut_matin || chantier.heure_debut_apres_midi || null,
-    fin: chantier.heure_fin_apres_midi || chantier.heure_fin_matin || null,
-  };
-}
-
 /**
  * Flow F — validated periods in date range (SUMMARY #14).
  */
@@ -88,7 +79,9 @@ export async function listPayrollPeriods(queryParams, actor) {
 }
 
 /**
- * FE export.tsx loadStats — counts + total_heures (CADRE / 7h via splitHours).
+ * FE export.tsx loadStats — counts + total_heures.
+ * total_heures = wall-clock (heure_fin - heure_debut), matching
+ * computeChantierHoursBreakdown(...).totalHeures — NOT normales+HS from splitHours.
  * Closed periods (heure_fin NOT NULL) in exporter scope.
  */
 export async function listExportStats(actor) {
@@ -99,12 +92,8 @@ export async function listExportStats(actor) {
   }
 
   const { rows } = await query(
-    `SELECT
-       p.statut, p.heure_debut, p.heure_fin,
-       c.heure_debut_matin, c.heure_fin_matin,
-       c.heure_debut_apres_midi, c.heure_fin_apres_midi
+    `SELECT p.statut, p.heure_debut, p.heure_fin
      FROM periodes_travail p
-     JOIN chantiers c ON c.id = p.chantier_id
      WHERE p.heure_fin IS NOT NULL
        AND ($1::uuid[] IS NULL OR p.chantier_id = ANY($1::uuid[]))`,
     [scope],
@@ -118,9 +107,7 @@ export async function listExportStats(actor) {
     if (r.statut === 'validee') validees += 1;
     if (r.statut === 'terminee') en_attente += 1;
     if (r.statut === 'validee' || r.statut === 'terminee') {
-      const cadre = cadreWindow(r);
-      const split = splitHours(r.heure_debut, r.heure_fin, cadre.debut, cadre.fin);
-      total_heures += split.total_heures;
+      total_heures += durationHours(r.heure_debut, r.heure_fin);
     }
   }
 
