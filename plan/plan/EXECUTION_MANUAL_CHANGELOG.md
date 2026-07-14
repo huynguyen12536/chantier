@@ -9,6 +9,7 @@
 | 2026-07-14 | Updated Current pointer: governance update; **Imp-07 STOP** | Explicit human gate after Imp-05 rework |
 | 2026-07-14 | Current pointer → Imp-07 PASS; Imp-06 frozen | Human authorized Review & Approval Wave2 |
 | 2026-07-14 | Current pointer → Imp-08 PASS; STOP Imp-09 | Human authorized Reporting & Export |
+| 2026-07-14 | Current pointer → Imp-09 STOP (DR-IMP09-001/002/003) | Ambiguity gate; no invented transport |
 
 ## New invariants (short)
 

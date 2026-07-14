@@ -133,7 +133,7 @@ When uncertain, do not guess. Use: **Context · Evidence · Options · Recommend
 | Item | Value |
 |---|---|
 | Current wave | Wave 2 — Coding |
-| Current module | **Imp-08 Reporting & Export PASS** — STOP before Imp-09 until human review |
+| Current module | **Imp-09 STOP** — Decision Requests DR-IMP09-001/002/003; Imp-05–08 frozen |
 | Governing decision | O3 + **UNION database / additive migrations** (2026-07-14) |
 | Binding DB policy | `DATABASE_EVOLUTION_POLICY.md` |
 | Roadmap | `WAVE2_IMPLEMENTATION_ROADMAP.md` |
