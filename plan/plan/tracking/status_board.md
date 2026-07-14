@@ -6,13 +6,13 @@
 | Module | Status |
 |---|---|
 | Imp-01?04 | Done PASS |
-| Imp-05 Assignments & Zones | **FROZEN PASS** `f40a896a4a` |
-| Imp-06 Timesheet | **FROZEN PASS** `2f8af6aaec` |
-| Imp-07 Review & Approval | **FROZEN PASS** `8b7cba92f0` |
-| Imp-08 Reporting & Export | **FROZEN PASS** `9f83714c00` (+ stats parity `b6c7e442a3`) |
-| Imp-09 Notifications | **STOP ? Decision Requests** DR-IMP09-001/002/003 |
-| Imp-10+ | Blocked until Imp-09 |
+| Imp-05 Assignments & Zones | **FROZEN PASS** |
+| Imp-06 Timesheet | **FROZEN PASS** |
+| Imp-07 Review & Approval | **FROZEN PASS** |
+| Imp-08 Reporting & Export | **FROZEN PASS** |
+| Imp-09 Notifications | **BLOCKED** ? Decision Verification: transport NOT decided (C-06 Open; Defer mechanism) |
+| Imp-10 Background Jobs | Blocked (depends Imp-09) |
+| Next proposed | **Imp-11 Administration** (depends Imp-02/03 only; no Imp-09) |
 
-Open product DRs: Imp-06 DR-001/002/003 **CLOSED**.  
-Imp-09 blocked on transport / emit / hook-ownership DRs.  
-Policy: **absence is not evidence**; Unified DB = UNION; additive migrations default.
+Imp-09: see `implementation-09/DECISION_VERIFICATION.md`, `TRACEABILITY.md`, `BLOCKER_REPORT.md`.  
+No Imp-09 code. No invented transport.
