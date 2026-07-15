@@ -24,7 +24,7 @@
 | Imp-07 | Review & Approval | **Done PASS** | Imp-06 |
 | Imp-08 | Reporting & Export | **Done PASS** | Imp-06, Imp-07 |
 | Imp-09 | Notifications / Realtime | **Done — PASS / CLOSED** | Imp-02, Imp-07 |
-| Imp-10 | Background Jobs | **Wave A COMPLETE**; **Wave B1 COMPLETE**; Wave C **BLOCKED** | Imp-06, Imp-07, Imp-09 |
+| Imp-10 | Background Jobs | **COMPLETE** (Wave A + Wave B1); Wave C **Deferred**; Imp-12 Wave B **Blocked** | Imp-06, Imp-07, Imp-09 |
 | Imp-11 | Administration | **Done — PASS / CLOSED** | Imp-02, Imp-03 |
 | Imp-12 | Integration Adapters (FE contract compatibility) | **Wave A COMPLETE**; Wave B **BLOCKED** | Imp-02–Imp-11 as applicable |
 | Imp-13 | Production Readiness | Todo | Imp-01–Imp-12 |
@@ -96,15 +96,17 @@
 - **Evidence:** `implementation-reports/implementation-09/`
 
 ### Imp-10 — Background Jobs
-- **Status:** **Wave A COMPLETE / APPROVED**. **Wave B1 COMPLETE** (JB-01 only; DR-B-001…006 sealed). **Wave C BLOCKED** until separate Human authorization.
+- **Status:** **COMPLETE / CLOSED** — Release **APPROVED** (`IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS`).
+- **Implementation:** Wave A + Wave B1 only.
+- **Wave C:** **Deferred** (not authorized; not required for Imp-10 close).
+- **Imp-12 Wave B:** **Blocked** (separate track; unchanged).
 - **Goal:** Implement reliable asynchronous processing required by approved domain events, reconciliation, or notifications.
 - **SoT refs:** ADR-001 §§Decision and Consequences; `migration-analysis/merge/triggers_mapping.md`; `migration-analysis/merge/edge_functions_mapping.md`; Phase 10 backlog.
 - **Depends On:** Imp-06, Imp-07, Imp-09 (satisfied).
 - **Acceptance criteria:** Each job has an evidence-backed purpose, idempotency/retry/failure policy, observability, and integration tests; no legacy trigger is ported without a mapped service/event path.
 - **Wave A delivered:** in-process ephemeral runner + registry + queue + retry/idempotency + `jobs.platform_noop` + tests (DR-IMP10-001…006 = A,A,B,A,A,A). Code head `6a2a169bd1`.
 - **Wave B1 delivered:** `jobs.realtime.redispatch_catalog` + Imp-09 write-failure → enqueue (DR-B-001…006 = A,A,A,B,A,B). Code head `6d10aaf038`. No Outbox / replay / SQL / domain jobs.
-- **Wave C (blocked):** hardening / DLQ / ops endpoints — after separate auth.
-- **Evidence:** `implementation-reports/implementation-10/` · `IMP10_WAVE_A_FINAL_CLOSURE.md` · `IMP10_WAVE_B1_COMPLETION_CHECKLIST.md`
+- **Evidence:** `implementation-reports/implementation-10/` · `IMP10_FINAL_CLOSURE.md` · `IMP10_PHASE_COMPLETION_CHECKLIST.md` · `IMP10_RELEASE_NOTE.md`
 
 ### Imp-11 — Administration
 - **Status:** **Done — PASS / CLOSED**

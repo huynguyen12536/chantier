@@ -2,10 +2,30 @@
 
 **Date:** 2026-07-15  
 **Phase:** Imp-10 — Background Jobs  
-**Wave A:** **COMPLETE / CLOSED** (Human APPROVED)  
-**Wave B1:** **IMPLEMENTATION COMPLETE** — closure pack delivered; await Human formal APPROVED  
-**Wave B2 / Wave C:** **BLOCKED**  
+**Phase status:** **CLOSED**
+
+| Gate | Status |
+|---|---|
+| Investigation | ✓ COMPLETE |
+| Design Review | ✓ COMPLETE |
+| Wave A | ✓ COMPLETE |
+| Wave B1 | ✓ COMPLETE |
+| Architecture Review | ✓ COMPLETE |
+| Phase Status | **CLOSED** |
+
+**Wave C:** DEFERRED · **Wave B2:** NOT AUTHORIZED · **Imp-12 Wave B:** BLOCKED  
+**Runtime head:** `6d10aaf038`  
+**Seal:** `IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS`  
 **Prerequisites locked:** Imp-02…Imp-09 COMPLETE; Imp-11 COMPLETE; Imp-12 Wave A COMPLETE (LOCKED)
+
+## Closure
+
+| Doc | Purpose |
+|---|---|
+| [IMP10_FINAL_CLOSURE.md](./IMP10_FINAL_CLOSURE.md) | **Formal Imp-10 final closure** |
+| [IMP10_PHASE_COMPLETION_CHECKLIST.md](./IMP10_PHASE_COMPLETION_CHECKLIST.md) | Phase completion checklist |
+| [IMP10_RELEASE_NOTE.md](./IMP10_RELEASE_NOTE.md) | Engineering release note |
+| [IMP10_FINAL_ARCHITECTURE_RELEASE_REVIEW.md](./IMP10_FINAL_ARCHITECTURE_RELEASE_REVIEW.md) | Final architecture audit |
 
 ## Wave A (closed)
 
@@ -23,7 +43,7 @@
 | [IMP10_TEST_REPORT.md](./IMP10_TEST_REPORT.md) | Test results |
 | [IMP10_REGRESSION_REPORT.md](./IMP10_REGRESSION_REPORT.md) | Regression / untouched evidence |
 | [IMP10_WAVE_A_COMPLETION_CHECKLIST.md](./IMP10_WAVE_A_COMPLETION_CHECKLIST.md) | Closed checklist |
-| [IMP10_WAVE_A_FINAL_CLOSURE.md](./IMP10_WAVE_A_FINAL_CLOSURE.md) | **Formal Wave A closure** |
+| [IMP10_WAVE_A_FINAL_CLOSURE.md](./IMP10_WAVE_A_FINAL_CLOSURE.md) | Formal Wave A closure |
 
 ## Wave B (investigation + design — sealed)
 
@@ -36,7 +56,7 @@
 | [IMP10_WAVE_B_IMPLEMENTATION_SCOPE.md](./IMP10_WAVE_B_IMPLEMENTATION_SCOPE.md) | Code may/never |
 | [IMP10_WAVE_B_DESIGN_REVIEW.md](./IMP10_WAVE_B_DESIGN_REVIEW.md) | Design review |
 
-## Wave B1 (implementation complete)
+## Wave B1 (closed)
 
 | Doc | Purpose |
 |---|---|
@@ -45,5 +65,4 @@
 | [IMP10_WAVE_B1_REGRESSION_REPORT.md](./IMP10_WAVE_B1_REGRESSION_REPORT.md) | Full suite + untouched paths |
 | [IMP10_WAVE_B1_COMPLETION_CHECKLIST.md](./IMP10_WAVE_B1_COMPLETION_CHECKLIST.md) | DR + forbidden checklist |
 
-**Code head:** `6d10aaf038`  
-**Next:** Human formal APPROVED for Wave B1 closure. Do **not** start Wave C or Imp-12 Wave B without authorization.
+**Do not start Wave C or Imp-12 Wave B without new Human authorization.**
