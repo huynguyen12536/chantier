@@ -37,6 +37,7 @@
 | 2026-07-15 | Imp-09 Decisions | **DR-IMP09-001 SSE** · **DR-IMP09-002 Imp-06 post-COMMIT emit** · **DR-IMP09-003 reuse Imp-07 notificationHooks**. Rejected WS / PG NOTIFY→client / Supabase RT / Outbox / polling-only | Human Decision | Transport + thaw scope fixed | Imp-09 coding unblocked | Technical Lead | Imp-09 | Implement SSE module |
 | 2026-07-15 | Delivery | **Imp-09 Realtime PASS** — `GET /events` SSE, scoped delivery, Imp-06 emit after COMMIT, Imp-07 hooks → dispatcher; **67/67 tests**; reports in `implementation-09/`. **STOP for human review** | Closed DRs + DoD | FE adapter deferred Imp-12 | Status board Imp-09 PASS (review) | Implementer | Imp-09 | Await review |
 | 2026-07-15 | Imp-09 Close | Review **APPROVED WITH MINOR COMMENTS** → hardening (auth Security Note, Last-Event-ID no-replay, frame/ownership docs, `SSE_HEARTBEAT_MS`/`SSE_RETRY_MS`, lifecycle, tests). **DR winners unchanged.** **70/70 tests.** Imp-09 **DONE/CLOSED**. STOP — no Imp-10/11 | Human review | Docs/config/tests only | Module closed | Implementer | Imp-09 | Human authorizes next module |
+| 2026-07-15 | Imp-11 Investigation | Evidence-only Administration pack under `implementation-reports/implementation-11/` (traceability, gaps, FE contract, plan). Opened **DR-IMP11-001/002/003**. **No Imp-11 code.** Imp-05–09 untouched. Coding gate: answer DRs + authorize | Human asked investigation | — | Waiting DR answers | Implementer | Imp-11 | Human answers DRs then authorize code |
 
 ## When to add a row
 
