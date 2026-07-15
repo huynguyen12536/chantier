@@ -1,113 +1,129 @@
-# IMP11_IMPLEMENTATION_PLAN — Administration (post-investigation)
+# IMP11_IMPLEMENTATION_PLAN — Administration (UNION MERGE)
 
 **Date:** 2026-07-15  
-**Status:** PLAN ONLY — do not code until Human answers DRs + authorizes Imp-11  
-**Frozen modules:** Imp-05, Imp-06, Imp-07, Imp-08, Imp-09
+**Status:** PLAN ONLY — investigation complete; **no code until DRs + authorize**  
+**Formula:** Final Admin = CVL Admin ∪ Unified Imp-02/03(+reuse 04/05)  
+**Frozen / reuse-only:** Imp-04, Imp-05, Imp-06, Imp-07, Imp-08, Imp-09
+
+See index: `IMP11_INVESTIGATION_INDEX.md`.
 
 ---
 
-## 1. Goal (after gate)
+## 1. Goal
 
-Close CVL Administration gaps that are **not** already delivered by Imp-03/04/05:
-
-1. User **update** + **role promote/demote** with server-side demotion guards.  
-2. Optional additive **`phone`** on profiles (if DR-IMP11-002 = Yes).  
-3. Permission-scoped REST consistent with SUMMARY #2–3 / Flow A–C.  
-4. Tests + reports; **no** Super Admin; **no** FE edits; **no** Imp-12 Edge aliases unless DR-IMP11-001 awards them to Imp-11.
+Preserve **all** Administration capabilities from both sources by finishing only categories **3 / 4 / 5** owned by Imp-11 — without cloning CVL wholesale and without discarding Unified-native features.
 
 ---
 
-## 2. Prerequisites
+## 2. Work by merge category
 
-| Prerequisite | Status |
+### Category 1 — Already merged → **no Imp-11 work**
+
+| Cap | Evidence owner |
 |---|---|
-| Imp-02 Auth | Done |
-| Imp-03 Users create/delete/list | Done |
-| Imp-04 Chantiers + cascade | Done (consume; do not rewrite) |
-| Imp-05 Affectations + Zones | Done (consume; do not rewrite) |
-| Imp-09 Realtime | Closed — not a dependency |
-| Human DRs Imp-11 | **Open** — see `IMP11_DECISION_REQUESTS.md` |
+| Create / delete / list users | Imp-03 |
+| Password ≥ 6; role create gate admin\|administratif; delete admin-only | Imp-03 |
+| Self-delete block; zone-chef delete block | Imp-03 |
+| Roles enum; email unique; JWT; refresh; `password_hash`; `actif` | Imp-02 |
+| Cascade user FK data | Schema Imp-02–06 |
 
----
+### Category 2 — Reuse → **consume only**
 
-## 3. Proposed work packages (after DRs)
+| Cap | Owner | Imp-11 rule |
+|---|---|---|
+| Chantiers CRUD + cascade | Imp-04 | Never rewrite |
+| Affectations assign / soft-remove / `chef_equipe_id` write | Imp-05 | Never rewrite; FE/API continue here |
+| Zones CRUD + ownership | Imp-05 | Never rewrite |
+| Demotion / delete checks need ownership facts | Imp-05 tables | **READ only** |
 
-### WP-A — User PATCH / role lifecycle (must)
+### Category 3 — Needs REST endpoint only → **Imp-11**
 
-- Add `PATCH /api/users/:id` (or equivalent REST — same API family as Imp-03).  
-- Fields evidenced: `nom`, `prenom`, `email`, `phone` (if column), `role`.  
-- Matricule: FE treats immutable — reject or ignore changes.  
-- AuthZ:  
-  - admin: update others (preserve RLS spirit admin update).  
-  - administratif: **create-only** per Edge; do **not** invent administratif UPDATE unless DR says so (default: align with RLS admin-only for other profiles).  
-  - self-update: out of Imp-11 if not evidenced on management (profile self via Imp-12/tables).  
-- Role change guards:  
-  - block demoting `chef_equipe` if active `affectations.chef_equipe_id` OR owns `zones_equipe`.  
-  - block changing role of another `admin` (FE lock).  
-  - preserve SUMMARY self-delete already on DELETE.
-
-### WP-B — Phone column (conditional on DR-IMP11-002)
-
-- Additive migration only (`phone text default ''`).  
-- Wire create + patch.  
-- No DROP/rename.
-
-### WP-C — Promote side-effects (minimal)
-
-- Prefer: on successful promote to `chef_equipe`, document whether FE continues to set `chef_equipe_id` (CVL) or server syncs.  
-- **Default plan (no invent):** do **not** auto-rewrite all affectations; keep FE-style assignment `chef_equipe_id` via Imp-05 POST unless Human requires server sync.
-
-### WP-D — Observability / audit (conditional on DR-IMP11-003)
-
-- Option A: structured logger only (zero schema).  
-- Option B: reuse pattern from Imp-07 audit — needs explicit Yes (may invent if no CVL table).
-
-### WP-E — Tests
-
-- create (regression Imp-03)  
-- patch fields  
-- promote ouvrier→chef  
-- demote blocked by affectation chef  
-- demote blocked by zone owner  
-- admin role lock  
-- delete still ZONE_RESTRICT / SELF_DELETE  
-- regression Imp-01→Imp-09 PASS  
-- no Imp-05 business rewrite tests expected beyond consumption
-
-### WP-F — Explicitly out of this Imp-11 plan
-
-| Item | Owner |
+| Cap | Action |
 |---|---|
-| Edge `/functions/*` aliases | Imp-12 (unless DR awards Imp-11) |
-| `/rpc/delete_chantier_cascade` alias | Imp-12 |
+| Update profile fields (CVL PostgREST UPDATE) | Add `PATCH /api/users/:id` |
+| Response/DTO include `phone` after Cat 4 | Extend serializers on create/list/get/PATCH |
+
+Does **not** invent edit business — edit already exists in CVL FE.
+
+### Category 4 — Needs additive SQL only → **Imp-11 (one file)**
+
+| Cap | DDL (illustrative — not applied in investigation) |
+|---|---|
+| `phone` (CVL) | `ALTER TABLE profiles ADD COLUMN phone TEXT NOT NULL DEFAULT ''` |
+| Matricule nonempty UNIQUE (CVL) | Partial unique index on nonempty matricule |
+
+**Forbidden:** edit migrations 001–009; DROP; rename; recreate.
+
+Gated by **DR-IMP11-002**.
+
+### Category 5 — Needs Administration business → **Imp-11**
+
+| Cap | Logic (evidence-backed) |
+|---|---|
+| Promote / demote via role PATCH | Flow C + management |
+| Demotion guard | Block if active `affectations.chef_equipe_id` OR owns `zones_equipe` (FE + SHARED #3 adjacency) |
+| Admin role lock | FE `isAdminUserRoleLocked` — cannot change role of target `admin` |
+| Nom/prenom required on admin create/update | Edge create-user required fields |
+| Matricule immutable on edit | FE forces existing matricule |
+| Optional structured admin logs | DR-IMP11-003 → prefer logs |
+
+**Does not:** redesign affectations/zones; auto-mass-rewrite `chef_equipe_id` (keep Cat 2 Imp-05 writes).
+
+### Category 6 — Deferred → **not Imp-11**
+
+| Cap | Owner |
+|---|---|
+| `/functions/create-user`, `/functions/delete-user` | Imp-12 (DR-IMP11-001) |
+| `/rpc/delete_chantier_cascade` | Imp-12 |
 | `/tables/profiles` | Imp-12 |
-| Re-implement zones/chantiers | Forbidden |
-| Flow H Super Admin | Decision Log Deferred |
-| FE edits under `chantier1/` | Forbidden |
+| Super Admin / Flow H | Project Decision Log Deferred |
 
 ---
 
-## 4. Suggested API surface (illustrative — not committed)
+## 3. Suggested Imp-11 delivery sequence (after authorize)
+
+1. **Migration 010 (additive only)** — phone + matricule nonempty UNIQUE (DR-002).  
+2. **Users service** — PATCH + validations + demotion/role-lock policies (Cat 3+5).  
+3. **Wire phone** on create/list/get (extend Imp-03 paths without rewriting delete/list semantics).  
+4. **Tests** — PATCH; promote; demote blocked (affectation + zone); admin lock; regression Imp-01→Imp-09.  
+5. **Reports** — Imp-11 implementation evidence.  
+6. **STOP** for review — do **not** auto-start Imp-12.
+
+---
+
+## 4. API delta (illustrative)
 
 | Method | Path | Roles | Notes |
 |---|---|---|---|
-| PATCH | `/api/users/:id` | admin (others); TBD self | Demotion guards |
-| (existing) | GET/POST/DELETE users | unchanged | Imp-03 |
+| PATCH | `/api/users/:id` | admin (update others; match CVL RLS spirit) | Cat 3+5 |
+| Existing | GET/POST/DELETE `/api/users` | unchanged ownership Imp-03 | Cat 1 |
 
-No `/api/admin` prefix required by CVL evidence.
-
----
-
-## 5. Definition of Done (future implementation)
-
-- [ ] DRs answered in Decision Log  
-- [ ] Gaps G-01/G-02 closed (and G-03 if awarded)  
-- [ ] Imp-03/04/05/06/07/08/09 untouched in business logic  
-- [ ] Tests + Imp-11 reports  
-- [ ] Commit + push + STOP for review  
+No `/api/admin` prefix required by evidence.
 
 ---
 
-## 6. Investigation STOP
+## 5. Explicit non-goals
 
-This file is **not** authorization to implement. Await Human review of Imp-11 investigation pack + DR answers.
+- Duplicate Imp-03 create/delete  
+- Rewrite Imp-04/05  
+- Touch Imp-06–09  
+- FE code under `chantier1/`  
+- Edge adapters (unless DR-001 = B)  
+- Invent Super Admin  
+
+---
+
+## 6. Definition of Done (future coding phase)
+
+- [ ] DR-001 + DR-002 answered in project Decision Log  
+- [ ] Cat 3+4+5 delivered; Cat 1+2 untouched as business  
+- [ ] One additive migration only  
+- [ ] Regression Imp-01→Imp-09 PASS  
+- [ ] UNION preserved (CVL phone/demotion + Unified actif/credentials)  
+- [ ] Commit + push + STOP  
+
+---
+
+## 7. Investigation STOP
+
+This plan is **not** authorization to implement. Index validation: `IMP11_INVESTIGATION_INDEX.md` §FINAL VALIDATION = PASS for investigation completeness.

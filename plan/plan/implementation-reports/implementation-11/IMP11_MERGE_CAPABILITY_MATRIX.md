@@ -1,8 +1,10 @@
-# IMP11_MERGE_CAPABILITY_MATRIX — Administration UNION
+# IMP11_MERGE_CAPABILITY_MATRIX — UNION Capability Matrix
 
 **Date:** 2026-07-15  
+**Also known as:** UNION Capability Matrix (Imp-11 Administration)  
 **Method:** Merge both first-class sources (CVL + Unified). Neither overwrites the other.  
 **Type:** Investigation only — no production code.  
+**Authoritative index:** `IMP11_INVESTIGATION_INDEX.md`  
 **Objective:** Prove Unified Administration = **UNION** of Legacy CVL capabilities and current Unified backend (Imp-01→Imp-09), not a CVL clone and not a Unified-only replacement.
 
 ### Merge categories (mandatory)
