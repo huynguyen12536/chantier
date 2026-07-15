@@ -1,8 +1,10 @@
-# IMP11_INVESTIGATION_INDEX — UNION MERGE (authoritative pack)
+# IMP11_INVESTIGATION_INDEX.md
 
 **Date:** 2026-07-15  
-**Mode:** INVESTIGATION ONLY — no production code  
-**SoT formula:**
+**Phase:** Imp-11 — Administration  
+**Phase status:** **COMPLETE / CLOSED**  
+**Runtime head:** `2d3ddaed70`  
+**Seal:** `IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS`
 
 ```
 Unified Final Administration
@@ -11,53 +13,52 @@ Unified Final Administration
     (Unified backend capabilities Imp-02→Imp-09)
 ```
 
-Neither source may silently disappear. Neither replaces the other.
-
----
-
-## Deliverables (this pack)
-
-| # | Required output | File |
-|---|---|---|
-| 1 | UNION Capability Matrix | `IMP11_MERGE_CAPABILITY_MATRIX.md` |
-| 2 | Schema Merge Report | `IMP11_SCHEMA_MERGE_REPORT.md` |
-| 3 | Implementation Scope (IN / OUT / REUSE / DEFERRED) | `IMP11_IMPLEMENTATION_SCOPE.md` |
-| 4 | Decision Log (ownership only) | `IMP11_DECISION_LOG.md` |
-| 5 | Implementation Plan (Admin work only) | `IMP11_IMPLEMENTATION_PLAN.md` |
-
-Supporting evidence (earlier reverse): `IMP11_FE_CONTRACT_REPORT.md`, `IMP11_TRACEABILITY.md`.  
-Historical gap framing (superseded): `IMP11_GAP_ANALYSIS.md`, `IMP11_DECISION_REQUESTS.md`.
-
----
-
-## Category map (mandatory vocabulary)
-
-| Cat | Name | Imp-11 action |
-|---|---|---|
-| 1 | Already merged | None |
-| 2 | Reuse existing implementation | Consume Imp-02…05 only |
-| 3 | Needs REST endpoint only | Add HTTP surface |
-| 4 | Needs additive SQL migration only | One new migration file |
-| 5 | Needs Administration business implementation | Policies/guards in Users admin service |
-| 6 | Deferred | Imp-12 or project Decision Log |
-
-**Forbidden word for present capabilities:** “Missing”.
-
----
-
-## FINAL VALIDATION
-
-| Check | Result |
+| Gate | Status |
 |---|---|
-| ✓ Every CVL Administration capability still classified (exists in matrix) | **PASS** |
-| ✓ Every Unified-native identity capability kept (`password_hash`, `refresh_tokens`, `actif`, JWT) | **PASS** |
-| ✓ Nothing disappeared from either source | **PASS** |
-| ✓ Previous Imp ownership respected (04/05/06/07/08/09 untouched) | **PASS** |
-| ✓ Only one additive SQL migration required (phone + nonempty matricule UNIQUE) | **PASS** |
-| ✓ Imp-11 touches only Administration (PATCH/role/guards/phone wiring) | **PASS** |
-| ✓ Imp-04/05/06/07/08/09 remain untouched in plan | **PASS** |
-| ✓ No production code generated in this investigation | **PASS** |
+| Investigation | ✓ COMPLETE |
+| Design Review | ✓ COMPLETE |
+| DR seal | ✓ CLOSED |
+| Implementation | ✓ COMPLETE (`2d3ddaed70`) |
+| Implementation Review | ✓ ACCEPTED |
+| Architecture / Release Review | ✓ COMPLETE |
+| Formal Closure | ✓ COMPLETE |
+| Phase Status | **COMPLETE** |
 
-**Coding gate:** Human answers ownership DRs in `IMP11_DECISION_LOG.md` → then authorize implementation.
+**Imp-12 Wave B:** BLOCKED · **Phase 11 ETL:** DEFERRED · **Imp-13:** separate  
 
-**STOP after investigation.**
+---
+
+## Closure
+
+| Doc | Purpose |
+|---|---|
+| [IMP11_FINAL_CLOSURE.md](./IMP11_FINAL_CLOSURE.md) | **Formal Imp-11 final closure** |
+| [IMP11_PHASE_COMPLETION_CHECKLIST.md](./IMP11_PHASE_COMPLETION_CHECKLIST.md) | Phase completion checklist |
+| [IMP11_RELEASE_NOTE.md](./IMP11_RELEASE_NOTE.md) | Engineering release note |
+| [IMP11_FINAL_ARCHITECTURE_RELEASE_REVIEW.md](./IMP11_FINAL_ARCHITECTURE_RELEASE_REVIEW.md) | Final architecture / release audit |
+
+## Governance (Phases 1–3)
+
+| Doc | Purpose |
+|---|---|
+| [IMP11_IMPLEMENTATION_INVESTIGATION.md](./IMP11_IMPLEMENTATION_INVESTIGATION.md) | Phase 1 |
+| [IMP11_DESIGN_REVIEW.md](./IMP11_DESIGN_REVIEW.md) | Phase 2 |
+| [IMP11_DECISION_LOG.md](./IMP11_DECISION_LOG.md) | DRs CLOSED |
+| [IMP11_IMPLEMENTATION_REVIEW.md](./IMP11_IMPLEMENTATION_REVIEW.md) | Phase 3 |
+
+## UNION investigation (historical)
+
+| Doc | Purpose |
+|---|---|
+| [IMP11_MERGE_CAPABILITY_MATRIX.md](./IMP11_MERGE_CAPABILITY_MATRIX.md) | Capability matrix |
+| [IMP11_SCHEMA_MERGE_REPORT.md](./IMP11_SCHEMA_MERGE_REPORT.md) | Schema merge |
+| [IMP11_IMPLEMENTATION_SCOPE.md](./IMP11_IMPLEMENTATION_SCOPE.md) | IN / OUT / REUSE / DEFERRED |
+| [IMP11_IMPLEMENTATION_PLAN.md](./IMP11_IMPLEMENTATION_PLAN.md) | Admin implementation plan |
+| [IMP11_IMPLEMENTATION_REPORT.md](./IMP11_IMPLEMENTATION_REPORT.md) | Delivery report |
+| [IMP11_TEST_REPORT.md](./IMP11_TEST_REPORT.md) | Tests |
+| [IMP11_REGRESSION_REPORT.md](./IMP11_REGRESSION_REPORT.md) | Regression |
+
+Supporting: `IMP11_FE_CONTRACT_REPORT.md`, `IMP11_TRACEABILITY.md`.  
+Historical: `IMP11_GAP_ANALYSIS.md`, `IMP11_DECISION_REQUESTS.md`.
+
+**Do not start Imp-12 Wave B, Imp-13, or ETL without new Human authorization.**

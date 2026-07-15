@@ -25,7 +25,7 @@
 | Imp-08 | Reporting & Export | **Done PASS** | Imp-06, Imp-07 |
 | Imp-09 | Notifications / Realtime | **Done — PASS / CLOSED** | Imp-02, Imp-07 |
 | Imp-10 | Background Jobs | **COMPLETE** (Wave A + Wave B1); Wave C **Deferred**; Imp-12 Wave B **Blocked** | Imp-06, Imp-07, Imp-09 |
-| Imp-11 | Administration | **Done — PASS / CLOSED** | Imp-02, Imp-03 |
+| Imp-11 | Administration | **COMPLETE** (Release APPROVED; known limitations) | Imp-02, Imp-03 |
 | Imp-12 | Integration Adapters (FE contract compatibility) | **Wave A COMPLETE**; Wave B **BLOCKED** | Imp-02–Imp-11 as applicable |
 | Imp-13 | Production Readiness | Todo | Imp-01–Imp-12 |
 
@@ -109,12 +109,14 @@
 - **Evidence:** `implementation-reports/implementation-10/` · `IMP10_FINAL_CLOSURE.md` · `IMP10_PHASE_COMPLETION_CHECKLIST.md` · `IMP10_RELEASE_NOTE.md`
 
 ### Imp-11 — Administration
-- **Status:** **Done — PASS / CLOSED**
+- **Status:** **COMPLETE / CLOSED** — Release **APPROVED** (`IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS`).
 - **Goal:** Implement only CVL-evidenced operational administration for users, roles, and supported configuration.
 - **SoT refs:** ADR-001 Identity & Access; `migration-analysis/merge/permissions_mapping.md`; Decision Log scope decisions; `migration-analysis/merge/fe_contract_matrix.md`.
 - **Depends On:** Imp-02, Imp-03.
 - **Acceptance criteria:** Administrative actions are permission-scoped and auditable; FE compatibility is tested where exposed; multi-company and Super Admin capabilities remain absent.
-- **Evidence:** `implementation-reports/implementation-11/`
+- **Delivered:** `PATCH /api/users/:id`, role lifecycle, demotion guards (READ Imp-05), additive `010_imp11_admin_profiles.sql` (phone + nonempty matricule UNIQUE), structured admin logs. Code head `2d3ddaed70`. DR seal `001…006 = A,A,A,A,B,A`.
+- **Deferred intentionally:** promote→affectation sync (DR-005=B); Super Admin; Imp-12 adapters.
+- **Evidence:** `implementation-reports/implementation-11/` · `IMP11_FINAL_CLOSURE.md` · `IMP11_PHASE_COMPLETION_CHECKLIST.md` · `IMP11_RELEASE_NOTE.md`
 
 ### Imp-12 — Integration Adapters (FE contract compatibility)
 - **Status:** **Wave A COMPLETE / APPROVED**; **Wave B BLOCKED** until separate Human authorization.
