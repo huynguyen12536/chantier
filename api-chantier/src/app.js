@@ -16,6 +16,7 @@ import timesheetRoutes from './modules/timesheet/routes.js';
 import validationRoutes from './modules/validation/routes.js';
 import exportRoutes from './modules/export/routes.js';
 import { realtimeRoutes, initRealtime } from './modules/realtime/index.js';
+import { mountCompat } from './modules/compat/index.js';
 
 export function createApp(options = {}) {
   initRealtime({
@@ -65,6 +66,9 @@ export function createApp(options = {}) {
   app.use('/api/validation', validationRoutes);
   app.use('/api/export', exportRoutes);
   app.use('/events', realtimeRoutes);
+
+  // Imp-12 Wave A — FE compatibility aliases (no business)
+  mountCompat(app);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -43,6 +43,8 @@
 | 2026-07-15 | Imp-11 Decisions CLOSED | **DR-001** REST Imp-11 / adapters Imp-12 · **DR-002** additive phone+matricule UNIQUE · **DR-003** structured logs · nom/prenom service validation. Authorize code | Human IMPLEMENTATION AUTHORIZATION | — | Unblocked | Technical Lead | Imp-11 | Implement |
 | 2026-07-15 | Delivery | **Imp-11 Administration PASS** — PATCH users, role lifecycle, demotion READ Imp-05, migration `010_imp11_admin_profiles.sql`; **76/76 tests**. No Imp-04–09 rewrite / no FE / no Edge. **STOP for review** | Closed DRs + DoD | Adapters Imp-12 | Status Imp-11 PASS | Implementer | Imp-11 | Await review |
 | 2026-07-15 | Imp-12 investigation | Compatibility pack sealed: FE contract matrix + scope IN/OUT + Wave A/B/C plan + **DR-001…004** (path prefix, table breadth, declarations map, auth adapter). **No adapter code.** | Imp-11 FINAL + Category 6 | Waiting Human DR answers | Blocked code | Implementer | Imp-12 | Close DRs → authorize Wave A/B |
+| 2026-07-15 | Imp-12 DRs CLOSED | **001=A** dual paths · **002=C** Wave A only · **003=C** no decl write · **004=B** no auth adapter. Authorize Wave A | Human APPROVED decisions | Wave B blocked | Unblocked Wave A | Technical Lead | Imp-12 | Implement Wave A |
+| 2026-07-15 | Delivery | **Imp-12 Wave A PASS** — Edge create/delete + RPC cascade + `/tables/profiles`; in-process service reuse; **80/80 tests**. No Imp-02…11 rewrite / no SQL / no FE. **STOP — await review; no Wave B** | Closed DR-001…004 | Wave B needs new auth | Status Wave A PASS | Implementer | Imp-12 | Human review |
 
 ## When to add a row
 

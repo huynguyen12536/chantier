@@ -13,4 +13,4 @@
 
 **SoT:** `migration-analysis/` + Imp-11 FINAL (`implementation-11/`).
 
-**Next:** Human closes DRs → authorize Wave coding → adapters only.
+**Next:** Human closed DR-001…004 → Wave A implemented → **STOP for review**. Wave B needs new authorization.
