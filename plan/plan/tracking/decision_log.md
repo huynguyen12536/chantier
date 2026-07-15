@@ -42,6 +42,7 @@
 | 2026-07-15 | Imp-11 UNION pack seal | Investigation sealed: `IMP11_INVESTIGATION_INDEX.md` + UNION matrix + schema + scope IN/OUT/REUSE/DEFERRED + `IMP11_DECISION_LOG.md` (ownership DRs 001–003) + UNION implementation plan. Final validation PASS. **No code.** | Human UNION MERGE MODE prompt | — | Waiting DR-001/002 | Implementer | Imp-11 | Human answers → authorize code |
 | 2026-07-15 | Imp-11 Decisions CLOSED | **DR-001** REST Imp-11 / adapters Imp-12 · **DR-002** additive phone+matricule UNIQUE · **DR-003** structured logs · nom/prenom service validation. Authorize code | Human IMPLEMENTATION AUTHORIZATION | — | Unblocked | Technical Lead | Imp-11 | Implement |
 | 2026-07-15 | Delivery | **Imp-11 Administration PASS** — PATCH users, role lifecycle, demotion READ Imp-05, migration `010_imp11_admin_profiles.sql`; **76/76 tests**. No Imp-04–09 rewrite / no FE / no Edge. **STOP for review** | Closed DRs + DoD | Adapters Imp-12 | Status Imp-11 PASS | Implementer | Imp-11 | Await review |
+| 2026-07-15 | Imp-12 investigation | Compatibility pack sealed: FE contract matrix + scope IN/OUT + Wave A/B/C plan + **DR-001…004** (path prefix, table breadth, declarations map, auth adapter). **No adapter code.** | Imp-11 FINAL + Category 6 | Waiting Human DR answers | Blocked code | Implementer | Imp-12 | Close DRs → authorize Wave A/B |
 
 ## When to add a row
 
