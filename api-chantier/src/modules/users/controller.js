@@ -16,6 +16,11 @@ export const create = asyncHandler(async (req, res) => {
   res.status(201).json({ user });
 });
 
+export const update = asyncHandler(async (req, res) => {
+  const user = await usersService.updateUser(req.params.id, req.body ?? {}, req.user);
+  res.json({ user });
+});
+
 export const remove = asyncHandler(async (req, res) => {
   const result = await usersService.deleteUser(req.params.id, req.user);
   res.json(result);

@@ -25,6 +25,7 @@ function publicProfile(row) {
     nom: row.nom,
     prenom: row.prenom,
     matricule: row.matricule,
+    phone: row.phone ?? '',
     actif: row.actif,
   };
 }
@@ -64,7 +65,7 @@ export async function login(input) {
 
   const { email, password } = parsed.data;
   const { rows } = await query(
-    `SELECT id, email, password_hash, role, nom, prenom, matricule, actif
+    `SELECT id, email, password_hash, role, nom, prenom, matricule, phone, actif
      FROM profiles WHERE lower(email) = lower($1) LIMIT 1`,
     [email],
   );
@@ -96,7 +97,7 @@ export async function refresh(refreshToken) {
   const tokenHash = hashToken(refreshToken);
   const { rows } = await query(
     `SELECT rt.id, rt.profile_id, rt.expires_at, rt.revoked_at,
-            p.id AS pid, p.email, p.role, p.nom, p.prenom, p.matricule, p.actif
+            p.id AS pid, p.email, p.role, p.nom, p.prenom, p.matricule, p.phone, p.actif
      FROM refresh_tokens rt
      JOIN profiles p ON p.id = rt.profile_id
      WHERE rt.token_hash = $1
@@ -116,6 +117,7 @@ export async function refresh(refreshToken) {
     nom: row.nom,
     prenom: row.prenom,
     matricule: row.matricule,
+    phone: row.phone,
     actif: row.actif,
   };
   const accessToken = signAccessToken(profile);
@@ -142,7 +144,7 @@ export async function logout(refreshToken) {
 
 export async function getProfileById(id) {
   const { rows } = await query(
-    `SELECT id, email, role, nom, prenom, matricule, actif
+    `SELECT id, email, role, nom, prenom, matricule, phone, actif
      FROM profiles WHERE id = $1 LIMIT 1`,
     [id],
   );

@@ -64,11 +64,14 @@ describe('Imp-03 Users', () => {
           password: 'secret12',
           role: 'chef_equipe',
           nom: 'Chef',
+          prenom: 'Test',
+          phone: '+33600000000',
         }),
       });
       assert.equal(createRes.status, 201);
       const created = await createRes.json();
       assert.equal(created.user.role, 'chef_equipe');
+      assert.equal(created.user.phone, '+33600000000');
 
       const ouvLogin = await login(base, ouvrierEmail, password);
       const forbidden = await fetch(`${base}/api/users`, {
@@ -81,6 +84,8 @@ describe('Imp-03 Users', () => {
           email: `x.${Date.now()}@example.com`,
           password: 'secret12',
           role: 'ouvrier',
+          nom: 'X',
+          prenom: 'Y',
         }),
       });
       assert.equal(forbidden.status, 403);

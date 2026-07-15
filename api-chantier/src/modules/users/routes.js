@@ -9,6 +9,7 @@ router.use(requireAuth);
 router.get('/', requireRoles('admin', 'administratif'), controller.list);
 router.get('/:id', requireRoles('admin', 'administratif'), controller.getById);
 router.post('/', requireRoles('admin', 'administratif'), controller.create);
+router.patch('/:id', requireRoles('admin'), controller.update);
 router.delete('/:id', requireRoles('admin'), controller.remove);
 
 export default router;
