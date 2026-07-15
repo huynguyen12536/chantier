@@ -6,30 +6,42 @@
  */
 import { env } from '../../config/env.js';
 import { logger } from '../../shared/utils/logger.js';
+import {
+  bindJobsEnqueueApi,
+  unbindJobsEnqueueApi,
+} from '../realtime/dispatcher.js';
 import { createJobCorrelationId } from './correlation.js';
 import * as registry from './registry.js';
 import * as queue from './queue.js';
 import * as runner from './runner.js';
+import { JOB_PLATFORM_NOOP, JOB_REALTIME_REDISPATCH_CATALOG } from './jobTypes.js';
 
-export { JOB_PLATFORM_NOOP, JOB_REALTIME_REDISPATCH_CATALOG } from './jobTypes.js';
+export { JOB_PLATFORM_NOOP, JOB_REALTIME_REDISPATCH_CATALOG };
 
 /**
  * Start Imp-10 in-process job platform (DR-001=A / Wave B1 extends builtins only).
  * No HTTP routes. Domain writes remain Imp-06/07; JB-01 only invokes Imp-09 fan-out.
+ * Binds enqueue API into Imp-09 dispatcher for write-failure → JB-01 (DR-B-002=A).
  */
 export function startJobs() {
   if (env.jobsEnabled === false) {
     logger.info('jobs.disabled', { reason: 'JOBS_ENABLED=false' });
+    unbindJobsEnqueueApi();
     return;
   }
   registry.clearRegistry();
   queue.clear();
   registry.registerBuiltinJobs();
+  bindJobsEnqueueApi({
+    enqueueJob,
+    JOB_REALTIME_REDISPATCH_CATALOG,
+  });
   runner.startRunner();
 }
 
 export function stopJobs() {
   runner.stopRunner();
+  unbindJobsEnqueueApi();
 }
 
 /**

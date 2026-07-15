@@ -114,6 +114,71 @@ export function expandToCatalogEvents(raw) {
 }
 
 /**
+ * Imp-10 Wave B1 (DR-B-002=A): jobs façade injected from startJobs to avoid
+ * static circular imports (jobs → handler → dispatcher ↛ jobs).
+ * @type {{ enqueueJob: Function, JOB_REALTIME_REDISPATCH_CATALOG: string } | null}
+ */
+let jobsEnqueueApi = null;
+
+/** Bound by Imp-10 `startJobs`; cleared by `stopJobs`. */
+export function bindJobsEnqueueApi(api) {
+  jobsEnqueueApi = api && typeof api.enqueueJob === 'function' ? api : null;
+}
+
+export function unbindJobsEnqueueApi() {
+  jobsEnqueueApi = null;
+}
+
+/**
+ * On writeEvent failure: enqueue JB-01 at most once per dispatch id.
+ * Skipped when catalogEvent._skipRedispatchEnqueue (set on retry payload).
+ */
+function enqueueRedispatchOnWriteFailure(catalogEvent, dispatchId) {
+  if (!catalogEvent || catalogEvent._skipRedispatchEnqueue) return;
+  if (!jobsEnqueueApi) return;
+
+  const idempotencyKey = `jobs.realtime.redispatch_catalog:${dispatchId}`;
+  try {
+    const result = jobsEnqueueApi.enqueueJob({
+      type: jobsEnqueueApi.JOB_REALTIME_REDISPATCH_CATALOG,
+      idempotencyKey,
+      payload: {
+        catalogEvent: {
+          type: catalogEvent.type,
+          entityId: catalogEvent.entityId ?? null,
+          userId: catalogEvent.userId ?? null,
+          chantierId: catalogEvent.chantierId ?? null,
+          statut: catalogEvent.statut ?? null,
+          actorId: catalogEvent.actorId ?? null,
+          action: catalogEvent.action ?? null,
+          source: catalogEvent.source ?? 'domain',
+          _skipRedispatchEnqueue: true,
+        },
+      },
+    });
+    if (result?.duplicate) {
+      logger.info('realtime.redispatch_enqueue_duplicate', {
+        dispatchId: String(dispatchId),
+        idempotencyKey,
+      });
+    } else {
+      logger.info('realtime.redispatch_enqueued', {
+        dispatchId: String(dispatchId),
+        jobId: result?.jobId ?? null,
+        idempotencyKey,
+        catalogType: catalogEvent.type,
+      });
+    }
+  } catch (err) {
+    logger.warn('realtime.redispatch_enqueue_failed', {
+      dispatchId: String(dispatchId),
+      message: err.message,
+      code: err.code,
+    });
+  }
+}
+
+/**
  * Fan-out one catalog event to scoped SSE clients.
  * @param {Record<string, unknown>} catalogEvent
  */
@@ -137,6 +202,9 @@ export function dispatchCatalogEvent(catalogEvent) {
     if (!clientMayReceive(client.user, client.chantierIds, payload)) continue;
     if (writeEvent(client, { id, event: catalogEvent.type, data: payload, retry: retryMs })) {
       delivered += 1;
+    } else {
+      // DR-B-002=A: write failure only — idempotent key bounds to one job per dispatch id
+      enqueueRedispatchOnWriteFailure(catalogEvent, id);
     }
   }
   return { id, delivered };
