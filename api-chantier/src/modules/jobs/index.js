@@ -1,6 +1,11 @@
+/**
+ * Imp-10 Wave A jobs façade.
+ *
+ * Ephemeral queue (DR-IMP10-002=A): in-memory only; process restart loses
+ * queued/running jobs and idempotency state. No SQL / Redis / outbox.
+ */
 import { env } from '../../config/env.js';
 import { logger } from '../../shared/utils/logger.js';
-import { JOB_PLATFORM_NOOP } from './jobTypes.js';
 import { createJobCorrelationId } from './correlation.js';
 import * as registry from './registry.js';
 import * as queue from './queue.js';
@@ -31,6 +36,11 @@ export function stopJobs() {
  * @param {{ type: string, payload?: object, idempotencyKey: string, correlationId?: string }} input
  */
 export function enqueueJob(input = {}) {
+  if (env.jobsEnabled === false) {
+    const err = new Error('Jobs platform disabled (JOBS_ENABLED=false)');
+    err.code = 'JOBS_DISABLED';
+    throw err;
+  }
   const type = input.type;
   if (!registry.getJob(type)) {
     const err = new Error(`Unknown or unregistered job type: ${type}`);
@@ -79,6 +89,12 @@ export const __test = {
   clearQueue: queue.clear,
   clearRegistry: registry.clearRegistry,
   registerJob: registry.registerJob,
+  registerBuiltinJobs: registry.registerBuiltinJobs,
   hasCompletedKey: queue.hasCompletedKey,
+  hasReservedKey: queue.hasReservedKey,
   getDead: queue.getDead,
+  getInFlight: queue.getInFlight,
+  isRunning: runner.isRunning,
+  startRunner: runner.startRunner,
+  stopRunner: runner.stopRunner,
 };

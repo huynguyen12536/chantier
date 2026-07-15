@@ -1,16 +1,29 @@
 import { randomUUID } from 'node:crypto';
 import { normalizeIdempotencyKey } from './policies.js';
 
+/**
+ * Ephemeral in-memory queue (DR-IMP10-002 = A).
+ *
+ * Jobs exist only in process memory. A process restart loses queued,
+ * running, and completed-key state. Persistence / outbox is explicitly deferred.
+ *
+ * Idempotency reservation lifecycle:
+ *   QUEUED  → key in `reservedKeys`
+ *   RUNNING → key remains in `reservedKeys` (NOT released on dequeue)
+ *   COMPLETED → key moves to `completedKeys` (duplicates rejected)
+ *   FAILED (terminal) → key released from reservation (new enqueue allowed for recovery)
+ */
+
 /** @type {object[]} */
 let pending = [];
-/** @type {Set<string>} */
+/** Keys reserved while QUEUED or RUNNING */
+const reservedKeys = new Set();
+/** Keys that completed successfully — duplicates stay rejected */
 const completedKeys = new Set();
-/** @type {Set<string>} */
-const pendingKeys = new Set();
 /** @type {object[]} */
 const dead = [];
-/** @type {string|null} */
-let inFlightId = null;
+/** @type {object|null} */
+let inFlightJob = null;
 
 export function enqueue(jobInput) {
   const idempotencyKey = normalizeIdempotencyKey(jobInput?.idempotencyKey);
@@ -20,7 +33,7 @@ export function enqueue(jobInput) {
     throw err;
   }
 
-  if (completedKeys.has(idempotencyKey) || pendingKeys.has(idempotencyKey)) {
+  if (completedKeys.has(idempotencyKey) || reservedKeys.has(idempotencyKey)) {
     return {
       duplicate: true,
       job: getByIdempotencyKey(idempotencyKey),
@@ -35,18 +48,20 @@ export function enqueue(jobInput) {
     attempt: Number(jobInput.attempt) || 0,
     correlationId: jobInput.correlationId,
     enqueuedAt: new Date().toISOString(),
+    state: 'QUEUED',
   };
 
   pending.push(job);
-  pendingKeys.add(idempotencyKey);
+  reservedKeys.add(idempotencyKey);
   return { duplicate: false, job };
 }
 
 export function dequeue() {
   if (pending.length === 0) return null;
   const job = pending.shift();
-  pendingKeys.delete(job.idempotencyKey);
-  inFlightId = job.id;
+  // Keep idempotency key reserved while RUNNING
+  job.state = 'RUNNING';
+  inFlightJob = job;
   return job;
 }
 
@@ -57,43 +72,57 @@ export function size() {
 export function getByIdempotencyKey(key) {
   const k = normalizeIdempotencyKey(key);
   if (!k) return null;
-  const inPending = pending.find((j) => j.idempotencyKey === k);
-  if (inPending) return inPending;
-  return null;
+  if (inFlightJob?.idempotencyKey === k) return inFlightJob;
+  return pending.find((j) => j.idempotencyKey === k) ?? null;
 }
 
 export function markCompleted(key) {
   const k = normalizeIdempotencyKey(key);
-  if (k) completedKeys.add(k);
-  inFlightId = null;
+  if (k) {
+    reservedKeys.delete(k);
+    completedKeys.add(k);
+  }
+  inFlightJob = null;
 }
 
+/**
+ * Terminal permanent failure: release reservation so a later enqueue
+ * with the same key can recover (documented Wave A policy).
+ */
 export function markDead(job) {
-  dead.push({ ...job, diedAt: new Date().toISOString() });
-  inFlightId = null;
+  const k = normalizeIdempotencyKey(job?.idempotencyKey);
+  if (k) reservedKeys.delete(k);
+  dead.push({ ...job, state: 'FAILED', diedAt: new Date().toISOString() });
+  inFlightJob = null;
 }
 
-/** Re-queue after failed attempt (tail). */
+/** Re-queue after failed attempt (still RUNNING reservation held). */
 export function requeue(job) {
-  pendingKeys.add(job.idempotencyKey);
-  pending.push(job);
-  inFlightId = null;
+  const next = { ...job, state: 'QUEUED' };
+  pending.push(next);
+  // reservedKeys already holds idempotencyKey from original enqueue
+  if (!reservedKeys.has(next.idempotencyKey)) {
+    reservedKeys.add(next.idempotencyKey);
+  }
+  inFlightJob = null;
 }
 
 export function clear() {
   pending = [];
+  reservedKeys.clear();
   completedKeys.clear();
-  pendingKeys.clear();
   dead.length = 0;
-  inFlightId = null;
+  inFlightJob = null;
 }
 
 export function snapshot() {
   return {
     pending: pending.length,
+    reservedKeys: reservedKeys.size,
     completedKeys: completedKeys.size,
     dead: dead.length,
-    inFlightId,
+    inFlightId: inFlightJob?.id ?? null,
+    inFlightKey: inFlightJob?.idempotencyKey ?? null,
   };
 }
 
@@ -103,4 +132,12 @@ export function getDead() {
 
 export function hasCompletedKey(key) {
   return completedKeys.has(normalizeIdempotencyKey(key));
+}
+
+export function hasReservedKey(key) {
+  return reservedKeys.has(normalizeIdempotencyKey(key));
+}
+
+export function getInFlight() {
+  return inFlightJob;
 }
