@@ -104,8 +104,12 @@ describe('Imp-11 Administration users', () => {
       assert.equal(body.user.prenom, 'ChefPrenom');
       assert.equal(body.user.phone, '+33123456789');
       assert.equal(body.user.email, `chef.patched.${stamp}@example.com`);
-      const after = await query(`SELECT updated_at FROM profiles WHERE id = $1`, [chefId]);
-      assert.ok(new Date(after.rows[0].updated_at) >= new Date(before.rows[0].updated_at));
+      // Compare in Postgres to avoid JS Date timezone/parsing flakes under parallel suite load.
+      const chk = await query(
+        `SELECT (updated_at >= $2::timestamptz) AS ok FROM profiles WHERE id = $1`,
+        [chefId, before.rows[0].updated_at],
+      );
+      assert.equal(chk.rows[0].ok, true);
     } finally {
       await close();
     }
