@@ -1,5 +1,8 @@
 # IMP11_GAP_ANALYSIS — Administration
 
+> **Method note:** Superseded for planning by `IMP11_MERGE_CAPABILITY_MATRIX.md`.  
+> Do not use “Missing” when capability exists in CVL or Unified — use merge categories instead.
+
 **Date:** 2026-07-15  
 **Type:** Investigation only  
 **Does not implement.**

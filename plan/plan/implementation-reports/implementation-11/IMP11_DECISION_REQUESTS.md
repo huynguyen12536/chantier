@@ -1,5 +1,8 @@
 # IMP11_DECISION_REQUESTS — Administration gate
 
+> **Superseded in method by** `IMP11_DECISION_LOG_UPDATE.md` + `IMP11_MERGE_CAPABILITY_MATRIX.md` (UNION merge framing; no “Missing” when business exists).  
+> Keep this file for history; prefer the Update doc for Human answers.
+
 **Date:** 2026-07-15  
 **Module:** Imp-11  
 **Status:** OPEN — answer before Imp-11 coding  
