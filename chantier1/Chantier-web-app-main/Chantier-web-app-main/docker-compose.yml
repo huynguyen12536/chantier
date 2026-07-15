@@ -7,10 +7,11 @@ services:
       - "${WEB_PORT:-16035}:80"
     restart: unless-stopped
     environment:
-      - EXPO_PUBLIC_SUPABASE_URL=${EXPO_PUBLIC_SUPABASE_URL}
-      - EXPO_PUBLIC_SUPABASE_ANON_KEY=${EXPO_PUBLIC_SUPABASE_ANON_KEY}
+      - EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL}
+      - EXPO_PUBLIC_API_ANON_KEY=${EXPO_PUBLIC_API_ANON_KEY:-local-anon}
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:80"]
+      # Use 127.0.0.1 — Alpine wget fails on localhost→::1 when nginx listens on IPv4 only
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80"]
       interval: 30s
       timeout: 10s
       retries: 3

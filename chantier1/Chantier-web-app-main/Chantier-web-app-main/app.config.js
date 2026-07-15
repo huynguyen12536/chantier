@@ -7,7 +7,7 @@ if (!process.env.EXPO_FORCE_WEBCONTAINER_ENV) {
 
 /** Unified Backend origin (Phase 13) — override via EXPO_PUBLIC_API_URL */
 const EXPO_PUBLIC_API_URL =
-  process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+  process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
 
 /** Optional header for legacy Edge callers; Unified API ignores it. */
 const EXPO_PUBLIC_API_ANON_KEY =

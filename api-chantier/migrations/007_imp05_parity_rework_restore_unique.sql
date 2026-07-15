@@ -7,6 +7,8 @@ BEGIN
     ADD CONSTRAINT zones_ouvriers_zone_id_user_id_key UNIQUE (zone_id, user_id);
 EXCEPTION
   WHEN duplicate_object THEN NULL;
+  -- PG16 may raise 42P07 (duplicate_table) when the UNIQUE index already exists from 004
+  WHEN duplicate_table THEN NULL;
   WHEN unique_violation THEN
     RAISE EXCEPTION
       'Cannot restore UNIQUE(zone_id,user_id): duplicate rows exist. Deduplicate before re-adding.';

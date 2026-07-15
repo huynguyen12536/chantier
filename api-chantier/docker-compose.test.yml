@@ -1,0 +1,29 @@
+# Phase 15 — isolated automated-test Postgres (never shares chantier_pg_data).
+# Usage (from api-chantier/):
+#   npm run docker:test:up
+#   npm run migrate:test
+#   npm test
+#   npm run docker:test:down
+
+services:
+  db-test:
+    image: postgres:16-alpine
+    container_name: chantier-db-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chantier
+      POSTGRES_PASSWORD: chantier
+      POSTGRES_DB: chantier_test
+    ports:
+      - "${POSTGRES_TEST_PORT:-5433}:5432"
+    volumes:
+      - chantier_pg_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chantier -d chantier_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  chantier_pg_test_data:

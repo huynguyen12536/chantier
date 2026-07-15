@@ -38,7 +38,8 @@ services:
     ports:
       - "${WEB_PORT:-16035}:80"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:80"]
+      # DEF-P15-001 — wget localhost may resolve to ::1 (connection refused)
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80"]
       interval: 30s
       timeout: 10s
       retries: 3
