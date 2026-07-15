@@ -41,7 +41,7 @@ Examples that work:
 
 ## Git
 
-Commit SHA recorded after Phase 15 commit (see git log / Human).
+**Commit SHA:** `d751276e2ffe8c0344b8843f92eac81893c421ec`
 
 ## Reports index
 
