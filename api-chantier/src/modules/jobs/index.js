@@ -11,11 +11,11 @@ import * as registry from './registry.js';
 import * as queue from './queue.js';
 import * as runner from './runner.js';
 
-export { JOB_PLATFORM_NOOP } from './jobTypes.js';
+export { JOB_PLATFORM_NOOP, JOB_REALTIME_REDISPATCH_CATALOG } from './jobTypes.js';
 
 /**
- * Start Imp-10 in-process job platform (DR-001=A).
- * No HTTP routes. No domain handlers in Wave A.
+ * Start Imp-10 in-process job platform (DR-001=A / Wave B1 extends builtins only).
+ * No HTTP routes. Domain writes remain Imp-06/07; JB-01 only invokes Imp-09 fan-out.
  */
 export function startJobs() {
   if (env.jobsEnabled === false) {

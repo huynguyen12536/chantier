@@ -1,5 +1,6 @@
-import { JOB_PLATFORM_NOOP } from './jobTypes.js';
+import { JOB_PLATFORM_NOOP, JOB_REALTIME_REDISPATCH_CATALOG } from './jobTypes.js';
 import * as platformNoop from './handlers/platformNoop.js';
+import * as realtimeRedispatch from './handlers/realtimeRedispatch.js';
 
 /** @type {Map<string, { handler: Function, maxAttempts?: number }>} */
 const jobs = new Map();
@@ -26,7 +27,8 @@ export function clearRegistry() {
   jobs.clear();
 }
 
-/** Wave A builtins — only platform noop. */
+/** Builtins: Wave A platform_noop + Wave B1 JB-01 redispatch. */
 export function registerBuiltinJobs() {
   registerJob(JOB_PLATFORM_NOOP, { handler: platformNoop.handler });
+  registerJob(JOB_REALTIME_REDISPATCH_CATALOG, { handler: realtimeRedispatch.handler });
 }

@@ -3,8 +3,9 @@
 **Date:** 2026-07-15  
 **Status:** **FINAL / LOCKED**  
 **Wave A:** **COMPLETE / CLOSED** (Human APPROVED)  
-**Wave B / C:** **BLOCKED** — require separate authorization  
-**Do not reopen DRs 001–006**
+**Wave B coding:** **BLOCKED** — investigation pack delivered; open DRs in `IMP10_WAVE_B_DECISION_LOG.md`  
+**Wave C:** **BLOCKED**  
+**Do not reopen Wave A DRs 001–006** (Wave B may explicitly refine via B-* DRs only when Human answers)
 
 ## Locked seal
 
