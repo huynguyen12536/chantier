@@ -6,12 +6,16 @@ import { env } from '../../config/env.js';
  * Verify JWT access token and attach req.user (Imp-02).
  * Fail-closed: missing/invalid token → 401.
  */
+/**
+ * Prefer Authorization: Bearer (fetch / Imp-12 adapters).
+ * Fallback ?access_token= / ?token= for browser EventSource (cannot set headers).
+ * Security note: query tokens may leak via Referer/logs — prefer header when possible.
+ */
 function extractBearerToken(req) {
   const header = req.headers.authorization;
   if (header?.startsWith('Bearer ')) {
     return header.slice('Bearer '.length).trim();
   }
-  // EventSource cannot set Authorization; allow query token for SSE clients.
   const q = req.query?.access_token ?? req.query?.token;
   if (typeof q === 'string' && q.trim()) return q.trim();
   return '';

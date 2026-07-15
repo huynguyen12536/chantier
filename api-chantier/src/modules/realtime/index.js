@@ -5,12 +5,14 @@
  * No second bus; Imp-07 remains the review event producer API.
  */
 
+import { env } from '../../config/env.js';
 import routes from './routes.js';
 import { clearClients, setHeartbeatIntervalMs, resetEventIdForTests } from './sseRegistry.js';
-import { dispatchDomainEvent } from './dispatcher.js';
+import { dispatchDomainEvent, setRetryMs } from './dispatcher.js';
 
 export function initRealtime(options = {}) {
-  if (options.heartbeatMs != null) setHeartbeatIntervalMs(options.heartbeatMs);
+  setHeartbeatIntervalMs(options.heartbeatMs ?? env.sseHeartbeatMs);
+  setRetryMs(options.retryMs ?? env.sseRetryMs);
 }
 
 export function shutdownRealtime() {
@@ -20,7 +22,8 @@ export function shutdownRealtime() {
 export function resetRealtimeForTests(options = {}) {
   shutdownRealtime();
   resetEventIdForTests();
-  if (options.heartbeatMs != null) setHeartbeatIntervalMs(options.heartbeatMs);
+  setHeartbeatIntervalMs(options.heartbeatMs ?? env.sseHeartbeatMs);
+  setRetryMs(options.retryMs ?? env.sseRetryMs);
 }
 
 export { routes as realtimeRoutes, dispatchDomainEvent };

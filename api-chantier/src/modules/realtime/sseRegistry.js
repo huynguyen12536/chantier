@@ -1,7 +1,11 @@
 /**
  * SSE client registry — connect / disconnect / heartbeat / cleanup.
+ *
+ * Lifecycle: addClient → heartbeat loop → writeEvent / removeClient on close.
+ * lastEventId is stored for diagnostics only (no replay).
  */
 
+import { env } from '../../config/env.js';
 import { formatHeartbeatComment, formatSseMessage } from './serializer.js';
 import { logger } from '../../shared/utils/logger.js';
 
@@ -20,7 +24,7 @@ const clients = new Map();
 
 /** @type {ReturnType<typeof setInterval> | null} */
 let heartbeatTimer = null;
-let heartbeatMs = 30_000;
+let heartbeatMs = Number(env.sseHeartbeatMs) || 30_000;
 
 export function setHeartbeatIntervalMs(ms) {
   heartbeatMs = Math.max(1_000, Number(ms) || 30_000);

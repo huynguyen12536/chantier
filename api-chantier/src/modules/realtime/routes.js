@@ -1,13 +1,18 @@
 /**
  * GET /events — Server-Sent Events (DR-IMP09-001).
+ *
+ * Auth: prefer Authorization Bearer; fallback ?access_token= for EventSource.
+ * Last-Event-ID: echoed in `connected` only — NOT used for replay.
  */
 
 import { Router } from 'express';
+import { env } from '../../config/env.js';
 import { requireAuthAllowQueryToken } from '../../shared/middleware/auth.js';
 import { asyncHandler } from '../../shared/utils/asyncHandler.js';
 import { getChefChantierIds } from '../../shared/authz/chefScope.js';
 import { addClient, removeClient } from './sseRegistry.js';
 import { formatSseMessage } from './serializer.js';
+import { getRetryMs } from './dispatcher.js';
 
 const router = Router();
 
@@ -21,6 +26,7 @@ router.get(
   '/',
   requireAuthAllowQueryToken,
   asyncHandler(async (req, res) => {
+    // Acknowledged for reconnect clients; ignored for delivery (no replay buffer).
     const lastEventId =
       req.headers['last-event-id'] != null
         ? String(req.headers['last-event-id'])
@@ -48,9 +54,10 @@ router.get(
           userId: req.user.id,
           role: req.user.role,
           lastEventId,
+          lastEventIdReplay: false,
           at: new Date().toISOString(),
         },
-        retry: 3000,
+        retry: getRetryMs() || env.sseRetryMs,
       }),
     );
 

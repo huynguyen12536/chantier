@@ -131,7 +131,7 @@ describe('Imp-09 Realtime units', () => {
     assert.equal(clientMayReceive({ id: 'a', role: 'administratif' }, null, { userId: null, chantierId: null }), true);
   });
 
-  it('expands Imp-07 review hooks to catalog + queue/dashboard', () => {
+  it('expands Imp-07 review hooks; dispatcher owns queue/dashboard signals', () => {
     const approved = expandToCatalogEvents({
       type: 'declaration.reviewed',
       entityId: 'd1',
@@ -139,9 +139,11 @@ describe('Imp-09 Realtime units', () => {
       chantierId: 'c1',
       statut: 'validee',
     });
-    assert.ok(approved.some((e) => e.type === EVENT_TYPES.DECLARATION_APPROVED));
-    assert.ok(approved.some((e) => e.type === EVENT_TYPES.QUEUE_CHANGED));
-    assert.ok(approved.some((e) => e.type === EVENT_TYPES.DASHBOARD_CHANGED));
+    assert.ok(approved.some((e) => e.type === EVENT_TYPES.DECLARATION_APPROVED && e.source === 'imp07'));
+    const queue = approved.find((e) => e.type === EVENT_TYPES.QUEUE_CHANGED);
+    const dash = approved.find((e) => e.type === EVENT_TYPES.DASHBOARD_CHANGED);
+    assert.equal(queue?.source, 'dispatcher.queue_changed');
+    assert.equal(dash?.source, 'dispatcher.dashboard_changed');
 
     const rejected = expandToCatalogEvents({
       type: 'declaration.reviewed',
@@ -297,7 +299,7 @@ describe('Imp-09 Realtime SSE API', () => {
     }
   });
 
-  it('SSE reconnect header Last-Event-ID accepted (no persistence required)', async () => {
+  it('SSE reconnect header Last-Event-ID echoed; no replay', async () => {
     const app = createApp({ sseHeartbeatMs: 60_000 });
     const { base, close } = await listen(app);
     let sse;
@@ -313,6 +315,59 @@ describe('Imp-09 Realtime SSE API', () => {
       sse = openSseSession(res);
       const buf = await sse.waitUntil((t) => t.includes('connected'), 3000);
       assert.match(buf, /"lastEventId":"42"/);
+      assert.match(buf, /"lastEventIdReplay":false/);
+    } finally {
+      if (sse) await sse.close();
+      await close();
+    }
+  });
+
+  it('SSE auth failure without token returns 401', async () => {
+    const app = createApp({ sseHeartbeatMs: 60_000 });
+    const { base, close } = await listen(app);
+    try {
+      const res = await fetch(`${base}/events`);
+      assert.equal(res.status, 401);
+      assert.equal(clientCount(), 0);
+    } finally {
+      await close();
+    }
+  });
+
+  it('SSE prefers Authorization Bearer over missing query', async () => {
+    const app = createApp({ sseHeartbeatMs: 60_000 });
+    const { base, close } = await listen(app);
+    let sse;
+    try {
+      const token = await login(base, ouvEmail);
+      const res = await fetch(`${base}/events`, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      assert.equal(res.status, 200);
+      sse = openSseSession(res);
+      await sse.waitUntil((t) => t.includes('connected'), 3000);
+      assert.equal(clientCount(), 1);
+    } finally {
+      if (sse) await sse.close();
+      await close();
+    }
+  });
+
+  it('cleanup removes client and stops registry entry', async () => {
+    const app = createApp({ sseHeartbeatMs: 60_000 });
+    const { base, close } = await listen(app);
+    let sse;
+    try {
+      const token = await login(base, ouvEmail);
+      const res = await fetch(`${base}/events`, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      sse = openSseSession(res);
+      await sse.waitUntil((t) => t.includes('connected'), 2000);
+      assert.equal(clientCount(), 1);
+      await sse.close();
+      clearClients();
+      assert.equal(clientCount(), 0);
     } finally {
       if (sse) await sse.close();
       await close();
@@ -339,7 +394,7 @@ describe('Imp-09 Realtime SSE API', () => {
     }
   });
 
-  it('scoped worker only receives own user events', async () => {
+  it('scoped worker only receives own user events (unauthorized scope dropped)', async () => {
     const app = createApp({ sseHeartbeatMs: 60_000 });
     const { base, close } = await listen(app);
     let sse;

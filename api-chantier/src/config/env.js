@@ -16,6 +16,10 @@ export const env = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '15m',
   refreshExpiresMs: Number(process.env.REFRESH_EXPIRES_MS ?? String(7 * 24 * 60 * 60 * 1000)),
   corsOrigin: process.env.CORS_ORIGIN ?? '*',
+  /** Imp-09 SSE heartbeat interval (ms). Default 30000. */
+  sseHeartbeatMs: Number(process.env.SSE_HEARTBEAT_MS ?? 30_000),
+  /** Imp-09 SSE `retry:` hint for clients (ms). Default 3000. */
+  sseRetryMs: Number(process.env.SSE_RETRY_MS ?? 3_000),
   isProd: (process.env.NODE_ENV ?? 'development') === 'production',
   isTest: (process.env.NODE_ENV ?? 'development') === 'test',
 };

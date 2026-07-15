@@ -1,49 +1,44 @@
 # IMP09_TRACEABILITY
 
-**Date:** 2026-07-15
+**Date:** 2026-07-15 (hardening)
 
 ---
 
-## 1. Decision → code
+## 1. Decision → code (unchanged winners)
 
-| Decision | Evidence in code |
+| Decision | Evidence |
 |---|---|
-| DR-IMP09-001 SSE | `realtime/routes.js` `GET /`, `app.js` `app.use('/events', …)` |
-| DR-IMP09-002 Imp-06 post-COMMIT emit | `timesheetService.js` emit after `withTransaction`; `emitTimesheetEvents.js` |
-| DR-IMP09-003 Reuse Imp-07 hooks | `notificationHooks.js` → `dispatchDomainEvent`; `reviewDecision.js` still calls `emitReviewEvent` |
+| DR-IMP09-001 SSE | `realtime/routes.js` `GET /`, `app.js` `/events` |
+| DR-IMP09-002 Imp-06 post-COMMIT | `emitTimesheetEvents.js` + `timesheetService` after `withTransaction` |
+| DR-IMP09-003 Reuse Imp-07 hooks | `notificationHooks.emitDomainEvent` → `dispatchDomainEvent` |
 
-## 2. FE contract → backend event
+## 2. Review hardening → evidence
 
-| FE screen (CVL) | FE listen | Unified signal |
-|---|---|---|
-| timesheet | periods + declarations `user_id=self` | scoped `period.*` / `declaration.*` to worker |
-| validation | periods + declarations (reload) | `queue.changed` + declaration catalog |
-| chef-dashboard | periods + client team filter | `dashboard.changed` + period events in chef chantier scope |
-
-Source: `IMP09_FE_REALTIME_CONTRACT_REPORT.md`, `FE_COMPATIBILITY_ADAPTERS.md` L18 `/events`.
-
-## 3. Write path → emit
-
-| Write path | When emit | Types |
-|---|---|---|
-| `createPeriod` | after COMMIT | `period.created` + declaration side-effect |
-| `updatePeriod` | after COMMIT | `period.updated` + declaration side-effect |
-| `deletePeriod` | after COMMIT | `period.deleted` + declaration side-effect |
-| sync / auto-approve (inside TX) | via post-COMMIT period mutation helper | `declaration.submitted` / `.approved` / `.updated` |
-| approve / reject / return / cancel | after COMMIT (`emitReviewEvent`) | mapped to catalog + queue/dashboard |
-| `decidePeriod` | after COMMIT | `period.updated` (+ queue/dashboard) |
-
-## 4. Ownership reuse
-
-| Concern | Module reused |
+| Review item | Evidence |
 |---|---|
-| Chef chantier ids | `shared/authz/chefScope.getChefChantierIds` |
-| JWT auth on stream | `shared/middleware/auth` (+ query token) |
+| Auth Bearer preferred + query fallback + Security Note | `auth.js` `extractBearerToken`; `IMP09_ARCHITECTURE.md` §3 |
+| Last-Event-ID no replay | `routes.js` comments + `lastEventIdReplay: false`; Architecture §4 |
+| SSE frame format | Architecture §5; `serializer.js` |
+| `queue.changed` / `dashboard.changed` ownership | Architecture §7; `dispatcher.js` `source: dispatcher.queue_changed` / `dispatcher.dashboard_changed` |
+| Config not hard-coded | `env.sseHeartbeatMs` / `env.sseRetryMs`; `.env.example` |
+| Connection lifecycle | Architecture §2 |
 
-## 5. Explicit non-trace (out of Imp-09)
+## 3. FE contract → backend signal
 
-| Item | Status |
+| FE screen | Unified signal |
 |---|---|
-| FE cutover adapter | Imp-12 |
-| Dump `supabase_realtime` publication | C-06 informational; not used by Unified SSE |
-| Export / payroll / management live push | Not in CVL FE realtime inventory |
+| timesheet | scoped `period.*` / `declaration.*` |
+| validation | `queue.changed` + declaration catalog |
+| chef-dashboard | `dashboard.changed` + period catalog in chef scope |
+
+## 4. Producer chain
+
+```
+Imp-06 emitAfterPeriodMutation / Imp-07 emitReviewEvent
+  → notificationHooks (bus)
+  → dispatcher.expandToCatalogEvents
+  → dispatchCatalogEvent + scope gate
+  → sseRegistry.writeEvent
+```
+
+Secondary UI signals (`queue.changed`, `dashboard.changed`): **created only inside dispatcher**, never by Imp-06/07 services.

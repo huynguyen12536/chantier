@@ -1,19 +1,46 @@
 /**
  * Realtime dispatcher — maps domain/hook events → scoped SSE fan-out.
- * No persistence / replay (Last-Event-ID acknowledged only).
+ *
+ * Last-Event-ID: accepted on connect for client acknowledgment only.
+ * Server does NOT replay missed events (no persistence).
  */
 
+import { env } from '../../config/env.js';
 import { EVENT_TYPES, REVIEW_HOOK_TYPES } from './eventTypes.js';
 import { listClients, nextEventId, writeEvent } from './sseRegistry.js';
 import { clientMayReceive } from './scope.js';
 import { logger } from '../../shared/utils/logger.js';
 
-const DEFAULT_RETRY_MS = 3000;
+/** Who synthesized the secondary UI refresh signal. */
+const SOURCE_DISPATCHER_QUEUE = 'dispatcher.queue_changed';
+const SOURCE_DISPATCHER_DASHBOARD = 'dispatcher.dashboard_changed';
+
+let retryMs = Number(env.sseRetryMs) || 3_000;
+
+export function setRetryMs(ms) {
+  retryMs = Math.max(0, Number(ms) || 3_000);
+}
+
+export function getRetryMs() {
+  return retryMs;
+}
+
+/**
+ * After a primary domain/catalog event, Imp-09 dispatcher also emits
+ * queue.changed + dashboard.changed so validation / chef-dashboard can reload.
+ * Producers (Imp-06/07) do not emit these two types themselves.
+ */
+function withUiRefreshSignals(primary, base) {
+  return [
+    primary,
+    { type: EVENT_TYPES.QUEUE_CHANGED, ...base, source: SOURCE_DISPATCHER_QUEUE },
+    { type: EVENT_TYPES.DASHBOARD_CHANGED, ...base, source: SOURCE_DISPATCHER_DASHBOARD },
+  ];
+}
 
 /**
  * Normalize any Imp-06/07 hook payload into catalog SSE event(s).
  * @param {Record<string, unknown>} raw
- * @returns {Array<{ type: string, entityId?: string, userId?: string|null, chantierId?: string|null, statut?: string|null, actorId?: string|null, action?: string|null, source?: string }>}
  */
 export function expandToCatalogEvents(raw) {
   if (!raw || typeof raw !== 'object' || !raw.type) return [];
@@ -31,9 +58,14 @@ export function expandToCatalogEvents(raw) {
   const t = String(raw.type);
   const catalog = new Set(Object.values(EVENT_TYPES));
 
-  /** Already a catalog type from Imp-06 */
+  /** Already a catalog type from Imp-06 (or direct dispatch) */
   if (catalog.has(t)) {
-    const out = [{ type: t, ...base }];
+    if (
+      t === EVENT_TYPES.QUEUE_CHANGED ||
+      t === EVENT_TYPES.DASHBOARD_CHANGED
+    ) {
+      return [{ type: t, ...base }];
+    }
     if (
       [
         EVENT_TYPES.PERIOD_CREATED,
@@ -46,19 +78,17 @@ export function expandToCatalogEvents(raw) {
         EVENT_TYPES.DECLARATION_CANCELLED,
       ].includes(t)
     ) {
-      out.push({ type: EVENT_TYPES.QUEUE_CHANGED, ...base, source: 'derived' });
-      out.push({ type: EVENT_TYPES.DASHBOARD_CHANGED, ...base, source: 'derived' });
+      return withUiRefreshSignals({ type: t, ...base }, base);
     }
-    return out;
+    return [{ type: t, ...base }];
   }
 
-  /** Imp-07 producer types → catalog */
+  /** Imp-07 producer types → catalog + UI refresh signals */
   if (t === REVIEW_HOOK_TYPES.DECLARATION_CANCELLED) {
-    return [
+    return withUiRefreshSignals(
       { type: EVENT_TYPES.DECLARATION_CANCELLED, ...base, source: 'imp07' },
-      { type: EVENT_TYPES.QUEUE_CHANGED, ...base, source: 'derived' },
-      { type: EVENT_TYPES.DASHBOARD_CHANGED, ...base, source: 'derived' },
-    ];
+      { ...base, source: 'imp07' },
+    );
   }
 
   if (t === REVIEW_HOOK_TYPES.DECLARATION_REVIEWED) {
@@ -66,19 +96,17 @@ export function expandToCatalogEvents(raw) {
     if (base.statut === 'validee') mapped = EVENT_TYPES.DECLARATION_APPROVED;
     else if (base.statut === 'rejetee') mapped = EVENT_TYPES.DECLARATION_REJECTED;
     else if (base.statut === 'annulee') mapped = EVENT_TYPES.DECLARATION_CANCELLED;
-    return [
+    return withUiRefreshSignals(
       { type: mapped, ...base, source: 'imp07' },
-      { type: EVENT_TYPES.QUEUE_CHANGED, ...base, source: 'derived' },
-      { type: EVENT_TYPES.DASHBOARD_CHANGED, ...base, source: 'derived' },
-    ];
+      { ...base, source: 'imp07' },
+    );
   }
 
   if (t === REVIEW_HOOK_TYPES.PERIOD_REVIEWED) {
-    return [
+    return withUiRefreshSignals(
       { type: EVENT_TYPES.PERIOD_UPDATED, ...base, source: 'imp07' },
-      { type: EVENT_TYPES.DASHBOARD_CHANGED, ...base, source: 'derived' },
-      { type: EVENT_TYPES.QUEUE_CHANGED, ...base, source: 'derived' },
-    ];
+      { ...base, source: 'imp07' },
+    );
   }
 
   logger.warn('realtime.unknown_event_type', { type: t });
@@ -107,7 +135,7 @@ export function dispatchCatalogEvent(catalogEvent) {
   let delivered = 0;
   for (const client of listClients()) {
     if (!clientMayReceive(client.user, client.chantierIds, payload)) continue;
-    if (writeEvent(client, { id, event: catalogEvent.type, data: payload, retry: DEFAULT_RETRY_MS })) {
+    if (writeEvent(client, { id, event: catalogEvent.type, data: payload, retry: retryMs })) {
       delivered += 1;
     }
   }

@@ -18,7 +18,10 @@ import exportRoutes from './modules/export/routes.js';
 import { realtimeRoutes, initRealtime } from './modules/realtime/index.js';
 
 export function createApp(options = {}) {
-  initRealtime({ heartbeatMs: options.sseHeartbeatMs });
+  initRealtime({
+    heartbeatMs: options.sseHeartbeatMs,
+    retryMs: options.sseRetryMs,
+  });
 
   const app = express();
 
