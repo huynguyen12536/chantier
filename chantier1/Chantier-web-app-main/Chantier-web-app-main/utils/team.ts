@@ -44,7 +44,7 @@ export async function getChefManagedChantierIds(chefId: string): Promise<string[
     .eq('user_id', chefId)
     .is('date_fin', null);
   if (error) throw error;
-  return [...new Set((data || []).map((row) => row.chantier_id))];
+  return [...new Set(((data as { chantier_id: string }[]) || []).map((row) => row.chantier_id))];
 }
 
 export async function getChefManagedChantiers(chefId: string): Promise<Chantier[]> {

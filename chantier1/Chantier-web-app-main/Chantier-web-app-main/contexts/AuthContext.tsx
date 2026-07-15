@@ -1,11 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Session } from '@supabase/supabase-js';
-import { supabase } from '@/services/supabase';
+import { supabase, AuthSession } from '@/services/supabase';
 import { Profile, AffectationChantier } from '@/types';
 import { getChefManagedChantierIds } from '@/utils/team';
 
 type AuthContextType = {
-  session: Session | null;
+  session: AuthSession | null;
   profile: Profile | null;
   loading: boolean;
   assignedWorksites: AffectationChantier[];
@@ -18,30 +17,47 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function toProfile(user: AuthSession['user']): Profile {
+  return {
+    id: user.id,
+    email: user.email,
+    nom: user.nom || '',
+    prenom: user.prenom || '',
+    matricule: user.matricule || '',
+    phone: user.phone || '',
+    role: user.role as Profile['role'],
+    created_at: '',
+    updated_at: '',
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [assignedWorksites, setAssignedWorksites] = useState<AffectationChantier[]>([]);
   const [selectedWorksite, setSelectedWorksite] = useState<AffectationChantier | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        loadProfile(session.user.id);
+    supabase.auth.getSession().then(({ data }) => {
+      const s = data?.session ?? null;
+      setSession(s);
+      if (s) {
+        void loadProfile(s);
       } else {
         setLoading(false);
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        setSession(session);
-        if (session) {
-          await loadProfile(session.user.id);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, next) => {
+      void (async () => {
+        setSession(next);
+        if (next) {
+          await loadProfile(next);
         } else {
           setProfile(null);
+          setAssignedWorksites([]);
+          setSelectedWorksite(null);
           setLoading(false);
         }
       })();
@@ -50,20 +66,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const loadProfile = async (userId: string) => {
+  const loadProfile = async (active: AuthSession) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      // Prefer auth/v1 user; fallback to session.user; optional profiles self GET
+      let base = toProfile(active.user);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', active.user.id)
+          .maybeSingle();
+        if (!error && data) {
+          base = { ...base, ...(data as Profile) };
+        }
+      } catch {
+        /* use auth user */
+      }
+      setProfile(base);
 
-      if (error) throw error;
-      setProfile(data);
-
-      // Load assigned worksites for workers and team leaders
-      if (data?.role === 'ouvrier' || data?.role === 'chef_equipe') {
-        await loadAssignedWorksites(userId, data.role);
+      if (base.role === 'ouvrier' || base.role === 'chef_equipe') {
+        await loadAssignedWorksites(base.id, base.role);
       } else {
         setLoading(false);
       }
@@ -74,9 +96,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user?.id) {
-      await loadProfile(session.user.id);
+    const { data } = await supabase.auth.getSession();
+    if (data?.session) {
+      await loadProfile(data.session);
     }
   };
 
@@ -103,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) throw error;
 
         const seen = new Set<string>();
-        const worksites = (data || []).filter((a) => {
+        const worksites = ((data || []) as AffectationChantier[]).filter((a) => {
           if (seen.has(a.chantier_id)) return false;
           seen.add(a.chantier_id);
           return true;
@@ -113,11 +135,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (worksites.length === 1) setSelectedWorksite(worksites[0]);
         else setSelectedWorksite(null);
       } else {
-        // Ouvrier: merge chantiers from both direct assignments and zone assignments
         const seen = new Set<string>();
         const worksites: AffectationChantier[] = [];
 
-        // 1. Direct assignments via affectations_chantiers
         const { data: affData } = await supabase
           .from('affectations_chantiers')
           .select('*, chantiers(*)')
@@ -125,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .lte('date_debut', today)
           .or(`date_fin.is.null,date_fin.gte.${today}`);
 
-        for (const aff of affData || []) {
+        for (const aff of (affData || []) as AffectationChantier[]) {
           const chantier = aff.chantiers;
           if (!chantier || seen.has(chantier.id) || !chantier.actif) continue;
           if (chantier.date_debut && chantier.date_debut > today) continue;
@@ -134,15 +154,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           worksites.push(aff);
         }
 
-        // 2. Zone-based assignments via zones_ouvriers → zones_chantiers → chantiers
         const { data: zoData } = await supabase
           .from('zones_ouvriers')
           .select('zone_id, zones_chantiers(chantier_id, chantiers(id, nom, code, adresse, actif, date_debut, date_fin, created_at))')
           .eq('user_id', userId)
           .is('date_fin', null);
 
-        for (const zo of zoData || []) {
-          for (const zc of (zo as any).zones_chantiers || []) {
+        for (const zo of (zoData || []) as any[]) {
+          for (const zc of zo.zones_chantiers || []) {
             const chantier = zc.chantiers;
             if (!chantier || seen.has(chantier.id) || !chantier.actif) continue;
             if (chantier.date_debut && chantier.date_debut > today) continue;
@@ -174,10 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   };
 
@@ -186,22 +202,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAssignedWorksites([]);
     setSelectedWorksite(null);
     setSession(null);
-    // scope: 'local' clears this client only (no revoke HTTP call). More reliable on web.
     await supabase.auth.signOut({ scope: 'local' });
   };
 
   return (
-    <AuthContext.Provider value={{
-      session,
-      profile,
-      loading,
-      assignedWorksites,
-      selectedWorksite,
-      setSelectedWorksite,
-      signIn,
-      signOut,
-      refreshProfile,
-    }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        profile,
+        loading,
+        assignedWorksites,
+        selectedWorksite,
+        setSelectedWorksite,
+        signIn,
+        signOut,
+        refreshProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

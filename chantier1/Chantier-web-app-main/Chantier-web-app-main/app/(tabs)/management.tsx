@@ -722,7 +722,7 @@ export default function ManagementScreen() {
         }));
         const { error: addError } = await supabase
           .from('affectations_chantiers')
-          .upsert(affectations, { onConflict: 'user_id,chantier_id' });
+          .insert(affectations);
         if (addError) throw addError;
       }
 

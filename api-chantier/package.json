@@ -15,7 +15,9 @@
     "test:unit": "node --test test/**/*.test.js",
     "migrate": "node src/db/cli.js up",
     "migrate:status": "node src/db/cli.js status",
+    "seed:local": "node scripts/seed-local.js",
     "docker:up": "docker compose up -d --build",
+    "docker:up:phase13": "docker compose -f docker-compose.yml -f docker-compose.phase13.yml up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f api db",
     "docker:ps": "docker compose ps"

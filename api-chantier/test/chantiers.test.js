@@ -51,7 +51,11 @@ describe('Imp-04 Construction Sites', () => {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ nom: 'Site Test Imp04', adresse: '1 rue' }),
+        body: JSON.stringify({
+          nom: 'Site Test Imp04',
+          code: `T04${Date.now().toString().slice(-8)}`,
+          adresse: '1 rue',
+        }),
       });
       assert.equal(createRes.status, 201);
       const { chantier } = await createRes.json();

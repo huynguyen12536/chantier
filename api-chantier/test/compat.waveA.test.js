@@ -164,7 +164,11 @@ describe('Imp-12 Wave A compatibility', () => {
           'content-type': 'application/json',
           authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ nom: `Compat Site ${stamp}`, adresse: '1 rue' }),
+        body: JSON.stringify({
+          nom: `Compat Site ${stamp}`,
+          code: `WA${String(stamp).slice(-6)}`,
+          adresse: '1 rue',
+        }),
       });
       assert.equal(create.status, 201);
       const { chantier } = await create.json();
@@ -190,7 +194,10 @@ describe('Imp-12 Wave A compatibility', () => {
           'content-type': 'application/json',
           authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ nom: `Compat Site2 ${stamp}` }),
+        body: JSON.stringify({
+          nom: `Compat Site2 ${stamp}`,
+          code: `WB${String(stamp).slice(-6)}`,
+        }),
       });
       const { chantier: c2 } = await create2.json();
       const restRpc = await fetch(`${base}/rest/v1/rpc/delete_chantier_cascade`, {

@@ -224,3 +224,53 @@ export async function unlinkZoneOuvrier(zoneId, userId, actor) {
   if (!rows[0]) throw new AppError('Membership not found', 404, { code: 'NOT_FOUND' });
   return rows[0];
 }
+
+/**
+ * Phase 13 read helpers (DR-P13-005=H composers) — select-only; no business rewrite.
+ * Caller must already be able to see the zone via listZones scope.
+ */
+async function assertCanReadZone(zoneId, actor) {
+  const zones = await listZones(actor);
+  if (!zones.some((z) => z.id === zoneId)) {
+    throw new AppError('Zone not found', 404, { code: 'NOT_FOUND' });
+  }
+}
+
+export async function listZoneChantiers(zoneId, actor) {
+  await assertCanReadZone(zoneId, actor);
+  const { rows } = await query(
+    `SELECT * FROM zones_chantiers WHERE zone_id = $1 ORDER BY chantier_id`,
+    [zoneId],
+  );
+  return rows;
+}
+
+export async function listZoneOuvriers(zoneId, actor) {
+  await assertCanReadZone(zoneId, actor);
+  const { rows } = await query(
+    `SELECT * FROM zones_ouvriers WHERE zone_id = $1 ORDER BY date_debut DESC`,
+    [zoneId],
+  );
+  return rows;
+}
+
+/** AuthContext ouvrier path — active zone membership rows for a user. */
+export async function listZonesOuvriersByUser(userId, actor) {
+  if (!actor?.id) throw new AppError('Unauthorized', 401, { code: 'UNAUTHORIZED' });
+  if (actor.role === 'ouvrier' && actor.id !== userId) {
+    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
+  }
+  if (!['admin', 'administratif', 'chef_equipe', 'ouvrier'].includes(actor.role)) {
+    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
+  }
+  const { rows } = await query(
+    `SELECT * FROM zones_ouvriers
+     WHERE user_id = $1 AND date_fin IS NULL
+     ORDER BY date_debut DESC`,
+    [userId],
+  );
+  // Scope: non-admin must only see zones they can list
+  if (['admin', 'administratif'].includes(actor.role)) return rows;
+  const visible = new Set((await listZones(actor)).map((z) => z.id));
+  return rows.filter((r) => visible.has(r.zone_id));
+}

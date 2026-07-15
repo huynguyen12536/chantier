@@ -6,11 +6,15 @@ const router = Router();
 
 router.use(requireAuth);
 
-/** Mirror Imp-03 GET /api/users role gate (no new permissions). */
-const readers = requireRoles('admin', 'administratif');
+/**
+ * Phase 13 cutover: admin/administratif list (Imp-03);
+ * chef_equipe read for FE embeds (validation/team) — transport scope only.
+ * Self GET always allowed via controller.
+ */
+const listReaders = requireRoles('admin', 'administratif', 'chef_equipe');
 
-router.get('/profiles', readers, controller.listProfiles);
-router.get('/profiles/:id', readers, controller.getProfile);
+router.get('/profiles', listReaders, controller.listProfiles);
+router.get('/profiles/:id', controller.getProfileSelfOrAdmin);
 router.patch('/profiles', controller.patchProfile);
 router.patch('/profiles/:id', controller.patchProfile);
 

@@ -1,0 +1,45 @@
+# Phase 13 local stack: Postgres + Unified API + FE (web static)
+# Usage (from api-chantier/):
+#   docker compose -f docker-compose.yml -f docker-compose.phase13.yml up -d --build
+# FE → http://localhost:16035
+# API → http://localhost:${API_PORT:-3001}
+# DB  → localhost:${POSTGRES_PORT:-5432}
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # allow seed/migrate tools if needed; runtime uses image src
+      - ./migrations:/app/migrations:ro
+      - ./scripts:/app/scripts:ro
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-chantier}:${POSTGRES_PASSWORD:-chantier}@db:5432/${POSTGRES_DB:-chantier}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-use-long-random-string}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+
+  web:
+    build:
+      context: ../chantier1/Chantier-web-app-main/Chantier-web-app-main
+      dockerfile: Dockerfile
+      args:
+        # Browser calls host-mapped API port (not docker DNS)
+        EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:3001}
+        EXPO_PUBLIC_API_ANON_KEY: ${EXPO_PUBLIC_API_ANON_KEY:-local-anon}
+    container_name: chantier-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-16035}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

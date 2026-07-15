@@ -8,10 +8,8 @@ import periodesTableRoutes from './tables/periodes.routes.js';
 import authCompatRoutes from './auth/routes.js';
 
 /**
- * Imp-12 compatibility mounts.
- * Wave A: Edge dual, RPC dual, profiles /tables.
- * Wave B (DR-B-002=A): same table handlers on /tables and /rest/v1.
- * Wave B (DR-B-004=A): thin /auth/v1 → Imp-02.
+ * Imp-12+ Phase 13 compatibility mounts.
+ * Wave A/B preserved. Phase 13: declarations PATCH→Imp-07, composers, hour mapper, zone GETs.
  */
 function mountTableRouters(app, router) {
   app.use('/tables', router);

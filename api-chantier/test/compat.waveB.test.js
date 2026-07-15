@@ -375,9 +375,23 @@ describe('Imp-12 Wave B compatibility', () => {
         });
         assert.ok(
           [404, 405].includes(blocked.status),
-          `declarations write ${method} must not be routed (got ${blocked.status})`,
+          `declarations collection write ${method} must not be routed (got ${blocked.status})`,
         );
       }
+
+      // Phase 13 DR-P13-003=A — PATCH by id is allowed and delegates to Imp-07
+      const patchById = await fetch(`${base}/tables/declarations_heures/00000000-0000-4000-8000-000000000099`, {
+        method: 'PATCH',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${adminTok}`,
+        },
+        body: JSON.stringify({ statut: 'validee' }),
+      });
+      assert.ok(
+        [400, 404, 403, 409].includes(patchById.status),
+        `PATCH by id must hit Imp-07 adapter (got ${patchById.status})`,
+      );
 
       const del = await fetch(`${base}/tables/periodes_travail/${period.id}`, {
         method: 'DELETE',

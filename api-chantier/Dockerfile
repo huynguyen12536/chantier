@@ -16,6 +16,8 @@ RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY src ./src
+COPY migrations ./migrations
+COPY scripts ./scripts
 
 USER nodejs
 EXPOSE 3000

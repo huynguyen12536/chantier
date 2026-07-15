@@ -11,7 +11,16 @@ export const listProfiles = asyncHandler(async (req, res) => {
       res.status(mapped.status).json(mapped.body);
       return;
     }
-    const users = await usersService.listUsers();
+    let users = await usersService.listUsers();
+    const role = req.query?.role;
+    if (role) {
+      users = users.filter((u) => u.role === String(role));
+    }
+    const roleIn = req.query?.role_in;
+    if (roleIn) {
+      const set = new Set(String(roleIn).split(',').map((s) => s.trim()));
+      users = users.filter((u) => set.has(u.role));
+    }
     const mapped = profileMapper.toListResponse(users);
     res.status(mapped.status).json(mapped.body);
   } catch (err) {
@@ -23,6 +32,24 @@ export const listProfiles = asyncHandler(async (req, res) => {
 export const getProfile = asyncHandler(async (req, res) => {
   try {
     const user = await usersService.getUser(req.params.id);
+    const mapped = profileMapper.toOneResponse(user);
+    res.status(mapped.status).json(mapped.body);
+  } catch (err) {
+    const mapped = profileMapper.toErrorResponse(err);
+    res.status(mapped.status).json(mapped.body);
+  }
+});
+
+/** Self read for AuthContext; admin/administratif/chef for others. */
+export const getProfileSelfOrAdmin = asyncHandler(async (req, res) => {
+  try {
+    const id = req.params.id;
+    const role = req.user?.role;
+    const allowedOther = ['admin', 'administratif', 'chef_equipe'].includes(role);
+    if (id !== req.user?.id && !allowedOther) {
+      throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
+    }
+    const user = await usersService.getUser(id);
     const mapped = profileMapper.toOneResponse(user);
     res.status(mapped.status).json(mapped.body);
   } catch (err) {
