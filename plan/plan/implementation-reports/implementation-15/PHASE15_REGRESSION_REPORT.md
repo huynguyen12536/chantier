@@ -1,29 +1,38 @@
-# PHASE15_REGRESSION_REPORT.md
+# PHASE15 — Regression Report
 
-**Date:** 2026-07-15  
+## Intentional non-changes
 
-## npm test
+| Area | Status |
+|---|---|
+| Business services / repositories | Untouched |
+| JWT / RBAC | Untouched |
+| REST/compat adapters | Untouched |
+| Frontend | Untouched |
+| Architecture | Untouched |
 
-```
-npm run docker:test:up
-npm run migrate:test
-npm test
-```
+## Code touched (data path only)
 
-Result: **117 / 117 PASS** (23 suites), duration ~13s  
-Environment: `.env.test` → `127.0.0.1:5433/chantier_test`
+| File | Change |
+|---|---|
+| `scripts/etl-production-import.js` | **NEW** ETL |
+| `package.json` | add `seed:production-import` |
+| `scripts/seed-local.js` | warn demo-only |
 
-## Docker runtime
+## Runtime regression signals
 
 | Check | Result |
 |---|---|
-| FE HTTP | 200 |
-| API `/health` | 200 |
-| web health | healthy |
-| api health | healthy |
-| db health | healthy |
-| Demo DB not wiped by tests | profiles stayed 974 |
+| `/health` after import | PASS |
+| Auth for migrated admin | PASS |
+| Table GETs via `/rest/v1` | PASS |
+| Export stats | PASS |
+| Demo seed dependency | Removed from DB (0 `@local.test`) |
 
-## Config hygiene grep
+## Residual risks
 
-Active FE tree (`*.yml/json/js/env*`): **no** `EXPO_PUBLIC_SUPABASE_*` / `*.supabase.co` matches.
+1. **Temporary passwords** — all migrated users share documented temp password until Auth hash import.  
+2. **`jasmine.ad@gmail.com`** — not in merge artifact; cannot login.  
+3. Shared Docker volume previously polluted by tests — wiped by ETL TRUNCATE (intentional).  
+4. Re-running `seed:local` after production import **will contaminate** demo users again — documentation warns against this.
+
+**Regression verdict:** PASS for API surface; data-layer reset was intentional.

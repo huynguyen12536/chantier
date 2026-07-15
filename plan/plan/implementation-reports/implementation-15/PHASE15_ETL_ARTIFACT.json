@@ -1,0 +1,218 @@
+{
+  "imported_at": "2026-07-15T07:40:57.774Z",
+  "merged_at": "2026-07-15T06:33:54.751Z",
+  "merged_path": "C:\\Users\\Gigabyte\\Downloads\\DFM\\chantier\\migration-analysis\\data-dumps\\merged.json",
+  "id_remap_count": 1,
+  "audit": [
+    {
+      "type": "profile_email_collision",
+      "email": "joseph.ad@arson-concept.ch",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "discarded_source": "hzppst"
+    }
+  ],
+  "temporary_password_policy": {
+    "env": "MIGRATION_TEMP_PASSWORD",
+    "value_used": "Phase15-TempPass!",
+    "note": "Assigned only when password_hash missing from dump. Documented — not silent."
+  },
+  "password_report": [
+    {
+      "id": "47c68c11-eff5-4ba3-9368-252c38d30825",
+      "email": "nguyenthikieunghi.ltp202@gmail.com",
+      "role": "admin",
+      "reason": "password_hash unavailable in merged dump (auth.users not extracted)",
+      "temporary_password": "Phase15-TempPass!"
+    },
+    {
+      "id": "abcca969-52ff-40fc-902d-82de4743462f",
+      "email": "jasmine.n@gmail.com",
+      "role": "chef_equipe",
+      "reason": "password_hash unavailable in merged dump (auth.users not extracted)",
+      "temporary_password": "Phase15-TempPass!"
+    },
+    {
+      "id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "email": "joseph.ad@arson-concept.ch",
+      "role": "admin",
+      "reason": "password_hash unavailable in merged dump (auth.users not extracted)",
+      "temporary_password": "Phase15-TempPass!"
+    },
+    {
+      "id": "aef70554-b535-4408-9407-946db41f772d",
+      "email": "jasmine.tl@gmail.com",
+      "role": "chef_equipe",
+      "reason": "password_hash unavailable in merged dump (auth.users not extracted)",
+      "temporary_password": "Phase15-TempPass!"
+    },
+    {
+      "id": "f7c50816-459c-4a6d-a782-fe498d1988e4",
+      "email": "jasmine.collab@gmail.com",
+      "role": "ouvrier",
+      "reason": "password_hash unavailable in merged dump (auth.users not extracted)",
+      "temporary_password": "Phase15-TempPass!"
+    },
+    {
+      "id": "5609a530-0e12-4e78-8104-d810cae90075",
+      "email": "joseph.collab@arson-concept.ch",
+      "role": "ouvrier",
+      "reason": "password_hash unavailable in merged dump (auth.users not extracted)",
+      "temporary_password": "Phase15-TempPass!"
+    },
+    {
+      "id": "05fae8ca-461d-480a-9ee0-8ee80cc0e85f",
+      "email": "la@yahoo.fr",
+      "role": "ouvrier",
+      "reason": "password_hash unavailable in merged dump (auth.users not extracted)",
+      "temporary_password": "Phase15-TempPass!"
+    },
+    {
+      "id": "eb5d70b5-0e89-49df-8254-01eaaf25ad3e",
+      "email": "ap@gmail.com",
+      "role": "ouvrier",
+      "reason": "password_hash unavailable in merged dump (auth.users not extracted)",
+      "temporary_password": "Phase15-TempPass!"
+    },
+    {
+      "id": "1d5ac48f-9eae-452a-a998-1b480f87ce18",
+      "email": "joseph.tl@arson-concept.ch",
+      "role": "chef_equipe",
+      "reason": "password_hash unavailable in merged dump (auth.users not extracted)",
+      "temporary_password": "Phase15-TempPass!"
+    }
+  ],
+  "row_counts": {
+    "profiles": {
+      "merged": 9,
+      "local": 10,
+      "local_business": 9,
+      "system_actor_kept": true
+    },
+    "chantiers": {
+      "merged": 6,
+      "local": 6
+    },
+    "affectations_chantiers": {
+      "merged": 12,
+      "local": 12
+    },
+    "zones_equipe": {
+      "merged": 0,
+      "local": 0
+    },
+    "zones_chantiers": {
+      "merged": 0,
+      "local": 0
+    },
+    "zones_ouvriers": {
+      "merged": 0,
+      "local": 0
+    },
+    "periodes_travail": {
+      "merged": 41,
+      "local": 41
+    },
+    "declarations_heures": {
+      "merged": 41,
+      "local": 41
+    }
+  },
+  "fk_orphans": [
+    {
+      "label": "affectations.user_id",
+      "orphan_count": 0
+    },
+    {
+      "label": "affectations.chantier_id",
+      "orphan_count": 0
+    },
+    {
+      "label": "affectations.chef_equipe_id",
+      "orphan_count": 0
+    },
+    {
+      "label": "periodes.user_id",
+      "orphan_count": 0
+    },
+    {
+      "label": "periodes.chantier_id",
+      "orphan_count": 0
+    },
+    {
+      "label": "periodes.validated_by",
+      "orphan_count": 0
+    },
+    {
+      "label": "declarations.user_id",
+      "orphan_count": 0
+    },
+    {
+      "label": "declarations.chantier_id",
+      "orphan_count": 0
+    },
+    {
+      "label": "declarations.validated_by",
+      "orphan_count": 0
+    }
+  ],
+  "uuid_compare": {
+    "profiles": {
+      "merged_count": 9,
+      "local_count": 10,
+      "matching": 9,
+      "only_in_merged": [],
+      "only_in_local": []
+    },
+    "chantiers": {
+      "merged_count": 6,
+      "local_count": 6,
+      "matching": 6,
+      "only_in_merged": [],
+      "only_in_local": []
+    },
+    "affectations_chantiers": {
+      "merged_count": 12,
+      "local_count": 12,
+      "matching": 12,
+      "only_in_merged": [],
+      "only_in_local": []
+    },
+    "zones_equipe": {
+      "merged_count": 0,
+      "local_count": 0,
+      "matching": 0,
+      "only_in_merged": [],
+      "only_in_local": []
+    },
+    "zones_chantiers": {
+      "merged_count": 0,
+      "local_count": 0,
+      "matching": 0,
+      "only_in_merged": [],
+      "only_in_local": []
+    },
+    "zones_ouvriers": {
+      "merged_count": 0,
+      "local_count": 0,
+      "matching": 0,
+      "only_in_merged": [],
+      "only_in_local": []
+    },
+    "periodes_travail": {
+      "merged_count": 41,
+      "local_count": 41,
+      "matching": 41,
+      "only_in_merged": [],
+      "only_in_local": []
+    },
+    "declarations_heures": {
+      "merged_count": 41,
+      "local_count": 41,
+      "matching": 41,
+      "only_in_merged": [],
+      "only_in_local": []
+    }
+  },
+  "note_jasmine_ad": "jasmine.ad@gmail.com is NOT present in merged.json; migrated jasmine.* accounts: jasmine.n@gmail.com, jasmine.tl@gmail.com, jasmine.collab@gmail.com"
+}

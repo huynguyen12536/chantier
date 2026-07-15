@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /**
- * DR-P13-006=A — local demo seed (hashed passwords via Imp-02 hashPassword).
+ * DR-P13-006=A — local **demo** seed only (development).
+ * Production / historical data: use `npm run seed:production-import` (Phase 15 ETL).
+ * Do NOT run this after a production import unless intentionally resetting to demo.
  * Idempotent on email conflict.
  */
 import { runMigrations } from '../src/db/migrate.js';
