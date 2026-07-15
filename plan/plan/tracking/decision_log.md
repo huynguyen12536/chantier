@@ -47,6 +47,8 @@
 | 2026-07-15 | Delivery | **Imp-12 Wave A PASS** — Edge create/delete + RPC cascade + `/tables/profiles`; in-process service reuse; **80/80 tests**. No Imp-02…11 rewrite / no SQL / no FE. **STOP — await review; no Wave B** | Closed DR-001…004 | Wave B needs new auth | Status Wave A PASS | Implementer | Imp-12 | Human review |
 | 2026-07-15 | Review CLOSE | **Imp-12 Wave A APPROVED / COMPLETE** (`a706e1111f`). Architecture/scope/ownership/compat/tests PASS. Non-blocking notes addressed in README API index + review doc. **Wave B remains blocked** | Human review verdict | Wave B | Wave A COMPLETE | Technical Lead | Imp-12 | Await Wave B auth |
 | 2026-07-15 | Imp-10 investigation | **Background Jobs** pack sealed (≠ Phase 10 planning). Scope/matrix/plan/DRs 001–006. Sync/review/SSE remain Imp-06/07/09. **No code.** Coding blocked | WAVE2 Imp-10 + Imp-06/07/09 SoT | Waiting Human DRs | Blocked code | Implementer | Imp-10 | Close DRs → authorize Wave A |
+| 2026-07-15 | Imp-10 design review | DR recommended seal **001–006 = A,A,B,A,A,A**. Wave A spec written (`IMP10_WAVE_A_IMPLEMENTATION_PLAN.md`). **No code.** Await Human confirm before coding | Design review | Human seal | Spec ready | Implementer | Imp-10 | Human approve Wave A → code |
+| 2026-07-15 | Imp-10 Wave A delivery | Wave A M1–M3: in-process ephemeral jobs + idempotency fix + server lifecycle + reports. **92/92 tests.** Head code `6a2a169bd1`. **STOP — Wave B blocked** | Locked DRs 001–006 | Wave B | Wave A eng complete | Implementer | Imp-10 | Human Wave A review |
 
 ## When to add a row
 

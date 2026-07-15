@@ -71,6 +71,9 @@ Mỗi domain module: `routes.js` · `controller.js` · `service.js` · `reposito
 | Persistence / Outbox / Redis | **Deferred** — not in Wave A |
 | Builtin job | `jobs.platform_noop` only (no domain / notification jobs) |
 | Disable | `JOBS_ENABLED=false` |
+| Env knobs | `JOBS_POLL_MS` (50), `JOBS_MAX_ATTEMPTS` (3), `JOBS_BACKOFF_CAP_MS` (2000) |
+
+**Ops:** on restart, in-memory jobs are lost (DR-002=A). No `/api/jobs`. Wave B blocked until authorized.
 
 ### Legacy compatibility adapters (Imp-12 Wave A — frozen CVL FE only)
 
