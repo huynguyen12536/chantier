@@ -27,17 +27,49 @@ src/
     utils/               # asyncHandler
   modules/
     health/              # GET /health
-    auth/                # login / me (stub)
-    users/               # CRUD users (stub)
-    chantiers/           # sites (stub)
-    affectations/        # assignments (stub)
-    zones/               # team zones (stub)
-    timesheet/           # periodes + declarations (stub)
-    validation/          # approve/reject/cancel (stub)
-    export/              # payroll export (stub)
+    auth/                # Imp-02 JWT auth
+    users/               # Imp-03/11 users Administration
+    chantiers/           # Imp-04 sites
+    affectations/        # Imp-05 assignments
+    zones/               # Imp-05 team zones
+    timesheet/           # Imp-06 periodes + declarations
+    validation/          # Imp-07 approve/reject/cancel
+    export/              # Imp-08 payroll export
+    realtime/            # Imp-09 SSE /events
+    compat/              # Imp-12 Wave A — LEGACY FE adapters only (not primary APIs)
 ```
 
-Mỗi module: `routes.js` · `controller.js` · `service.js` · `repository.js` (thêm khi implement).
+Mỗi domain module: `routes.js` · `controller.js` · `service.js` · `repository.js`.
+
+## API index
+
+### Primary Unified REST (preferred)
+
+| Prefix | Owner |
+|--------|--------|
+| `/health` | Imp-01 |
+| `/api/auth` | Imp-02 |
+| `/api/users` | Imp-03 / Imp-11 |
+| `/api/chantiers` | Imp-04 |
+| `/api/affectations` | Imp-05 |
+| `/api/zones` | Imp-05 |
+| `/api/timesheet` | Imp-06 |
+| `/api/validation` | Imp-07 |
+| `/api/export` | Imp-08 |
+| `/events` | Imp-09 |
+
+### Legacy compatibility adapters (Imp-12 Wave A — frozen CVL FE only)
+
+> **Not primary APIs.** Transport aliases only. Business lives in Imp-03 / Imp-04 / Imp-11 services. Wave B table adapters are **blocked** until authorized.
+
+| Compat path | Delegates to |
+|-------------|--------------|
+| `POST /functions/create-user` · `POST /functions/v1/create-user` | `users.createUser` |
+| `POST /functions/delete-user` · `POST /functions/v1/delete-user` | `users.deleteUser` |
+| `POST /rpc/delete_chantier_cascade` · `POST /rest/v1/rpc/delete_chantier_cascade` | `chantiers.deleteChantierCascade` |
+| `GET/PATCH /tables/profiles` | `users` list/get/`updateUser` |
+
+All routes (including compat) receive `x-correlation-id` via global middleware.
 
 ## Setup với Docker (khuyến nghị)
 
@@ -74,5 +106,5 @@ npm run dev
 
 ## Trạng thái hiện tại
 
-Scaffold khởi tạo — routes trả `501 Not Implemented` trừ `/health`.  
-Implement nghiệp vụ theo Master Plan Phase 5+.
+Imp-02 → Imp-11 domain APIs implemented. Imp-12 Wave A compatibility layer **COMPLETE** (approved).  
+Primary clients should use `/api/*`. Compat `/functions/*`, `/rpc/*`, `/tables/*` are legacy FE adapters only.
