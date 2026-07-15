@@ -2,6 +2,18 @@
 
 This folder contains evidence for coding modules in Wave 2. It is separate from the immutable historical Phase 0–14 reports.
 
+## Current module status (summary)
+
+| Module | Status |
+|---|---|
+| Imp-01 … Imp-09 | **COMPLETE** |
+| Imp-10 Background Jobs | **Wave A COMPLETE**; Wave B/C **BLOCKED** |
+| Imp-11 Administration | **COMPLETE** |
+| Imp-12 Adapters | **Wave A COMPLETE**; Wave B **BLOCKED** |
+| Imp-13 Production Readiness | Todo |
+
+See `WAVE2_IMPLEMENTATION_ROADMAP.md` for authoritative status.
+
 Create one folder per roadmap module using `implementation-NN/` (for example, `implementation-01/`). The module folder records each pipeline stage from `AGENTIC_EXECUTION_MANUAL.md`:
 
 1. Planner

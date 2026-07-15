@@ -49,6 +49,7 @@
 | 2026-07-15 | Imp-10 investigation | **Background Jobs** pack sealed (≠ Phase 10 planning). Scope/matrix/plan/DRs 001–006. Sync/review/SSE remain Imp-06/07/09. **No code.** Coding blocked | WAVE2 Imp-10 + Imp-06/07/09 SoT | Waiting Human DRs | Blocked code | Implementer | Imp-10 | Close DRs → authorize Wave A |
 | 2026-07-15 | Imp-10 design review | DR recommended seal **001–006 = A,A,B,A,A,A**. Wave A spec written (`IMP10_WAVE_A_IMPLEMENTATION_PLAN.md`). **No code.** Await Human confirm before coding | Design review | Human seal | Spec ready | Implementer | Imp-10 | Human approve Wave A → code |
 | 2026-07-15 | Imp-10 Wave A delivery | Wave A M1–M3: in-process ephemeral jobs + idempotency fix + server lifecycle + reports. **92/92 tests.** Head code `6a2a169bd1`. **STOP — Wave B blocked** | Locked DRs 001–006 | Wave B | Wave A eng complete | Implementer | Imp-10 | Human Wave A review |
+| 2026-07-15 | Imp-10 Wave A CLOSE | **APPROVED / COMPLETE / CLOSED.** Formal closure `IMP10_WAVE_A_FINAL_CLOSURE.md`. Roadmap updated. Imp-06…12 untouched. **Wave B & C BLOCKED** pending separate auth. **No production code in closure.** | Human APPROVED Wave A | Wave B/C | Wave A CLOSED | Technical Lead | Imp-10 | Await Wave B auth |
 
 ## When to add a row
 

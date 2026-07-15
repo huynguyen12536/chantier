@@ -124,5 +124,5 @@ npm run dev
 ## Trạng thái hiện tại
 
 Imp-02 → Imp-11 domain APIs implemented. Imp-12 Wave A compatibility layer **COMPLETE**.  
-Imp-10 Wave A: in-process ephemeral job platform (internal).  
+Imp-10 Wave A background jobs platform **COMPLETE / CLOSED** (Wave B blocked).  
 Primary clients should use `/api/*`. Compat `/functions/*`, `/rpc/*`, `/tables/*` are legacy FE adapters only.

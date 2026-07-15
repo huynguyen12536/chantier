@@ -23,10 +23,10 @@
 | Imp-06 | Timesheet | **Done PASS** | Imp-04, Imp-05 |
 | Imp-07 | Review & Approval | **Done PASS** | Imp-06 |
 | Imp-08 | Reporting & Export | **Done PASS** | Imp-06, Imp-07 |
-| Imp-09 | Notifications | Todo | Imp-02, Imp-07 |
-| Imp-10 | Background Jobs | Todo | Imp-06, Imp-07, Imp-09 |
-| Imp-11 | Administration | Todo | Imp-02, Imp-03 |
-| Imp-12 | Integration Adapters (FE contract compatibility) | Todo | Imp-02–Imp-11 as applicable |
+| Imp-09 | Notifications / Realtime | **Done — PASS / CLOSED** | Imp-02, Imp-07 |
+| Imp-10 | Background Jobs | **Wave A COMPLETE**; Wave B/C **BLOCKED** | Imp-06, Imp-07, Imp-09 |
+| Imp-11 | Administration | **Done — PASS / CLOSED** | Imp-02, Imp-03 |
+| Imp-12 | Integration Adapters (FE contract compatibility) | **Wave A COMPLETE**; Wave B **BLOCKED** | Imp-02–Imp-11 as applicable |
 | Imp-13 | Production Readiness | Todo | Imp-01–Imp-12 |
 
 ## Module definitions
@@ -88,32 +88,40 @@
 - **Acceptance criteria:** Reports/exports include only authorized validated data; format and contract compatibility are tested; audit and failure behavior are documented.
 
 ### Imp-09 — Notifications
-- **Status:** Todo
+- **Status:** **Done — PASS / CLOSED** (SSE `GET /events`; DR-IMP09-001/002/003)
 - **Goal:** Implement contract-equivalent events for evidenced timesheet and validation notifications, with transport selected by implementation evidence.
 - **SoT refs:** ADR-001 Notification; `migration-analysis/merge/realtime_mapping.md`; `migration-analysis/merge/fe_contract_matrix.md`.
 - **Depends On:** Imp-02, Imp-07.
 - **Acceptance criteria:** Required events and recipients trace to CVL evidence; authorization and delivery failure behavior are tested; no unsupported realtime behavior is invented.
+- **Evidence:** `implementation-reports/implementation-09/`
 
 ### Imp-10 — Background Jobs
-- **Status:** Todo
+- **Status:** **Wave A COMPLETE / APPROVED** — platform skeleton only. **Wave B and Wave C BLOCKED** until separate Human authorization.
 - **Goal:** Implement reliable asynchronous processing required by approved domain events, reconciliation, or notifications.
 - **SoT refs:** ADR-001 §§Decision and Consequences; `migration-analysis/merge/triggers_mapping.md`; `migration-analysis/merge/edge_functions_mapping.md`; Phase 10 backlog.
-- **Depends On:** Imp-06, Imp-07, Imp-09.
+- **Depends On:** Imp-06, Imp-07, Imp-09 (satisfied).
 - **Acceptance criteria:** Each job has an evidence-backed purpose, idempotency/retry/failure policy, observability, and integration tests; no legacy trigger is ported without a mapped service/event path.
+- **Wave A delivered:** in-process ephemeral runner + registry + queue + retry/idempotency + `jobs.platform_noop` + tests (DR-IMP10-001…006 = A,A,B,A,A,A). Code head `6a2a169bd1`.
+- **Wave B (blocked):** reliability jobs that invoke existing modules (e.g. notification retry) — **requires new DR/authorization**; must not invent Outbox without product decision.
+- **Wave C (blocked):** hardening / DLQ / ops endpoints — after Wave B or separate auth.
+- **Evidence:** `implementation-reports/implementation-10/` · `IMP10_WAVE_A_FINAL_CLOSURE.md`
 
 ### Imp-11 — Administration
-- **Status:** Todo
+- **Status:** **Done — PASS / CLOSED**
 - **Goal:** Implement only CVL-evidenced operational administration for users, roles, and supported configuration.
 - **SoT refs:** ADR-001 Identity & Access; `migration-analysis/merge/permissions_mapping.md`; Decision Log scope decisions; `migration-analysis/merge/fe_contract_matrix.md`.
 - **Depends On:** Imp-02, Imp-03.
 - **Acceptance criteria:** Administrative actions are permission-scoped and auditable; FE compatibility is tested where exposed; multi-company and Super Admin capabilities remain absent.
+- **Evidence:** `implementation-reports/implementation-11/`
 
 ### Imp-12 — Integration Adapters (FE contract compatibility)
-- **Status:** Todo
+- **Status:** **Wave A COMPLETE / APPROVED**; **Wave B BLOCKED** until separate Human authorization.
 - **Goal:** Complete and verify adapter endpoints, DTO mappings, error semantics, and event compatibility at the frozen frontend boundary.
 - **SoT refs:** `migration-analysis/merge/fe_contract_matrix.md`; `migration-analysis/merge/LEGACY_MAPPING_MATRIX.md`; ADR-001 §Consequences.
 - **Depends On:** Imp-02–Imp-11 as applicable.
 - **Acceptance criteria:** Every supported frozen-FE interaction has an automated compatibility result; deviations have an approved Decision Request; no edit occurs under `chantier1/`.
+- **Wave A:** Edge create/delete, RPC cascade, `/tables/profiles` — commit `a706e1111f`.
+- **Evidence:** `implementation-reports/implementation-12/`
 
 ### Imp-13 — Production Readiness
 - **Status:** Todo

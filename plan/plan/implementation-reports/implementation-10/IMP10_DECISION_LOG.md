@@ -1,8 +1,10 @@
 # IMP10_DECISION_LOG.md
 
 **Date:** 2026-07-15  
-**Status:** **FINAL / LOCKED** (Human design review APPROVED; Wave A implemented)  
-**Do not reopen**
+**Status:** **FINAL / LOCKED**  
+**Wave A:** **COMPLETE / CLOSED** (Human APPROVED)  
+**Wave B / C:** **BLOCKED** — require separate authorization  
+**Do not reopen DRs 001–006**
 
 ## Locked seal
 
@@ -15,6 +17,4 @@ DR-IMP10-005 = A
 DR-IMP10-006 = A
 ```
 
-Wave A plan: `IMP10_WAVE_A_IMPLEMENTATION_PLAN.md` (approved).  
-Wave A delivery: `IMP10_IMPLEMENTATION_REPORT.md` + `IMP10_WAVE_A_COMPLETION_CHECKLIST.md`.  
-**Wave B:** blocked until new Human authorization.
+Closure: `IMP10_WAVE_A_FINAL_CLOSURE.md` · Roadmap: `WAVE2_IMPLEMENTATION_ROADMAP.md` Imp-10.
