@@ -46,6 +46,7 @@
 | 2026-07-15 | Imp-12 DRs CLOSED | **001=A** dual paths · **002=C** Wave A only · **003=C** no decl write · **004=B** no auth adapter. Authorize Wave A | Human APPROVED decisions | Wave B blocked | Unblocked Wave A | Technical Lead | Imp-12 | Implement Wave A |
 | 2026-07-15 | Delivery | **Imp-12 Wave A PASS** — Edge create/delete + RPC cascade + `/tables/profiles`; in-process service reuse; **80/80 tests**. No Imp-02…11 rewrite / no SQL / no FE. **STOP — await review; no Wave B** | Closed DR-001…004 | Wave B needs new auth | Status Wave A PASS | Implementer | Imp-12 | Human review |
 | 2026-07-15 | Review CLOSE | **Imp-12 Wave A APPROVED / COMPLETE** (`a706e1111f`). Architecture/scope/ownership/compat/tests PASS. Non-blocking notes addressed in README API index + review doc. **Wave B remains blocked** | Human review verdict | Wave B | Wave A COMPLETE | Technical Lead | Imp-12 | Await Wave B auth |
+| 2026-07-15 | Imp-10 investigation | **Background Jobs** pack sealed (≠ Phase 10 planning). Scope/matrix/plan/DRs 001–006. Sync/review/SSE remain Imp-06/07/09. **No code.** Coding blocked | WAVE2 Imp-10 + Imp-06/07/09 SoT | Waiting Human DRs | Blocked code | Implementer | Imp-10 | Close DRs → authorize Wave A |
 
 ## When to add a row
 
