@@ -49,7 +49,7 @@
 |---|---|---|
 | 1 | M1 handler + registry + tests | ✓ `3159e5b3de` |
 | 2 | M2 dispatcher hook + integration tests | ✓ `6d10aaf038` |
-| 3 | M3 closure docs | ✓ (this pack) |
+| 3 | M3 closure docs | ✓ `7f50d6ed46` |
 | 4 | Full regression 105/105 | ✓ |
 | 5 | Wave C not started | ✓ |
 | 6 | Imp-12 Wave B not started | ✓ |

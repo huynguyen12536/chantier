@@ -41,7 +41,7 @@ Inherited Wave A (unchanged): `001=A, 002=A, 003=B, 004=A, 005=A, 006=A`.
 |---|---|---|
 | M1 | `3159e5b3de` | JB-01 handler + registry + unit tests + Wave B investigation docs |
 | M2 | `6d10aaf038` | SSE write-failure → enqueue JB-01 + M2 tests |
-| M3 | _(this docs commit — recorded in finalization)_ | Wave B1 closure pack |
+| M3 | `7f50d6ed46` | Wave B1 closure pack |
 
 Code head for Wave B1 runtime: **`6d10aaf038`**.
 
