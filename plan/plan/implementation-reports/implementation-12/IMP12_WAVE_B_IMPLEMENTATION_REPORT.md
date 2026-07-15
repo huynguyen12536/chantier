@@ -1,7 +1,10 @@
-# Imp-12 Wave B — Implementation Report (coding complete; awaiting Human Review)
+# Imp-12 Wave B — Implementation Report
 
 **Date:** 2026-07-15  
-**Status:** Implemented + full `api-chantier` test suite green — **not** Phase Closure  
+**Status:** **COMPLETE** — Imp-12 module CLOSED  
+**Release:** **APPROVED**  
+**Seal:** `IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS`  
+**Commit:** `d8bb5c83c0`  
 **DR seal (locked):** `B-001=A, B-002=A, B-003=C, B-004=A, B-005=B, B-006=B`
 
 ## Surface delivered
@@ -20,4 +23,14 @@ Adapters call existing services only. No SQL, migrations, JWT/RBAC reimplementat
 
 ## Tests
 
-`test/compat.waveB.test.js` + full `npm test`.
+`test/compat.waveB.test.js` + full `npm test` — **112/112 PASS**.
+
+## Known limitations (sealed)
+
+- B-003=C — no declarations writes  
+- B-005=B — no upsert invent  
+- B-006=B — no Realtime bridge  
+
+## Closure
+
+See `IMP12_FINAL_CLOSURE.md` · `IMP12_PHASE_COMPLETION_CHECKLIST.md` · `IMP12_RELEASE_NOTE.md`.

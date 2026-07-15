@@ -2,7 +2,10 @@
 
 **Date:** 2026-07-15  
 **Status:** **FINAL / LOCKED** — Human OFFICIALLY APPROVED  
-**Wave B coding:** AUTHORIZED (full Wave B)
+**Wave B coding:** **COMPLETE** (`d8bb5c83c0`)  
+**Module Imp-12:** **COMPLETE**  
+**Release:** **APPROVED**  
+**Seal:** `IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS`
 
 ## Locked seal
 
@@ -25,3 +28,5 @@ DR-IMP12-B-006 = B
 | B-006 | B | No Realtime bridge |
 
 Inherited Wave A sealed: `001=A, 002=C, 003=C, 004=B` (Wave A). Wave B B-004=A **extends** Imp-12 with auth compat without reopening Imp-02 ownership.
+
+All Wave B DRs **CLOSED**. Do not reopen without new Human authorization.

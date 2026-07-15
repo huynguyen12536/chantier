@@ -1,9 +1,12 @@
 # IMP12_WAVE_B_DESIGN_REVIEW.md
 
 **Date:** 2026-07-15  
-**Mode:** Phase 2 Design Review — **no production code**  
+**Mode:** Phase 2 Design Review (**historical**) — subsequently Human-sealed and implemented  
+**Final status:** Imp-12 **COMPLETE** · Release **APPROVED** · Seal: `IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS`  
+**Sealed DR letters:** `B-001=A, B-002=A, B-003=C, B-004=A, B-005=B, B-006=B`  
+**Runtime head:** `d8bb5c83c0` · Canonical seal: `IMP12_WAVE_B_DECISION_LOG.md`  
 **Input:** Wave B investigation pack · Wave A CLOSED · SoT listed below  
-**Code head (Wave A):** `a706e1111f`  
+**Code head (Wave A at review time):** `a706e1111f`  
 
 **Evidence / SoT:**
 
@@ -25,18 +28,18 @@
 
 ## 1. Remaining table adapters — class review
 
-| Table | Class | Why |
+| Table | Class (at design review) | Why |
 |---|---|---|
-| `chantiers` | **READY** | Imp-04 `list/create/update` exist; row DELETE already via Wave A RPC cascade; Flow B |
+| `chantiers` | **READY** → **DELIVERED** | Imp-04 `list/create/update` exist; row DELETE already via Wave A RPC cascade; Flow B |
 | `affectations_chantiers` | **READY** | Imp-05 `listAffectations`, `assignUser`, `softRemoveAffectation` exist |
 | `zones_equipe` | **READY** | Imp-05 `/api/zones` CRUD exists |
 | `zones_chantiers` | **READY** | Imp-05 link/unlink chantier APIs exist; compose ids in mapper |
 | `zones_ouvriers` | **READY** | Imp-05 add/soft-remove ouvrier APIs exist |
 | `periodes_travail` | **READY** | Imp-06 periods CRUD exists; adapter must call service only (sync stays in TX) |
 | `declarations_heures` **GET** | **READY** | Imp-06 `listDeclarations` / get paths exist |
-| `declarations_heures` **UPDATE statut** | **BLOCKED** until B-003 | FE patches `statut`; Unified uses Imp-07 commands — needs explicit map DR; Wave A DR-003=C |
-| Dual `/rest/v1/{table}` | **BLOCKED** until B-002 | FE supabase-js default path; Wave A only dual’d Edge/RPC |
-| Auth GoTrue/session | **BLOCKED** until B-004 | Wave A DR-004=B; Imp-02 owns JWT business |
+| `declarations_heures` **UPDATE statut** | **DEFERRED (B-003=C)** | FE patches `statut`; Unified uses Imp-07 — not in authorized Wave B |
+| Dual `/rest/v1/{table}` | **DELIVERED (B-002=A)** | FE supabase-js default path |
+| Auth GoTrue/session | **DELIVERED (B-004=A)** | Thin adapter → Imp-02 |
 | Supabase Realtime bridge | **OUT OF SCOPE** | Imp-09 SSE is SoT; Imp-09 FINAL; B-006 |
 | Export table / Super Admin / inactive RPC | **OUT OF SCOPE** | Imp-08 / Decision Log / inactive contract |
 
@@ -264,7 +267,7 @@ Imp-09 FINAL owns transport (SSE). Imp-10 did not invent replay. FE_COMPATIBILIT
 
 ---
 
-## Recommended DR answers (NOT SEALED) — B-004 revised
+## Recommended DR answers — **SEALED** (Human OFFICIALLY APPROVED; B-004 as revised)
 
 ```
 DR-IMP12-B-001 = A
@@ -275,17 +278,17 @@ DR-IMP12-B-005 = B
 DR-IMP12-B-006 = B
 ```
 
-**Meaning if Human accepts:** Wave B coding = (1) dual-mounted READY table adapters + declarations GET; INSERT-only affectations; no declarations WRITE; no Realtime bridge; **and (2) thin auth compatibility adapters calling Imp-02 only**.
+**Meaning (sealed & delivered):** Wave B = (1) dual-mounted READY table adapters + declarations GET; INSERT via assignUser; no declarations WRITE; no Realtime bridge; **and (2) thin auth compatibility adapters calling Imp-02 only**.
 
-**Follow-on (not this seal):** Declarations UPDATE (**B-003=A**) may still be needed for full Flow E table-write parity; tracked separately. Auth is **in** this recommendation so Imp-12 is not permanently partial on the FE_COMPATIBILITY auth contract.
+**Follow-on (explicit limitation):** Declarations UPDATE for full Flow E table-write parity remains **DEFERRED** under B-003=C until new Human authorization.
 
 ---
 
-## Explicit answers
+## Explicit answers (final)
 
 ### 1. Can Wave B coding begin?
 
-**Not yet.** Awaiting Human seal of recommended DR letters + explicit “Authorize Wave B coding.” After seal: **Yes** for READY table adapters **and** thin auth compat (B-004=A).
+**Closed.** Human sealed DRs and authorized coding. Wave B implemented at `d8bb5c83c0`. Imp-12 **COMPLETE**.
 
 ### 2. Production files eventually CREATED (if sealed as recommended)
 
@@ -347,11 +350,11 @@ Exact names follow Wave A `profiles.routes.js` / `edge` patterns.
 
 ---
 
-## STOP
+## STOP (historical gate — CLOSED)
 
 ```
-Imp-12 Wave B DESIGN REVIEW delivered.
-Recommended DRs recorded (NOT SEALED).
-NO production code.
-Await Human Review / DR seal / coding authorization.
+Imp-12 Wave B DESIGN REVIEW delivered and Human-sealed.
+Wave B implemented. Imp-12 COMPLETE.
+Release APPROVED — IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS.
+See IMP12_FINAL_CLOSURE.md.
 ```

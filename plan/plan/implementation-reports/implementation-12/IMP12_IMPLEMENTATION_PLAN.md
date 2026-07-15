@@ -1,8 +1,11 @@
 # IMP12_IMPLEMENTATION_PLAN.md
 
 **Date:** 2026-07-15  
-**Status:** Investigation — **waiting Human approval / DR answers**  
-**No code until authorized.**
+**Status:** **HISTORICAL PLAN — SUPERSEDED**  
+**Module Imp-12:** **COMPLETE** (`d8bb5c83c0`)  
+**Release:** **APPROVED** · Seal: `IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS`  
+
+> Original investigation plan retained below. Wave A + Wave B delivered per sealed DRs. See `IMP12_FINAL_CLOSURE.md`.
 
 ---
 
@@ -85,12 +88,6 @@ Realtime protocol: **not** in default Imp-12 plan (Imp-09 SSE remains SoT).
 
 ---
 
-## Approval gate
+## Approval gate — CLOSED
 
-Human must confirm:
-
-1. Proceed with Wave A now? (Y/N)  
-2. Answer / waive **DR-IMP12-001…004** in `IMP12_DECISION_LOG.md`  
-3. Include Wave B in same Imp-12 commit batch? (Y/N)
-
-Until then: **no adapter implementation**.
+Wave A and Wave B Human authorizations received and delivered. Imp-12 **COMPLETE**. No further Imp-12 production code without new Human authorization.

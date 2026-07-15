@@ -24,9 +24,9 @@
 | Imp-07 | Review & Approval | **Done PASS** | Imp-06 |
 | Imp-08 | Reporting & Export | **Done PASS** | Imp-06, Imp-07 |
 | Imp-09 | Notifications / Realtime | **Done — PASS / CLOSED** | Imp-02, Imp-07 |
-| Imp-10 | Background Jobs | **COMPLETE** (Wave A + Wave B1); Wave C **Deferred**; Imp-12 Wave B **Blocked** | Imp-06, Imp-07, Imp-09 |
+| Imp-10 | Background Jobs | **COMPLETE** (Wave A + Wave B1); Wave C **Deferred** | Imp-06, Imp-07, Imp-09 |
 | Imp-11 | Administration | **COMPLETE** (Release APPROVED; known limitations) | Imp-02, Imp-03 |
-| Imp-12 | Integration Adapters (FE contract compatibility) | **Wave A COMPLETE**; Wave B **BLOCKED** | Imp-02–Imp-11 as applicable |
+| Imp-12 | Integration Adapters (FE contract compatibility) | **COMPLETE** (Release APPROVED; known limitations) | Imp-02–Imp-11 as applicable |
 | Imp-13 | Production Readiness | Todo | Imp-01–Imp-12 |
 
 ## Module definitions
@@ -99,7 +99,7 @@
 - **Status:** **COMPLETE / CLOSED** — Release **APPROVED** (`IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS`).
 - **Implementation:** Wave A + Wave B1 only.
 - **Wave C:** **Deferred** (not authorized; not required for Imp-10 close).
-- **Imp-12 Wave B:** **Blocked** (separate track; unchanged).
+- **Imp-12:** **COMPLETE** (separate track; closed after Imp-10).
 - **Goal:** Implement reliable asynchronous processing required by approved domain events, reconciliation, or notifications.
 - **SoT refs:** ADR-001 §§Decision and Consequences; `migration-analysis/merge/triggers_mapping.md`; `migration-analysis/merge/edge_functions_mapping.md`; Phase 10 backlog.
 - **Depends On:** Imp-06, Imp-07, Imp-09 (satisfied).
@@ -115,17 +115,19 @@
 - **Depends On:** Imp-02, Imp-03.
 - **Acceptance criteria:** Administrative actions are permission-scoped and auditable; FE compatibility is tested where exposed; multi-company and Super Admin capabilities remain absent.
 - **Delivered:** `PATCH /api/users/:id`, role lifecycle, demotion guards (READ Imp-05), additive `010_imp11_admin_profiles.sql` (phone + nonempty matricule UNIQUE), structured admin logs. Code head `2d3ddaed70`. DR seal `001…006 = A,A,A,A,B,A`.
-- **Deferred intentionally:** promote→affectation sync (DR-005=B); Super Admin; Imp-12 adapters.
+- **Deferred intentionally:** promote→affectation sync (DR-005=B); Super Admin (Imp-12 adapters delivered separately).
 - **Evidence:** `implementation-reports/implementation-11/` · `IMP11_FINAL_CLOSURE.md` · `IMP11_PHASE_COMPLETION_CHECKLIST.md` · `IMP11_RELEASE_NOTE.md`
 
 ### Imp-12 — Integration Adapters (FE contract compatibility)
-- **Status:** **Wave A COMPLETE / APPROVED**; **Wave B BLOCKED** until separate Human authorization.
+- **Status:** **COMPLETE / CLOSED** — Release **APPROVED** (`IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS`).
 - **Goal:** Complete and verify adapter endpoints, DTO mappings, error semantics, and event compatibility at the frozen frontend boundary.
 - **SoT refs:** `migration-analysis/merge/fe_contract_matrix.md`; `migration-analysis/merge/LEGACY_MAPPING_MATRIX.md`; ADR-001 §Consequences.
 - **Depends On:** Imp-02–Imp-11 as applicable.
 - **Acceptance criteria:** Every supported frozen-FE interaction has an automated compatibility result; deviations have an approved Decision Request; no edit occurs under `chantier1/`.
 - **Wave A:** Edge create/delete, RPC cascade, `/tables/profiles` — commit `a706e1111f`.
-- **Evidence:** `implementation-reports/implementation-12/`
+- **Wave B:** READY table adapters, dual `/tables`+`/rest/v1`, thin `/auth/v1` → Imp-02, declarations GET only — commit `d8bb5c83c0`. DR seal `B-001…006 = A,A,C,A,B,B`.
+- **Deferred intentionally:** declarations UPDATE (**B-003=C**); Realtime bridge (**B-006=B**); affectation upsert invent (**B-005=B**).
+- **Evidence:** `implementation-reports/implementation-12/` · `IMP12_FINAL_CLOSURE.md` · `IMP12_PHASE_COMPLETION_CHECKLIST.md` · `IMP12_RELEASE_NOTE.md`
 
 ### Imp-13 — Production Readiness
 - **Status:** Todo

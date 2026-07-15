@@ -7,9 +7,9 @@ This folder contains evidence for coding modules in Wave 2. It is separate from 
 | Module | Status |
 |---|---|
 | Imp-01 … Imp-09 | **COMPLETE** |
-| Imp-10 Background Jobs | **Wave A COMPLETE**; Wave B/C **BLOCKED** |
-| Imp-11 Administration | **COMPLETE** |
-| Imp-12 Adapters | **Wave A COMPLETE**; Wave B **BLOCKED** |
+| Imp-10 Background Jobs | **COMPLETE** (Wave A + Wave B1); Wave C **Deferred** |
+| Imp-11 Administration | **COMPLETE** (Release APPROVED; known limitations) |
+| Imp-12 Adapters | **COMPLETE** (Release APPROVED; known limitations) |
 | Imp-13 Production Readiness | Todo |
 
 See `WAVE2_IMPLEMENTATION_ROADMAP.md` for authoritative status.

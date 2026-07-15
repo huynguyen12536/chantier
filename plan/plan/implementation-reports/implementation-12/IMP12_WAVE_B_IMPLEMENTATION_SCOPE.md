@@ -1,59 +1,57 @@
 # IMP12_WAVE_B_IMPLEMENTATION_SCOPE.md
 
 **Date:** 2026-07-15  
-**Mode:** Investigation — describes **future** boundaries if Human authorizes Wave B coding  
-**No code now.**
+**Status:** **DELIVERED** — Wave B complete at `d8bb5c83c0`  
+**Module Imp-12:** **COMPLETE**  
+**Seal:** `IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS`
 
 ---
 
-## What production code MAY eventually be written (Wave B)
+## What production code WAS written (Wave B)
 
 | Area | Nature |
 |---|---|
-| `compat/tables/*.routes.js` (+ controllers/mappers) | Thin adapters for remaining 7 tables (allow-list verbs) |
-| Optional dual mounts | `/rest/v1/{table}` → same handlers if DR approves |
-| Compat tests | Contract tests calling existing services via adapters |
-| Docs / reports | After coding authorization |
+| `compat/tables/*` routes/controllers | Thin adapters for 7 tables (allow-list verbs) |
+| Dual mounts | `/tables` + `/rest/v1` same handlers (**B-002=A**) |
+| Thin auth | `/auth/v1` → Imp-02 only (**B-004=A**) |
+| Compat tests | `test/compat.waveB.test.js` |
+| Docs / reports | Implementation + closure pack |
 
-Only if Human reopens/answers BLOCKED DRs:
-
-| Area | Nature |
-|---|---|
-| Declarations UPDATE mapper | Map FE statut patch → Imp-07 commands |
-| Auth compatibility routes | Map GoTrue/session → Imp-02 |
+Declarations UPDATE mapper: **NOT written** (**B-003=C**).
 
 ---
 
-## What is EXPLICITLY FORBIDDEN
+## What is EXPLICITLY FORBIDDEN (still stands)
 
 | Forbidden | Why |
 |---|---|
 | Imp-02…11 business/repository rewrites | Ownership |
 | SQL / migrations | Imp-12 policy |
 | Duplicate cascade/sync/decide/demotion | No second write path |
-| Realtime protocol invent / Imp-09 rewrite | NOT IMP-12 |
+| Realtime protocol invent / Imp-09 rewrite | B-006=B / NOT IMP-12 |
 | FE `chantier1/` edits | Frozen |
 | Full PostgREST clone | Design SoT |
 | Imp-13 / ETL | Wrong phase |
-| Re-implement Wave A Edge/RPC/profiles | Already done |
+| Re-implement Wave A Edge/RPC | Already done |
 
 ---
 
-## Code that will NOT be written in Wave B by default
+## Code intentionally NOT written (sealed DR)
 
-- Supabase Realtime bridge  
-- Export table adapter  
-- Super Admin  
-- Inactive auto-approve RPC  
-- Domain background jobs  
+- Declarations UPDATE → Imp-07 (**B-003=C**)  
+- Affectation upsert invent (**B-005=B**)  
+- Supabase Realtime bridge (**B-006=B**)  
+- Export table adapter / Super Admin / inactive auto-approve RPC  
 
 ---
 
 ## Production code now?
 
-**NO.**
+**Wave B already landed at `d8bb5c83c0`.**  
+**No further Imp-12 production code** without new Human authorization.
 
 ```
-Imp-12 Wave B investigation only.
-Coding blocked until Human Review + Wave B DRs.
+Imp-12: COMPLETE
+Release: APPROVED
+Seal: IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS
 ```

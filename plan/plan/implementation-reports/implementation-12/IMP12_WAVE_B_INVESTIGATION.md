@@ -1,9 +1,13 @@
 # IMP12_WAVE_B_INVESTIGATION.md
 
 **Date:** 2026-07-15  
-**Mode:** Investigation ONLY — **no production code**  
-**Prerequisite:** Imp-12 Wave A **COMPLETE** (`a706e1111f`)  
+**Mode:** Investigation (**historical**) — subsequently sealed, implemented, and closed  
+**Final status:** Imp-12 **COMPLETE** · Release **APPROVED** · Seal: `IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS`  
+**Runtime head:** `d8bb5c83c0`  
+**Prerequisite at investigation time:** Imp-12 Wave A **COMPLETE** (`a706e1111f`)  
 **Mission:** Enumerate **remaining** compatibility work so Imp-12 can finish before Imp-13  
+
+> Classes below (READY/BLOCKED) reflect investigation-time state. Final classes: `IMP12_WAVE_B_CAPABILITY_MATRIX.md`.  
 
 ---
 
@@ -31,9 +35,9 @@ Wave A DRs locked: `001=A, 002=C, 003=C, 004=B`.
 | Table `zones_ouvriers` | Yes | READY |
 | Table `periodes_travail` | Yes | READY |
 | Table `declarations_heures` GET | Yes | READY |
-| Table `declarations_heures` UPDATE (statut) | Yes | **BLOCKED** (Wave A DR-003=C) |
-| Dual mount `/rest/v1/{table}` beside `/tables/{table}` | Yes | **BLOCKED** (needs Wave B DR) |
-| Auth / GoTrue / session shape | Yes | **BLOCKED** (Wave A DR-004=B) |
+| Table `declarations_heures` UPDATE (statut) | Yes | **DEFERRED (B-003=C)** — investigation said BLOCKED |
+| Dual mount `/rest/v1/{table}` beside `/tables/{table}` | Yes | **DELIVERED (B-002=A)** — investigation said BLOCKED |
+| Auth / GoTrue / session shape | Yes | **DELIVERED (B-004=A)** — investigation said BLOCKED |
 | Realtime Supabase protocol bridge | Yes | **OUT OF SCOPE** (Imp-09) / DEFERRED cutover |
 | Export payroll table | No separate table | **OUT OF SCOPE** — use Imp-08 `/api/export` |
 | Inactive week auto-approve RPC | No | **OUT OF SCOPE** |

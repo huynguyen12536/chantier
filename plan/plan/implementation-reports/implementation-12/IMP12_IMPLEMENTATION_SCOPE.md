@@ -2,7 +2,12 @@
 
 **Date:** 2026-07-15  
 **Phase:** Imp-12 — Compatibility Layer only  
+**Status:** **COMPLETE** — Wave A + Wave B delivered  
+**Runtime head:** `d8bb5c83c0`  
+**Seal:** `IMPLEMENTATION ACCEPTED WITH KNOWN LIMITATIONS`  
 **Prerequisite:** Imp-02 → Imp-11 COMPLETE (LOCKED SoT). Imp-11 Administration FINAL.
+
+> Original Wave A-focused scope below. Wave B detail: `IMP12_WAVE_B_SCOPE.md` · Closure: `IMP12_FINAL_CLOSURE.md`.
 
 ---
 

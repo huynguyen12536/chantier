@@ -1,31 +1,32 @@
 # IMP12_WAVE_B_SCOPE.md
 
 **Date:** 2026-07-15  
-**Mode:** Investigation — no code  
+**Status:** **DELIVERED** — Wave B complete; Imp-12 **COMPLETE**  
+**Runtime head:** `d8bb5c83c0`  
 **Wave A:** COMPLETE — not re-scoped here  
 
 ---
 
-## Mission (Wave B)
+## Mission (Wave B) — fulfilled
 
-Finish Imp-12 compatibility adapters still required after Wave A so frozen FE table (and gated auth) contracts can call **existing** Imp-02…11 services — thin translate only.
+Finish Imp-12 compatibility adapters still required after Wave A so frozen FE table and auth contracts call **existing** Imp-02…11 services — thin translate only.
 
 ---
 
-## IN (candidate Wave B)
+## IN (delivered)
 
-| Item | Class |
+| Item | Final class |
 |---|---|
-| `/tables/chantiers` GET/POST/PATCH | READY |
-| `/tables/affectations_chantiers` GET/POST/PATCH(soft) | READY |
-| `/tables/zones_equipe` CRUD | READY |
-| `/tables/zones_chantiers` insert/delete | READY |
-| `/tables/zones_ouvriers` insert/patch | READY |
-| `/tables/periodes_travail` allow-list CRUD | READY |
-| `/tables/declarations_heures` GET | READY |
-| Optional dual `/rest/v1/{table}` mounts | BLOCKED (DR) |
-| Declarations UPDATE → Imp-07 command map | BLOCKED (DR-003) |
-| Auth/session GoTrue-shaped adapter | BLOCKED (DR-004) |
+| `/tables` + `/rest/v1` chantiers GET/POST/PATCH | **DELIVERED** |
+| `/tables` + `/rest/v1` affectations_chantiers GET/POST/PATCH(soft) | **DELIVERED** (B-005=B) |
+| `/tables` + `/rest/v1` zones_equipe CRUD | **DELIVERED** |
+| `/tables` + `/rest/v1` zones_chantiers insert/delete | **DELIVERED** |
+| `/tables` + `/rest/v1` zones_ouvriers insert/patch | **DELIVERED** |
+| `/tables` + `/rest/v1` periodes_travail allow-list CRUD | **DELIVERED** |
+| `/tables` + `/rest/v1` declarations_heures GET | **DELIVERED** (B-003=C) |
+| Dual `/rest/v1/{table}` mounts | **DELIVERED** (B-002=A) |
+| Thin auth `/auth/v1` | **DELIVERED** (B-004=A) |
+| Declarations UPDATE → Imp-07 | **DEFERRED** (B-003=C) |
 
 ---
 
@@ -33,7 +34,7 @@ Finish Imp-12 compatibility adapters still required after Wave A so frozen FE ta
 
 | Item | Owner |
 |---|---|
-| Supabase Realtime protocol bridge | Imp-09 / cutover |
+| Supabase Realtime protocol bridge | Imp-09 / cutover (**B-006=B**) |
 | Imp-08 export business | Imp-08 |
 | Imp-11 admin business / migrations | Imp-11 CLOSED |
 | Imp-10 jobs | Imp-10 CLOSED |
@@ -46,7 +47,7 @@ Finish Imp-12 compatibility adapters still required after Wave A so frozen FE ta
 
 ---
 
-## FORBIDDEN (unchanged from Wave A)
+## FORBIDDEN (unchanged)
 
 - Rewrite Imp-02…11 business  
 - Duplicate lifecycle/cascade/sync/decide logic  
@@ -56,20 +57,18 @@ Finish Imp-12 compatibility adapters still required after Wave A so frozen FE ta
 
 ---
 
-## REUSE
+## REUSE (as implemented)
 
-Imp-02 auth middleware · Imp-04 chantiers · Imp-05 affectations/zones · Imp-06 timesheet · Imp-07 validation decide APIs · Imp-03/11 only if profiles gaps (Wave A already covers profiles).
+Imp-02 auth · Imp-04 chantiers · Imp-05 affectations/zones · Imp-06 timesheet · Imp-03/11 profiles (Wave A + dual mount).
 
 ---
 
-## DEFERRED
+## DEFERRED (sealed)
 
-| Item | Note |
+| Item | DR |
 |---|---|
-| Realtime protocol bridge | Not Imp-12 default |
-| Full PostgREST filter grammar | Allow-list subset only |
-| Wave A closed choices unless Human reopens | DR-003, DR-004 |
+| Declarations statut UPDATE adapter | B-003=C |
+| Realtime protocol bridge | B-006=B |
+| Affectation upsert invent | B-005=B |
 
----
-
-Coding: **blocked** until Human review + Wave B DRs answered (separate step).
+Coding: **complete**. Module Imp-12 **COMPLETE**. No further Imp-12 production code without new Human authorization.
