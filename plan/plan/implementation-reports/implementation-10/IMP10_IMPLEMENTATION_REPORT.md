@@ -4,7 +4,7 @@
 **Phase:** Imp-10 Wave A — Background Jobs (platform skeleton)  
 **Verdict:** **PASS** (awaiting Human Wave A review seal)  
 **Head of Wave A code:** `6a2a169bd1`  
-**Milestone 3:** documentation / checklist (this pack)
+**Milestone 3 docs:** `0e9adecf3f`
 
 ---
 
