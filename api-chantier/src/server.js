@@ -1,6 +1,7 @@
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { closePool, pingDatabase } from './shared/db/pool.js';
+import { startJobs, stopJobs } from './modules/jobs/index.js';
 
 const app = createApp();
 
@@ -15,10 +16,13 @@ async function start() {
 
   const server = app.listen(env.port, () => {
     console.log(`[api-chantier] listening on http://localhost:${env.port} (${env.nodeEnv})`);
+    // Imp-10 Wave A — in-process job runner (DR-001=A). No REST mounts.
+    startJobs();
   });
 
   const shutdown = async (signal) => {
     console.log(`[api-chantier] ${signal} received, shutting down…`);
+    stopJobs();
     server.close(async () => {
       await closePool().catch(() => {});
       process.exit(0);

@@ -37,6 +37,7 @@ src/
     export/              # Imp-08 payroll export
     realtime/            # Imp-09 SSE /events
     compat/              # Imp-12 Wave A — LEGACY FE adapters only (not primary APIs)
+    jobs/                # Imp-10 Wave A — internal in-process job platform (NOT an HTTP API)
 ```
 
 Mỗi domain module: `routes.js` · `controller.js` · `service.js` · `repository.js`.
@@ -57,6 +58,19 @@ Mỗi domain module: `routes.js` · `controller.js` · `service.js` · `reposito
 | `/api/validation` | Imp-07 |
 | `/api/export` | Imp-08 |
 | `/events` | Imp-09 |
+
+### Imp-10 Background Jobs (internal only — Wave A)
+
+> **Not a public API.** No `/api/jobs` routes. In-process runner started from `server.js`.
+
+| Item | Behavior |
+|------|----------|
+| Process model | Same Node process as the HTTP API (DR-IMP10-001=A) |
+| Queue | **Ephemeral in-memory only** (DR-IMP10-002=A) |
+| Restart | Queued / running jobs and idempotency state are **lost** — intentional |
+| Persistence / Outbox / Redis | **Deferred** — not in Wave A |
+| Builtin job | `jobs.platform_noop` only (no domain / notification jobs) |
+| Disable | `JOBS_ENABLED=false` |
 
 ### Legacy compatibility adapters (Imp-12 Wave A — frozen CVL FE only)
 
@@ -106,5 +120,6 @@ npm run dev
 
 ## Trạng thái hiện tại
 
-Imp-02 → Imp-11 domain APIs implemented. Imp-12 Wave A compatibility layer **COMPLETE** (approved).  
+Imp-02 → Imp-11 domain APIs implemented. Imp-12 Wave A compatibility layer **COMPLETE**.  
+Imp-10 Wave A: in-process ephemeral job platform (internal).  
 Primary clients should use `/api/*`. Compat `/functions/*`, `/rpc/*`, `/tables/*` are legacy FE adapters only.
