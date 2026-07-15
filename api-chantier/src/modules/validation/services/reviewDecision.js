@@ -88,6 +88,8 @@ async function runDeclarationAction(id, actionKey, actor, options = {}) {
   emitReviewEvent({
     type: policy.deletePeriods ? 'declaration.cancelled' : 'declaration.reviewed',
     entityId: result.declaration.id,
+    userId: result.declaration.user_id,
+    chantierId: result.declaration.chantier_id,
     statut: result.declaration.statut,
     action: policy.auditAction,
     actorId: actor.id,
@@ -217,18 +219,20 @@ export async function decidePeriod(id, input, actor, options = {}) {
       correlationId: options.correlationId ?? null,
     });
 
-    return { period: mapPeriod(updated) };
+    return { period: mapPeriod(updated), userId: updated.user_id, chantierId: updated.chantier_id };
   });
 
   emitReviewEvent({
     type: 'period.reviewed',
     entityId: result.period.id,
+    userId: result.userId,
+    chantierId: result.chantierId,
     statut: result.period.statut,
     action: 'period_decide',
     actorId: actor.id,
   });
 
-  return result;
+  return { period: result.period };
 }
 
 export { mapAuditEvent };

@@ -14,6 +14,7 @@ import {
   getChefChantierIds,
   assertCanReviewChantier,
 } from '../../../shared/authz/chefScope.js';
+import { emitAfterPeriodMutation } from './emitTimesheetEvents.js';
 
 /**
  * SUMMARY #11 / #12 write gate (application service).
@@ -70,11 +71,17 @@ export async function createPeriod(input, actor) {
   const userId = data.user_id ?? actor.id;
   await assertCanWritePeriod(actor, userId, data.chantier_id);
 
-  return withTransaction(async (client) => {
+  const result = await withTransaction(async (client) => {
     const period = await repo.insertPeriod(client, { ...data, user_id: userId });
     const declaration = await afterPeriodChange(client, period, actor.id);
     return { period: mapPeriod(period), declaration: mapDeclaration(declaration) };
   });
+  emitAfterPeriodMutation('created', {
+    period: result.period,
+    declaration: result.declaration,
+    actorId: actor.id,
+  });
+  return result;
 }
 
 export async function updatePeriod(id, input, actor) {
@@ -85,7 +92,7 @@ export async function updatePeriod(id, input, actor) {
       details: parsed.error.flatten(),
     });
   }
-  return withTransaction(async (client) => {
+  const result = await withTransaction(async (client) => {
     const existing = await repo.getPeriod(client, id);
     if (!existing) throw new AppError('Period not found', 404, { code: 'NOT_FOUND' });
 
@@ -122,10 +129,16 @@ export async function updatePeriod(id, input, actor) {
     const declaration = await afterPeriodChange(client, period, actor.id);
     return { period: mapPeriod(period), declaration: mapDeclaration(declaration) };
   });
+  emitAfterPeriodMutation('updated', {
+    period: result.period,
+    declaration: result.declaration,
+    actorId: actor.id,
+  });
+  return result;
 }
 
 export async function deletePeriod(id, actor) {
-  return withTransaction(async (client) => {
+  const result = await withTransaction(async (client) => {
     const existing = await repo.getPeriod(client, id);
     if (!existing) throw new AppError('Period not found', 404, { code: 'NOT_FOUND' });
 
@@ -144,8 +157,18 @@ export async function deletePeriod(id, actor) {
     }
     await repo.deletePeriod(client, id);
     const declaration = await afterPeriodChange(client, existing, actor.id);
-    return { ok: true, declaration: mapDeclaration(declaration) };
+    return {
+      ok: true,
+      declaration: mapDeclaration(declaration),
+      period: mapPeriod(existing),
+    };
   });
+  emitAfterPeriodMutation('deleted', {
+    period: result.period,
+    declaration: result.declaration,
+    actorId: actor.id,
+  });
+  return { ok: result.ok, declaration: result.declaration };
 }
 
 /** SUMMARY #11 / #12 scoped lists (P5). */

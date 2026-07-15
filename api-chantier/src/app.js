@@ -15,13 +15,19 @@ import zonesRoutes from './modules/zones/routes.js';
 import timesheetRoutes from './modules/timesheet/routes.js';
 import validationRoutes from './modules/validation/routes.js';
 import exportRoutes from './modules/export/routes.js';
+import { realtimeRoutes, initRealtime } from './modules/realtime/index.js';
 
-export function createApp() {
+export function createApp(options = {}) {
+  initRealtime({ heartbeatMs: options.sseHeartbeatMs });
+
   const app = express();
 
   app.disable('x-powered-by');
   app.use(correlationId);
-  app.use(helmet());
+  app.use(helmet({
+    // SSE streams must not be cached / CSP-blocked for EventSource clients
+    contentSecurityPolicy: false,
+  }));
   app.use(
     cors({
       origin: env.corsOrigin === '*' ? true : env.corsOrigin.split(',').map((s) => s.trim()),
@@ -55,6 +61,7 @@ export function createApp() {
   app.use('/api/timesheet', timesheetRoutes);
   app.use('/api/validation', validationRoutes);
   app.use('/api/export', exportRoutes);
+  app.use('/events', realtimeRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -1,37 +1,49 @@
-# IMP09_TRACEABILITY — Notifications (pre-implementation)
+# IMP09_TRACEABILITY
 
-**Status:** **BLOCKED** — Decision Requests open  
-**Module:** Imp-09 Notification BC  
-**SoT:** `realtime_mapping.md`, `fe_contract_matrix.md`, MERGE “Keep contract / Defer mechanism”, ADR-001 Notification, C-06 Open
+**Date:** 2026-07-15
 
-## CVL evidence mapped
+---
 
-| # | Evidence | FE / Flow | Unified requirement | Current codebase |
-|---|---|---|---|---|
-| N1 | timesheet.tsx `postgres_changes` on `periodes_travail` + `declarations_heures` filter `user_id=eq.{self}` | Flow D live reload | scoped refresh events for worker own rows | **No** emit on Imp-06 write (frozen) |
-| N2 | validation.tsx channel on both tables | Flow E queue live | review-queue refresh | Imp-07 `emitReviewEvent` in-process only (no transport) |
-| N3 | chef-dashboard `chef_dashboard_{id}` on `periodes_travail` | team pending | scoped team-pending updates | **No** emit on Imp-06; Imp-07 period decide emits in-process |
-| N4 | Poll fallback on timesheet (`setInterval`) | resilience | optional; not a replacement for contract | FE-only; backend N/A |
-| N5 | MERGE Realtime row | Keep contract / **Defer mechanism** | equivalent notifications before cutover | Mechanism **not** selected |
-| N6 | C-06 Open | dump empty publication vs FE subscribe | frozen FE realtime compatibility | **Unresolved** |
-| N7 | ADR-001 | Notification owns contract-equivalent events; transport later | Imp-09 ownership | Not implemented as module |
+## 1. Decision → code
 
-## Imp-09 intended ownership (design — not coded)
+| Decision | Evidence in code |
+|---|---|
+| DR-IMP09-001 SSE | `realtime/routes.js` `GET /`, `app.js` `app.use('/events', …)` |
+| DR-IMP09-002 Imp-06 post-COMMIT emit | `timesheetService.js` emit after `withTransaction`; `emitTimesheetEvents.js` |
+| DR-IMP09-003 Reuse Imp-07 hooks | `notificationHooks.js` → `dispatchDomainEvent`; `reviewDecision.js` still calls `emitReviewEvent` |
 
-| Concern | Owner | Notes |
+## 2. FE contract → backend event
+
+| FE screen (CVL) | FE listen | Unified signal |
 |---|---|---|
-| Event catalog (period/declaration changed; review decided) | Imp-09 | Must match FE refresh needs |
-| Authorization / scope of delivery | Imp-09 | Worker self; chef supervised; reviewer scope |
-| Transport to clients | **DR-IMP09-001** | Blocked |
-| Emission from Time Recording writes | **DR-IMP09-002** | Imp-06 frozen blocks emitters |
-| Relation to Imp-07 `notificationHooks.js` | **DR-IMP09-003** | Duplicate vs single Notification BC |
+| timesheet | periods + declarations `user_id=self` | scoped `period.*` / `declaration.*` to worker |
+| validation | periods + declarations (reload) | `queue.changed` + declaration catalog |
+| chef-dashboard | periods + client team filter | `dashboard.changed` + period events in chef chantier scope |
 
-## Ambiguities (cannot invent)
+Source: `IMP09_FE_REALTIME_CONTRACT_REPORT.md`, `FE_COMPATIBILITY_ADAPTERS.md` L18 `/events`.
 
-1. Transport mechanism (SSE / WebSocket / outbox+poll / Imp-12 Supabase adapter).  
-2. Emitting period/declaration change events without modifying Imp-06.  
-3. Whether Imp-07 hooks move into Imp-09 (requires Imp-07 edit) or Imp-09 only subscribers.
+## 3. Write path → emit
 
-## Explicit non-implementation
+| Write path | When emit | Types |
+|---|---|---|
+| `createPeriod` | after COMMIT | `period.created` + declaration side-effect |
+| `updatePeriod` | after COMMIT | `period.updated` + declaration side-effect |
+| `deletePeriod` | after COMMIT | `period.deleted` + declaration side-effect |
+| sync / auto-approve (inside TX) | via post-COMMIT period mutation helper | `declaration.submitted` / `.approved` / `.updated` |
+| approve / reject / return / cancel | after COMMIT (`emitReviewEvent`) | mapped to catalog + queue/dashboard |
+| `decidePeriod` | after COMMIT | `period.updated` (+ queue/dashboard) |
 
-Until DRs are answered: **no** Imp-09 module code, **no** migration, **no** new realtime API, **no** Imp-05–08 changes.
+## 4. Ownership reuse
+
+| Concern | Module reused |
+|---|---|
+| Chef chantier ids | `shared/authz/chefScope.getChefChantierIds` |
+| JWT auth on stream | `shared/middleware/auth` (+ query token) |
+
+## 5. Explicit non-trace (out of Imp-09)
+
+| Item | Status |
+|---|---|
+| FE cutover adapter | Imp-12 |
+| Dump `supabase_realtime` publication | C-06 informational; not used by Unified SSE |
+| Export / payroll / management live push | Not in CVL FE realtime inventory |
