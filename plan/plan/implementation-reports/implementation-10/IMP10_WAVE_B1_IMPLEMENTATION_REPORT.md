@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-15  
 **Module:** Imp-10 Background Jobs — **Wave B1**  
-**Status:** **COMPLETE** (awaiting Human formal closure review)  
+**Status:** **COMPLETE / CLOSED** — Human APPROVED; phase Imp-10 CLOSED  
 **Mode:** Reliability job JB-01 only (DR seal locked)
 
 ---
@@ -140,4 +140,4 @@ No SQL, migrations, Redis, Kafka, Outbox, replay buffer, worker process, domain 
 ## 11. Wave completion verdict
 
 **Wave B1 implementation COMPLETE** under the locked DR seal.  
-**Wave C BLOCKED.** Imp-12 Wave B unchanged / BLOCKED.
+**Wave C DEFERRED.** Imp-12 Wave B unchanged / BLOCKED.

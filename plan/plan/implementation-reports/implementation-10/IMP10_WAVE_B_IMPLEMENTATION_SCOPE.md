@@ -60,5 +60,5 @@ Only if DR-B-004=A (not recommended):
 
 ```
 Imp-10 Wave B investigation only.
-Coding remains blocked until Human approves Wave B DRs + design review.
+**SUPERSEDED:** Imp-10 **CLOSED**. See `IMP10_FINAL_CLOSURE.md`.
 ```

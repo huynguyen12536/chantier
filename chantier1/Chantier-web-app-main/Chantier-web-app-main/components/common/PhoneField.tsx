@@ -8,6 +8,7 @@ import PhoneInput, {
 } from 'react-native-international-phone-number';
 import { ChevronDown, Phone } from 'lucide-react-native';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { extractLocalDigits } from '@/utils/phone';
 import { Colors } from '@/constants/colors';
 
 type PhoneFieldProps = {
@@ -88,6 +89,18 @@ export function PhoneField({
     const nextCountry = resolveCountry(phone);
     setSelectedCountry(nextCountry);
     setInputValue(limitNationalDigits(stripCallingCode(phone, nextCountry), nextCountry));
+
+    const trimmed = (phone ?? '').trim();
+    if (trimmed && trimmed === lastEmittedPhoneRef.current) return;
+    if (trimmed) {
+      const formatted = trimmed.startsWith('+')
+        ? trimmed
+        : formatE164(extractLocalDigits(trimmed), nextCountry);
+      if (formatted && formatted !== lastEmittedPhoneRef.current) {
+        lastEmittedPhoneRef.current = formatted;
+        onChangePhone(formatted);
+      }
+    }
   }, [phone]);
 
   const handlePhoneNumberChange = (phoneNumber: string) => {

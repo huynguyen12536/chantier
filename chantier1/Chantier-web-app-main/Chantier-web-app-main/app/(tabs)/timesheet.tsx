@@ -10,6 +10,7 @@ import { useTabBarInset } from '@/hooks/useTabBarInset';
 import { DatePickerModal, IncompleteLineBorder, SelectWorksiteModal, TimePickerModal, ConfirmModal } from '@/components/common';
 import { Colors } from '@/constants/colors';
 import { formatDateKey, formatDisplayDate, getMonday, getTodayString, parseDateKey } from '@/utils/date';
+import { checkShiftOverlapForDate } from '@/utils/shiftOverlap';
 import {
   computeChantierHoursBreakdown,
   formatTime,
@@ -465,6 +466,19 @@ export default function TimesheetScreen() {
     const hasOverlapConflict =
       dayEntry?.lines.some((other) => other.id !== line.id && hasTimeOverlapConflict(line, other)) ?? false;
     if (hasOverlapConflict) {
+      setDuplicateSlotModalVisible(true);
+      return;
+    }
+
+    if (!profile?.id) return;
+    const dbOverlap = await checkShiftOverlapForDate(
+      profile.id,
+      dateStr,
+      line.heure_debut,
+      line.heure_fin,
+      line.id.startsWith('new-') ? undefined : line.id,
+    );
+    if (dbOverlap) {
       setDuplicateSlotModalVisible(true);
       return;
     }
@@ -1309,6 +1323,8 @@ export default function TimesheetScreen() {
         selectedId={pickerSelectedChantierId}
         zoneGroups={pickerZoneGroups}
         emptyMessage="Aucun chantier disponible pour ce jour"
+        searchPlaceholder={t.timesheet.searchWorksitePlaceholder}
+        noResultsMessage={t.timesheet.noWorksiteSearchResults}
         onClose={() => setShowWorksitePicker(null)}
         onSelect={(worksite) => {
           if (!showWorksitePicker) return;

@@ -4,6 +4,19 @@
  * External: panier_repas, latitude_debut, longitude_debut (+ optional fin keys null)
  */
 
+/** Normalize pg Date / ISO / date-key → YYYY-MM-DD (calendar day, UTC-safe for DATE cols). */
+export function toDateKey(value) {
+  if (value == null || value === '') return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  const s = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const parsed = new Date(s);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return null;
+}
+
 /** Map inbound FE/request body → internal row fields. */
 export function fromPeriodRequest(body = {}) {
   const latitude =
@@ -25,6 +38,10 @@ export function fromPeriodRequest(body = {}) {
     deplacement: body.deplacement ?? false,
     from_suggestion: body.from_suggestion ?? false,
     statut: body.statut,
+    commentaire:
+      typeof body.commentaire === 'string' && body.commentaire.trim()
+        ? body.commentaire.trim()
+        : null,
     validated_by: body.validated_by,
     validated_at: body.validated_at,
   };
@@ -52,6 +69,12 @@ export function fromPeriodPatch(body = {}) {
   if (body.deplacement !== undefined) out.deplacement = body.deplacement;
   if (body.from_suggestion !== undefined) out.from_suggestion = body.from_suggestion;
   if (body.statut !== undefined) out.statut = body.statut;
+  if (body.commentaire !== undefined) {
+    out.commentaire =
+      typeof body.commentaire === 'string' && body.commentaire.trim()
+        ? body.commentaire.trim()
+        : null;
+  }
   if (body.validated_by !== undefined) out.validated_by = body.validated_by;
   if (body.validated_at !== undefined) out.validated_at = body.validated_at;
   return out;
@@ -64,7 +87,7 @@ export function mapPeriod(row) {
     id: row.id,
     user_id: row.user_id,
     chantier_id: row.chantier_id,
-    date: row.date,
+    date: toDateKey(row.date),
     heure_debut: row.heure_debut,
     heure_fin: row.heure_fin,
     latitude_debut: row.latitude,
@@ -75,7 +98,7 @@ export function mapPeriod(row) {
     deplacement: row.deplacement,
     from_suggestion: row.from_suggestion,
     statut: row.statut,
-    commentaire: null,
+    commentaire: row.commentaire ?? null,
     validated_by: row.validated_by,
     validated_at: row.validated_at,
   };
@@ -87,7 +110,7 @@ export function mapDeclaration(row) {
     id: row.id,
     user_id: row.user_id,
     chantier_id: row.chantier_id,
-    date: row.date,
+    date: toDateKey(row.date),
     heures_normales: Number(row.heures_normales),
     heures_supplementaires: Number(row.heures_supplementaires),
     nb_paniers: row.nb_paniers,

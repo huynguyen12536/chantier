@@ -1,19 +1,212 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import {
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { Colors } from '@/constants';
 import { clampTimeToRange, composeTime, parseTimeValue, timeToMinutes } from '@/utils/time';
 
 const ALL_HOURS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'));
-const ALL_MINUTES = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'));
+/** Shift declaration uses 15-minute steps only (no odd minutes). */
+const MINUTE_STEP = 15;
+const ALL_MINUTES = Array.from({ length: 60 / MINUTE_STEP }, (_, index) =>
+  String(index * MINUTE_STEP).padStart(2, '0'),
+);
 const ITEM_HEIGHT = 36;
 const VISIBLE_ITEMS = 3;
+/** One wheel notch = one step; debounce avoids multi-step jumps on web. */
+const WHEEL_STEP_COOLDOWN_MS = 160;
+
+function indexFromOffset(offsetY: number): number {
+  return Math.round(offsetY / ITEM_HEIGHT);
+}
+
+function clampIndex(index: number, length: number): number {
+  return Math.min(length - 1, Math.max(0, index));
+}
+
+interface PickerColumnProps {
+  items: string[];
+  selected: string;
+  scrollRef: RefObject<ScrollView | null>;
+  onValueChange: (value: string) => void;
+}
+
+function PickerColumn({ items, selected, scrollRef, onValueChange }: PickerColumnProps) {
+  const columnRef = useRef<View>(null);
+  const selectedRef = useRef(selected);
+  const itemsRef = useRef(items);
+  const scrollOffsetRef = useRef(0);
+  const wheelCooldownRef = useRef(false);
+  const dragRef = useRef({ active: false, startY: 0, startOffset: 0, pointerId: -1 });
+
+  selectedRef.current = selected;
+  itemsRef.current = items;
+
+  const scrollToIndex = useCallback(
+    (index: number, animated = true) => {
+      const clamped = clampIndex(index, itemsRef.current.length);
+      scrollRef.current?.scrollTo({ y: clamped * ITEM_HEIGHT, animated });
+      scrollOffsetRef.current = clamped * ITEM_HEIGHT;
+    },
+    [scrollRef],
+  );
+
+  const commitIndex = useCallback(
+    (index: number, animated = true) => {
+      const clamped = clampIndex(index, itemsRef.current.length);
+      const item = itemsRef.current[clamped];
+      scrollToIndex(clamped, animated);
+      if (item && item !== selectedRef.current) {
+        onValueChange(item);
+      }
+    },
+    [onValueChange, scrollToIndex],
+  );
+
+  const snapFromOffset = useCallback(
+    (offsetY: number) => {
+      commitIndex(indexFromOffset(offsetY));
+    },
+    [commitIndex],
+  );
+
+  const stepBy = useCallback(
+    (delta: number) => {
+      const currentIndex = itemsRef.current.indexOf(selectedRef.current);
+      const baseIndex = currentIndex >= 0 ? currentIndex : indexFromOffset(scrollOffsetRef.current);
+      commitIndex(baseIndex + delta);
+    },
+    [commitIndex],
+  );
+
+  const handleScrollOffset = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+  }, []);
+
+  const handleScrollEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      snapFromOffset(event.nativeEvent.contentOffset.y);
+    },
+    [snapFromOffset],
+  );
+
+  // Web: one wheel tick = one item step (prevents 00 → 45 jumps).
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const columnEl = columnRef.current as unknown as HTMLElement | null;
+    if (!columnEl) return;
+
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (wheelCooldownRef.current) return;
+
+      wheelCooldownRef.current = true;
+      window.setTimeout(() => {
+        wheelCooldownRef.current = false;
+      }, WHEEL_STEP_COOLDOWN_MS);
+
+      stepBy(event.deltaY > 0 ? 1 : -1);
+    };
+
+    columnEl.addEventListener('wheel', onWheel, { passive: false });
+    return () => columnEl.removeEventListener('wheel', onWheel);
+  }, [stepBy]);
+
+  const handlePointerDown = useCallback((event: any) => {
+    if (Platform.OS !== 'web') return;
+    const native = event.nativeEvent;
+    dragRef.current = {
+      active: true,
+      startY: native.pageY ?? native.clientY ?? 0,
+      startOffset: scrollOffsetRef.current,
+      pointerId: native.pointerId ?? -1,
+    };
+    const target = event.currentTarget as unknown as HTMLElement | undefined;
+    target?.setPointerCapture?.(native.pointerId);
+  }, []);
+
+  const handlePointerMove = useCallback((event: any) => {
+    if (Platform.OS !== 'web' || !dragRef.current.active) return;
+    const native = event.nativeEvent;
+    const y = native.pageY ?? native.clientY ?? 0;
+    const nextOffset = Math.max(
+      0,
+      Math.min(
+        (itemsRef.current.length - 1) * ITEM_HEIGHT,
+        dragRef.current.startOffset + (dragRef.current.startY - y),
+      ),
+    );
+    scrollRef.current?.scrollTo({ y: nextOffset, animated: false });
+    scrollOffsetRef.current = nextOffset;
+  }, [scrollRef]);
+
+  const finishPointer = useCallback(
+    (event: any) => {
+      if (Platform.OS !== 'web' || !dragRef.current.active) return;
+      dragRef.current.active = false;
+      const native = event.nativeEvent;
+      const target = event.currentTarget as unknown as HTMLElement | undefined;
+      if (native.pointerId != null) {
+        target?.releasePointerCapture?.(native.pointerId);
+      }
+      snapFromOffset(scrollOffsetRef.current);
+    },
+    [snapFromOffset],
+  );
+
+  return (
+    <View
+      ref={columnRef}
+      style={[styles.columnWrap, Platform.OS === 'web' && styles.columnWrapWeb]}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={finishPointer}
+      onPointerCancel={finishPointer}
+    >
+      <View style={styles.columnHighlight} pointerEvents="none" />
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_HEIGHT}
+        decelerationRate="normal"
+        scrollEventThrottle={16}
+        contentContainerStyle={styles.columnContent}
+        onScroll={handleScrollOffset}
+        onScrollEndDrag={handleScrollEnd}
+        onMomentumScrollEnd={handleScrollEnd}
+      >
+        {items.map((item) => {
+          const active = item === selected;
+          return (
+            <View key={item} style={styles.columnItem}>
+              <Text style={[styles.columnItemText, active && styles.columnItemTextActive]}>
+                {item}
+              </Text>
+            </View>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+function snapTimeToMinuteStep(time: string): string {
+  const total = timeToMinutes(time);
+  const max = 23 * 60 + (60 - MINUTE_STEP);
+  const snapped = Math.min(max, Math.max(0, Math.round(total / MINUTE_STEP) * MINUTE_STEP));
+  const hour = Math.floor(snapped / 60);
+  const minute = snapped % 60;
+  return composeTime(String(hour).padStart(2, '0'), String(minute).padStart(2, '0'));
+}
 
 interface TimePickerModalProps {
   visible: boolean;
@@ -128,66 +321,42 @@ export function TimePickerModal({
     if (wasVisibleRef.current) return;
     wasVisibleRef.current = true;
 
-    const initial = hasMinBound ? clampTimeToRange(value, { minTime }) : value;
-    const parsed = parseTimeValue(initial);
-    setHour(parsed.hour);
-    setMinute(parsed.minute);
-    scrollToItem(hourScrollRef, hourItems, parsed.hour, false);
-    const minutes = hasMinBound ? buildValidMinutes(parsed.hour, minTime) : ALL_MINUTES;
-    scrollToItem(minuteScrollRef, minutes, parsed.minute, false);
-  }, [visible, value, minTime, hasMinBound, hourItems, scrollToItem]);
+    const snapped = snapTimeToMinuteStep(value);
+    const parsed = parseTimeValue(snapped);
+    const parts = hasMinBound
+      ? clampParts(parsed.hour, parsed.minute)
+      : parsed;
+    setHour(parts.hour);
+    setMinute(parts.minute);
+    scrollToItem(hourScrollRef, hourItems, parts.hour, false);
+    const minutes = hasMinBound ? buildValidMinutes(parts.hour, minTime) : ALL_MINUTES;
+    scrollToItem(minuteScrollRef, minutes, parts.minute, false);
+  }, [visible, value, minTime, hasMinBound, hourItems, scrollToItem, clampParts]);
 
-  const selectFromOffset = (
-    offsetY: number,
-    items: string[],
-    siblingField: 'hour' | 'minute',
-  ) => {
-    const index = Math.round(offsetY / ITEM_HEIGHT);
-    const item = items[Math.min(items.length - 1, Math.max(0, index))];
-    if (siblingField === 'hour') {
-      applyParts(item, minuteRef.current, false, hasMinBound);
-      return;
-    }
-    applyParts(hourRef.current, item);
-  };
+  const handleHourChange = useCallback(
+    (nextHour: string) => {
+      applyParts(nextHour, minuteRef.current, false, hasMinBound);
+    },
+    [applyParts, hasMinBound],
+  );
 
-  const renderColumn = (
-    items: string[],
-    selected: string,
-    siblingField: 'hour' | 'minute',
-    scrollRef: RefObject<ScrollView | null>,
-  ) => (
-    <View style={styles.columnWrap}>
-      <View style={styles.columnHighlight} pointerEvents="none" />
-      <ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        snapToInterval={ITEM_HEIGHT}
-        decelerationRate="fast"
-        scrollEventThrottle={16}
-        contentContainerStyle={styles.columnContent}
-        onScroll={(event) => selectFromOffset(event.nativeEvent.contentOffset.y, items, siblingField)}
-        onScrollEndDrag={(event) => selectFromOffset(event.nativeEvent.contentOffset.y, items, siblingField)}
-        onMomentumScrollEnd={(event) => selectFromOffset(event.nativeEvent.contentOffset.y, items, siblingField)}
-      >
-        {items.map((item) => {
-          const active = item === selected;
-          return (
-            <View key={item} style={styles.columnItem}>
-              <Text style={[styles.columnItemText, active && styles.columnItemTextActive]}>
-                {item}
-              </Text>
-            </View>
-          );
-        })}
-      </ScrollView>
-    </View>
+  const handleMinuteChange = useCallback(
+    (nextMinute: string) => {
+      applyParts(hourRef.current, nextMinute);
+    },
+    [applyParts],
   );
 
   const handleConfirm = () => {
-    const composed = composeTime(hourRef.current, minuteRef.current);
-    const result = hasMinBound ? clampTimeToRange(composed, { minTime }) : composed;
-    onConfirm(result);
+    const composed = snapTimeToMinuteStep(composeTime(hourRef.current, minuteRef.current));
+    if (!hasMinBound) {
+      onConfirm(composed);
+      onClose();
+      return;
+    }
+    const parsed = parseTimeValue(composed);
+    const parts = clampParts(parsed.hour, parsed.minute);
+    onConfirm(composeTime(parts.hour, parts.minute));
     onClose();
   };
 
@@ -198,9 +367,19 @@ export function TimePickerModal({
           <Text style={styles.title}>{title}</Text>
 
           <View style={styles.pickerColumns}>
-            {renderColumn(hourItems, hour, 'hour', hourScrollRef)}
+            <PickerColumn
+              items={hourItems}
+              selected={hour}
+              scrollRef={hourScrollRef}
+              onValueChange={handleHourChange}
+            />
             <Text style={styles.separator}>:</Text>
-            {renderColumn(minuteItems, minute, 'minute', minuteScrollRef)}
+            <PickerColumn
+              items={minuteItems}
+              selected={minute}
+              scrollRef={minuteScrollRef}
+              onValueChange={handleMinuteChange}
+            />
           </View>
 
           <View style={styles.actions}>
@@ -258,6 +437,11 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
+  columnWrapWeb: {
+    cursor: 'grab',
+    touchAction: 'none',
+    userSelect: 'none',
+  } as const,
   columnHighlight: {
     position: 'absolute',
     top: ITEM_HEIGHT,

@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Check, X } from 'lucide-react-native';
+import { Check, Search, X } from 'lucide-react-native';
 import { Colors } from '@/constants';
 import { BottomSheetOverlay, DraggableBottomSheet } from './DraggableSheetHandle';
 
@@ -33,6 +34,16 @@ interface SelectWorksiteModalProps {
   worksites?: WorksiteOption[];
   zoneGroups?: WorksiteZoneGroup[];
   emptyMessage?: string;
+  searchPlaceholder?: string;
+  noResultsMessage?: string;
+  chantierDiversLabel?: string;
+  onPressChantierDivers?: () => void;
+}
+
+function matchesWorksiteQuery(worksite: WorksiteOption, query: string): boolean {
+  if (!query) return true;
+  const haystack = `${worksite.nom} ${worksite.code}`.toLowerCase();
+  return haystack.includes(query);
 }
 
 function WorksiteRow({
@@ -73,10 +84,41 @@ export function SelectWorksiteModal({
   worksites,
   zoneGroups,
   emptyMessage = 'Aucun chantier disponible',
+  searchPlaceholder = 'Rechercher un chantier...',
+  noResultsMessage = 'Aucun chantier trouvé',
+  chantierDiversLabel,
+  onPressChantierDivers,
 }: SelectWorksiteModalProps) {
-  const hasZoneGroups = !!zoneGroups?.length;
-  const hasWorksites = !!worksites?.length;
-  const isEmpty = !hasZoneGroups && !hasWorksites;
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    if (!visible) setSearch('');
+  }, [visible]);
+
+  const query = search.trim().toLowerCase();
+
+  const filteredZoneGroups = useMemo(() => {
+    if (!zoneGroups?.length) return [];
+    if (!query) return zoneGroups;
+    return zoneGroups
+      .map((group) => ({
+        ...group,
+        worksites: group.worksites.filter((w) => matchesWorksiteQuery(w, query)),
+      }))
+      .filter((group) => group.worksites.length > 0);
+  }, [zoneGroups, query]);
+
+  const filteredWorksites = useMemo(() => {
+    if (!worksites?.length) return [];
+    if (!query) return worksites;
+    return worksites.filter((w) => matchesWorksiteQuery(w, query));
+  }, [worksites, query]);
+
+  const hasZoneGroups = filteredZoneGroups.length > 0;
+  const hasWorksites = filteredWorksites.length > 0;
+  const sourceEmpty = !zoneGroups?.length && !worksites?.length;
+  const filterEmpty = !sourceEmpty && !hasZoneGroups && !hasWorksites;
+  const isEmpty = sourceEmpty || filterEmpty;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -92,17 +134,43 @@ export function SelectWorksiteModal({
             </TouchableOpacity>
           </View>
 
+          {!sourceEmpty ? (
+            <View style={styles.searchRow}>
+              <View style={styles.searchBox}>
+                <Search size={16} color={Colors.text.secondary} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder={searchPlaceholder}
+                  placeholderTextColor={Colors.text.disabled}
+                  value={search}
+                  onChangeText={setSearch}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  clearButtonMode="never"
+                />
+                {search.length > 0 ? (
+                  <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <X size={16} color={Colors.text.secondary} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
           <ScrollView
             style={styles.list}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             {isEmpty ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>{emptyMessage}</Text>
+                <Text style={styles.emptyText}>
+                  {filterEmpty ? noResultsMessage : emptyMessage}
+                </Text>
               </View>
             ) : hasZoneGroups ? (
-              zoneGroups!.map((group) => (
+              filteredZoneGroups.map((group) => (
                 <View key={group.zoneId ?? '__direct__'}>
                   <View style={styles.zoneGroupHeader}>
                     <Text style={styles.zoneGroupName}>{group.zoneName}</Text>
@@ -119,7 +187,7 @@ export function SelectWorksiteModal({
                 </View>
               ))
             ) : (
-              worksites!.map((worksite) => (
+              filteredWorksites.map((worksite) => (
                 <WorksiteRow
                   key={worksite.id}
                   worksite={worksite}
@@ -129,6 +197,17 @@ export function SelectWorksiteModal({
               ))
             )}
           </ScrollView>
+          {onPressChantierDivers && chantierDiversLabel ? (
+            <View style={styles.footer}>
+              <TouchableOpacity
+                style={styles.diversButton}
+                onPress={onPressChantierDivers}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.diversButtonText}>{chantierDiversLabel}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </DraggableBottomSheet>
       </BottomSheetOverlay>
     </Modal>
@@ -159,7 +238,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#FFE0D2',
   },
@@ -187,12 +266,35 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     backgroundColor: '#FFE8DD',
   },
+  searchRow: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#FFE0D2',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text.primary,
+    padding: 0,
+  },
   list: {
     flex: 1,
   },
   listContent: {
     padding: 16,
-    paddingTop: 14,
+    paddingTop: 10,
     paddingBottom: 28,
   },
   worksiteOption: {
@@ -281,5 +383,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.text.disabled,
     textAlign: 'center',
+  },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#FFE0D2',
+    alignItems: 'center',
+  },
+  diversButton: {
+    alignSelf: 'stretch',
+    width: '100%',
+    backgroundColor: Colors.primary,
+    borderRadius: 999,
+    paddingVertical: 15,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+  },
+  diversButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: 0.15,
   },
 });

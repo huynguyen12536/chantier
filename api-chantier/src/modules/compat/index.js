@@ -5,6 +5,7 @@ import chantiersTableRoutes from './tables/chantiers.routes.js';
 import affectationsTableRoutes from './tables/affectations.routes.js';
 import zonesTableRoutes from './tables/zones.routes.js';
 import periodesTableRoutes from './tables/periodes.routes.js';
+import absencesTableRoutes from './tables/absences.routes.js';
 import authCompatRoutes from './auth/routes.js';
 
 /**
@@ -29,6 +30,7 @@ export function mountCompat(app) {
   mountTableRouters(app, affectationsTableRoutes);
   mountTableRouters(app, zonesTableRoutes);
   mountTableRouters(app, periodesTableRoutes);
+  mountTableRouters(app, absencesTableRoutes);
 
   app.use('/auth/v1', authCompatRoutes);
 }

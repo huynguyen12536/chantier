@@ -9,6 +9,8 @@ import {
   Modal,
   ActivityIndicator,
   RefreshControl,
+  Pressable,
+  Platform,
 } from 'react-native';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
 import { useRouter } from 'expo-router';
@@ -17,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { Translations } from '@/i18n';
 import { supabase, supabaseUrl, supabaseAnonKey } from '@/services/supabase';
+import { parseEdgeFunctionError } from '@/utils/edgeFunctionError';
 import { Profile, UserRole } from '@/types';
 import { isAdminUserRoleLocked } from '@/utils/role';
 import { Colors } from '@/constants/colors';
@@ -26,6 +29,8 @@ import {
   normalizePhone,
 } from '@/utils/phone';
 import { PhoneField } from '@/components/common/PhoneField';
+import { UserAvatar } from '@/components/common';
+import { updateUserPassword } from '@/utils/adminUpdateUserPassword';
 
 type EditUserForm = {
   nom: string;
@@ -85,6 +90,8 @@ export default function AdminUsersScreen() {
   const [editModal, setEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [form, setForm] = useState<EditUserForm>({ nom: '', prenom: '', email: '', matricule: '', phone: '', role: 'ouvrier' });
+  const [editPassword, setEditPassword] = useState('');
+  const [editModalError, setEditModalError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Profile | null>(null);
@@ -129,6 +136,8 @@ export default function AdminUsersScreen() {
 
   const openEdit = (user: Profile) => {
     setEditingUser(user);
+    setEditPassword('');
+    setEditModalError(null);
     setForm({
       nom: user.nom,
       prenom: user.prenom,
@@ -157,7 +166,7 @@ export default function AdminUsersScreen() {
         }
       );
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || t.management.errors.deleteError);
+      if (!res.ok) throw new Error(parseEdgeFunctionError(json, t.management.errors.deleteError));
       setDeleteConfirm(null);
       load();
     } catch (e: any) {
@@ -170,13 +179,14 @@ export default function AdminUsersScreen() {
   const saveUser = async () => {
     if (!editingUser) return;
     if (!form.email.trim() || !isEmailValid(form.email)) {
-      setError(t.management.errors.emailInvalid);
+      setEditModalError(t.management.errors.emailInvalid);
       return;
     }
     if (!isPhoneValid(form.phone)) {
-      setError(t.management.errors.phoneRequired);
+      setEditModalError(t.management.errors.phoneRequired);
       return;
     }
+    setEditModalError(null);
     setSaving(true);
     try {
       const roleToSave =
@@ -184,7 +194,7 @@ export default function AdminUsersScreen() {
           ? editingUser.role
           : form.role;
 
-      const { error } = await supabase
+      const { data: updatedProfile, error } = await supabase
         .from('profiles')
         .update({
           nom: form.nom,
@@ -194,12 +204,47 @@ export default function AdminUsersScreen() {
           phone: normalizePhone(form.phone),
           role: roleToSave,
         })
-        .eq('id', editingUser.id);
+        .eq('id', editingUser.id)
+        .select('id')
+        .maybeSingle();
       if (error) throw error;
+      if (!updatedProfile) {
+        throw new Error(t.management.errors.saveFailed);
+      }
+
+      const newPassword = editPassword.trim();
+      if (newPassword && newPassword.length < 6) {
+        setEditModalError(t.management.errors.passwordMinLength);
+        return;
+      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setEditModalError(t.management.errors.sessionExpired);
+        return;
+      }
+      try {
+        await updateUserPassword(editingUser.id, session.access_token, {
+          email: form.email.trim(),
+          ...(newPassword ? { password: newPassword } : {}),
+        });
+      } catch (pwErr: unknown) {
+        const msg = pwErr instanceof Error ? pwErr.message : '';
+        setEditModalError(
+          msg && msg !== 'update_password_failed'
+            ? msg
+            : t.management.errors.updatePasswordFailed,
+        );
+        load();
+        return;
+      }
+
+      setEditPassword('');
+      setEditModalError(null);
       setEditModal(false);
       load();
-    } catch {
-      setError('Impossible de sauvegarder');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '';
+      setEditModalError(msg || t.management.errors.saveFailed);
     } finally {
       setSaving(false);
     }
@@ -315,11 +360,16 @@ export default function AdminUsersScreen() {
           {filtered.map(user => (
             <View key={user.id} style={styles.card}>
               <View style={styles.cardLeft}>
-                <View style={[styles.avatar, { backgroundColor: roleColor(user.role) + '20' }]}>
-                  <Text style={[styles.avatarText, { color: roleColor(user.role) }]}>
-                    {user.prenom?.[0]}{user.nom?.[0]}
-                  </Text>
-                </View>
+                <UserAvatar
+                  avatarPath={user.avatar_path}
+                  avatarUpdatedAt={user.avatar_updated_at}
+                  prenom={user.prenom}
+                  nom={user.nom}
+                  role={user.role}
+                  size={44}
+                  variant="initials"
+                  style={styles.avatar}
+                />
                 <View style={styles.cardInfo}>
                   <Text style={styles.cardName}>{user.prenom} {user.nom}</Text>
                   <Text style={styles.cardEmail}>{user.email}</Text>
@@ -385,7 +435,7 @@ export default function AdminUsersScreen() {
                 <X size={22} color={Colors.text.secondary} />
               </TouchableOpacity>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {createError && <Text style={styles.modalError}>{createError}</Text>}
               <Text style={styles.fieldLabel}>{m.fields.firstName}</Text>
               <TextInput
@@ -473,12 +523,13 @@ export default function AdminUsersScreen() {
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{m.editUser.title}</Text>
-              <TouchableOpacity onPress={() => setEditModal(false)}>
+              <TouchableOpacity onPress={() => { setEditPassword(''); setEditModalError(null); setEditModal(false); }}>
                 <X size={22} color={Colors.text.secondary} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {editModalError ? <Text style={styles.modalError}>{editModalError}</Text> : null}
               <Text style={styles.fieldLabel}>{m.fields.firstName}</Text>
               <TextInput
                 style={styles.fieldInput}
@@ -502,7 +553,7 @@ export default function AdminUsersScreen() {
                   form.email.length > 0 && !isEmailValid(form.email) && styles.fieldInputInvalid,
                 ]}
                 value={form.email}
-                onChangeText={v => { setError(null); setForm(f => ({ ...f, email: v })); }}
+                onChangeText={v => { setEditModalError(null); setForm(f => ({ ...f, email: v })); }}
                 placeholder={m.fields.emailPlaceholder}
                 placeholderTextColor={Colors.text.disabled}
                 keyboardType="email-address"
@@ -518,8 +569,20 @@ export default function AdminUsersScreen() {
               />
               <PhoneField
                 phone={form.phone}
-                onChangePhone={phone => { setError(null); setForm(f => ({ ...f, phone })); }}
+                onChangePhone={phone => { setEditModalError(null); setForm(f => ({ ...f, phone })); }}
                 fieldKey={editingUser?.id}
+              />
+              <Text style={styles.fieldLabel}>{m.fields.newPasswordOptional}</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editPassword}
+                onChangeText={v => { setEditModalError(null); setEditPassword(v); }}
+                placeholder={m.fields.newPasswordHint}
+                placeholderTextColor={Colors.text.disabled}
+                secureTextEntry
+                autoComplete="new-password"
+                textContentType="newPassword"
+                importantForAutofill="no"
               />
               {editingUser && editingUser.id !== profile?.id && (
                 <>
@@ -550,15 +613,18 @@ export default function AdminUsersScreen() {
                   )}
                 </>
               )}
-              <View style={{ height: 16 }} />
-              <TouchableOpacity style={styles.saveBtn} onPress={saveUser} disabled={saving}>
-                {saving
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={styles.saveBtnText}>{m.save}</Text>
-                }
-              </TouchableOpacity>
-              <View style={{ height: 32 }} />
             </ScrollView>
+            <Pressable
+              style={({ pressed }) => [styles.saveBtn, styles.modalSaveFooter, pressed && { opacity: 0.88 }]}
+              onPress={() => { void saveUser(); }}
+              disabled={saving}
+              accessibilityRole="button"
+            >
+              {saving
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={styles.saveBtnText}>{m.save}</Text>
+              }
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -900,6 +966,10 @@ const styles = StyleSheet.create({
   },
   roleChipTextActive: {
     color: '#fff',
+  },
+  modalSaveFooter: {
+    marginTop: 8,
+    marginBottom: Platform.OS === 'web' ? 16 : 24,
   },
   saveBtn: {
     backgroundColor: Colors.primary,

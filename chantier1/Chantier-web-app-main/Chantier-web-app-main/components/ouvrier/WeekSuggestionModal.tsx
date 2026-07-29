@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { CalendarRange, Sparkles } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { formatWeekDayLabel } from '@/utils/date';
 import type { PreviousWeekHint } from '@/utils/ouvrierDeclaration';
 
@@ -33,13 +34,14 @@ export function WeekSuggestionModal({
   onValidate,
   onCancel,
 }: WeekSuggestionModalProps) {
+  const { dateLocale } = useLanguage();
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={() => {}}
+      onRequestClose={onCancel}
     >
       <View style={styles.overlay}>
         <View style={styles.sheet}>
@@ -56,7 +58,7 @@ export function WeekSuggestionModal({
             <View style={styles.detailCard}>
               {hint.dayPlans.map((plan) => (
                 <Text key={plan.targetDate} style={styles.detailDayLine} numberOfLines={1}>
-                  {formatWeekDayLabel(plan.targetDate)} · {plan.chantierNom} · {plan.heure_debutDisplay}–{plan.heure_finDisplay}
+                  {formatWeekDayLabel(plan.targetDate, dateLocale)} · {plan.chantierNom} · {plan.heure_debutDisplay}–{plan.heure_finDisplay}
                 </Text>
               ))}
             </View>

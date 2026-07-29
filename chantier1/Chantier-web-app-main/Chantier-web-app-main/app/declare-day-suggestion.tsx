@@ -19,7 +19,10 @@ import { ConfirmModal } from '@/components/common';
 import { Colors } from '@/constants/colors';
 import { formatWeekDayLabelWithYear } from '@/utils/date';
 import { fetchLatestValidatedPeriod } from '@/utils/ouvrierDeclaration';
-import { timeRangesOverlap, toDbTimeString } from '@/utils/time';
+import { checkShiftOverlapForDate } from '@/utils/shiftOverlap';
+import { findAbsenceForDate } from '@/utils/absence';
+import { appAlert } from '@/utils/appAlert';
+import { isEndAfterStart, toDbTimeString } from '@/utils/time';
 import { supabase } from '@/services/supabase';
 
 const pageBackground = require('../assets/images/bg-03.png');
@@ -48,7 +51,7 @@ interface LoadedHabit {
 /** Page suggestion ATN (carte verte) — distincte du formulaire orange declare-day. */
 export default function DeclareDaySuggestionScreen() {
   const { profile } = useAuth();
-  const { t } = useLanguage();
+  const { t, dateLocale } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
@@ -76,8 +79,8 @@ export default function DeclareDaySuggestionScreen() {
 
   const formattedDate = useMemo(() => {
     if (!dateStr) return '—';
-    return formatWeekDayLabelWithYear(dateStr);
-  }, [dateStr]);
+    return formatWeekDayLabelWithYear(dateStr, dateLocale);
+  }, [dateStr, dateLocale]);
 
   const cardDateLabel = formattedDate;
 
@@ -148,6 +151,22 @@ export default function DeclareDaySuggestionScreen() {
     let cancelled = false;
     void (async () => {
       setLoading(true);
+      const absence = await findAbsenceForDate(profile.id, dateStr);
+      if (cancelled) return;
+      if (absence) {
+        setLoading(false);
+        appAlert(t.common.error, t.absences.errors.dayAlreadyAbsent, [
+          {
+            text: t.common.ok,
+            onPress: () => {
+              if (router.canGoBack()) router.back();
+              else router.replace('/(tabs)/ouvrier-dashboard');
+            },
+          },
+        ]);
+        return;
+      }
+
       const validated = await fetchLatestValidatedPeriod(profile.id, dateStr);
       if (cancelled) return;
 
@@ -180,6 +199,7 @@ export default function DeclareDaySuggestionScreen() {
     params.panierRepas,
     params.deplacement,
     params.pauseMinutes,
+    t,
   ]);
 
   const navigateToDashboard = useCallback(
@@ -192,7 +212,12 @@ export default function DeclareDaySuggestionScreen() {
     [router],
   );
 
-  const handleModify = () => {
+  const handleModify = async () => {
+    if (!profile?.id) return;
+    if (await findAbsenceForDate(profile.id, dateStr)) {
+      appAlert(t.common.error, t.absences.errors.dayAlreadyAbsent);
+      return;
+    }
     const base = { date: dateStr, dayLabel };
     if (!habit) {
       router.push({ pathname: '/declare-day', params: base });
@@ -214,41 +239,33 @@ export default function DeclareDaySuggestionScreen() {
   const handleSubmit = async () => {
     if (!profile?.id || !dateStr || !habit?.chantierId) return;
 
+    const absence = await findAbsenceForDate(profile.id, dateStr);
+    if (absence) {
+      appAlert(t.common.error, t.absences.errors.dayAlreadyAbsent);
+      return;
+    }
+
+    if (!habit.heureDebut || !habit.heureFin) {
+      Alert.alert(t.common.error, t.timesheet.invalidLine);
+      return;
+    }
+    if (!isEndAfterStart(habit.heureDebut, habit.heureFin)) {
+      Alert.alert(t.common.error, t.timesheet.invalidShiftDurationMessage);
+      return;
+    }
+
+    const dbDebut = toDbTimeString(habit.heureDebut);
+    const dbFin = toDbTimeString(habit.heureFin);
+
     try {
       setSubmitting(true);
 
-      const [periodsRes, declRes] = await Promise.all([
-        supabase
-          .from('periodes_travail')
-          .select('chantier_id, heure_debut, heure_fin, statut')
-          .eq('user_id', profile.id)
-          .eq('date', dateStr),
-        supabase
-          .from('declarations_heures')
-          .select('chantier_id, date, statut')
-          .eq('user_id', profile.id)
-          .eq('date', dateStr),
-      ]);
-
-      const declByKey = new Map<string, string>();
-      for (const row of declRes.data || []) {
-        declByKey.set(row.chantier_id as string, row.statut as string);
-      }
-
-      const activePeriods = (periodsRes.data || []).filter((p: { chantier_id: string; statut: string }) => {
-        const declStatut = declByKey.get(p.chantier_id);
-        if (declStatut === 'annulee') return false;
-        if (p.statut === 'annulee') return false;
-        return true;
-      });
-
-      const dbDebut = toDbTimeString(habit.heureDebut);
-      const dbFin = toDbTimeString(habit.heureFin);
-
-      const hasOverlap = activePeriods.some((existing: { heure_debut: string; heure_fin: string }) => {
-        if (!existing.heure_debut || !existing.heure_fin) return false;
-        return timeRangesOverlap(dbDebut, dbFin, existing.heure_debut, existing.heure_fin);
-      });
+      const hasOverlap = await checkShiftOverlapForDate(
+        profile.id,
+        dateStr,
+        habit.heureDebut,
+        habit.heureFin,
+      );
 
       if (hasOverlap) {
         setOverlapModalVisible(true);

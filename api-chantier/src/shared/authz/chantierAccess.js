@@ -1,6 +1,7 @@
 /**
- * SUMMARY #12 — ouvrier chantier visibility: active affectation ∪ active zone membership.
- * Application-layer only (no SQL business logic).
+ * Optional helpers for chantier membership (affectation ∪ zone).
+ * Write gate for collaborator declarations no longer requires membership
+ * (see timesheetService.assertCanWritePeriod). Kept for list/filter callers.
  */
 import { query, clientQuery } from '../db/pool.js';
 import { AppError } from '../errors/AppError.js';

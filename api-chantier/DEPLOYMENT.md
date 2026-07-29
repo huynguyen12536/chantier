@@ -37,10 +37,14 @@ Points at **isolated** DB `chantier_test` on port `5433` — never the demo volu
 ```bash
 cd api-chantier
 cp .env.example .env   # if needed; set JWT_SECRET
-docker compose -f docker-compose.yml -f docker-compose.phase13.yml up -d --build
-npm run migrate
-npm run seed:local
+npm run docker:bootstrap
+# equivalent:
+#   npm run docker:up
+#   npm run migrate
+#   npm run seed:snapshot
 ```
+
+`seed:snapshot` loads `seeds/current-snapshot.sql` (full current business data dump).
 
 Endpoints:
 
@@ -57,12 +61,30 @@ npm run migrate:status
 
 ## Seed
 
+### Full current data (recommended local)
+
+```bash
+npm run seed:snapshot
+# Reloads seeds/current-snapshot.sql (profiles, chantiers, affectations, periods, declarations, …)
+# Passwords in snapshot match dump-time hashes (currently all set to 123456)
+```
+
+Rebuild snapshot from a running DB:
+
+```bash
+# after dumping with pg_dump into seeds/current-snapshot.raw.sql
+npm run seed:snapshot:build
+```
+
+### Demo-only users
+
 ```bash
 npm run seed:local
 # Password: Password123!
 # Users: admin@local.test, chef@local.test, ouvrier@local.test, administratif@local.test
 ```
 
+Do **not** run `seed:local` after `seed:snapshot` unless you intentionally want demo users mixed in.
 ## Health verification
 
 ```bash

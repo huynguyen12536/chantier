@@ -19,11 +19,12 @@ import { getChefManagedChantierIds } from '@/utils/team';
 import { getPeriodRange } from '@/utils/payroll';
 import {
   buildPayrollExportTable,
-  dayOfMonthFromIso,
   type PayrollExportSourceRow,
 } from '@/utils/exportPayrollFormat';
 import { computeChantierHoursBreakdown, formatTime } from '@/utils/time';
 import { Download, Megaphone, BadgeCheck, Hourglass, Timer } from 'lucide-react-native';
+import { ValidationNotificationBell } from '@/components/common/ValidationNotificationBell';
+import { canReceiveApprovalNotifications } from '@/utils/role';
 
 
 const STATS_GAP = 12;
@@ -44,7 +45,7 @@ function formatDisplayNumber(value: number, decimals = 0): string {
 
 export default function ExportScreen() {
   const { profile } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { scrollBottomPadding, headerPaddingTop } = useTabBarInset();
   const { width: windowWidth } = useWindowDimensions();
   const [loading, setLoading] = useState(false);
@@ -134,10 +135,12 @@ export default function ExportScreen() {
         date,
         panier_repas,
         deplacement,
+        heure_debut,
+        heure_fin,
         user_id,
         chantier_id,
         profiles!periodes_travail_user_id_fkey (nom, prenom),
-        chantiers (nom, adresse)
+        chantiers (nom, adresse, heure_debut, heure_fin)
       `)
       .eq('statut', 'validee')
       .gte('date', start)
@@ -156,14 +159,24 @@ export default function ExportScreen() {
     const grouped = new Map<string, PayrollExportSourceRow>();
 
     (data ?? []).forEach((d: any) => {
-      const key = `${d.user_id}__${d.chantier_id}`;
-      const jour = dayOfMonthFromIso(d.date as string);
+      const dateIso = String(d.date ?? '');
+      if (!dateIso) return;
+
+      const key = `${d.user_id}__${d.chantier_id}__${dateIso}`;
       const existing = grouped.get(key);
+      const hDebut = d.heure_debut ? formatTime(d.heure_debut as string) : '';
+      const hFin = d.heure_fin ? formatTime(d.heure_fin as string) : '';
+      const cDebut = d.chantiers?.heure_debut ? formatTime(d.chantiers.heure_debut as string) : null;
+      const cFin = d.chantiers?.heure_fin ? formatTime(d.chantiers.heure_fin as string) : null;
+      const periodHours =
+        hDebut && hFin
+          ? computeChantierHoursBreakdown(hDebut, hFin, cDebut, cFin).totalHeures
+          : 0;
 
       if (existing) {
-        existing.jours.push(jour);
         existing.nbreDeplacements += d.deplacement ? 1 : 0;
         existing.paniersRepas += d.panier_repas ? 1 : 0;
+        existing.totalHeures += periodHours;
       } else {
         grouped.set(key, {
           userId: d.user_id as string,
@@ -171,14 +184,18 @@ export default function ExportScreen() {
           nom: d.profiles?.nom ?? '',
           chantierNom: d.chantiers?.nom ?? '',
           chantierAdresse: d.chantiers?.adresse ?? '',
-          jours: [jour],
+          dateIso,
           nbreDeplacements: d.deplacement ? 1 : 0,
           paniersRepas: d.panier_repas ? 1 : 0,
+          totalHeures: periodHours,
         });
       }
     });
 
-    return Array.from(grouped.values());
+    return Array.from(grouped.values()).map((row) => ({
+      ...row,
+      totalHeures: Math.round(row.totalHeures * 100) / 100,
+    }));
   };
 
   const loadStats = async () => {
@@ -231,16 +248,22 @@ export default function ExportScreen() {
 
   const getExportTable = (data: PayrollExportSourceRow[], periodEnd: string) => {
     const c = t.export.csvColumns;
-    return buildPayrollExportTable(data, periodEnd, {
+    return buildPayrollExportTable(
+      data,
+      periodEnd,
+      {
       id: c.id,
       collaborateur: c.collaborateur,
       chantier: c.chantier,
+      date: c.date ?? c.listeJours ?? 'Date',
       nbreDeplacements: c.nbreDeplacements,
-      listeJours: c.listeJours,
       paniersRepas: c.paniersRepas,
+      totalHeures: c.totalHeures ?? 'Total heures',
       subtotal: c.subtotal,
       grandTotal: c.grandTotal,
-    });
+      },
+      language,
+    );
   };
 
   const handleExport = async () => {
@@ -269,13 +292,20 @@ export default function ExportScreen() {
             headerTitle,
           );
           downloadExcelBuffer(buffer, `export_heures_${start}_${end}.xlsx`);
-        } catch {
+        } catch (excelError) {
+          console.error('Excel export failed, falling back to CSV', excelError);
           downloadCsvFallback(
             table.periodLabel,
             table.headers,
             table.rows,
             `export_heures_${start}_${end}.csv`,
           );
+          Alert.alert(
+            t.common.error,
+            'Export Excel indisponible — fichier CSV téléchargé (colonnes numériques en texte). Réessayez ou contactez le support.',
+          );
+          setLoading(false);
+          return;
         }
         setTimeout(() => {
           Alert.alert(t.common.success, `${exportData.length} ${t.export.exportSuccess}`);
@@ -296,8 +326,13 @@ export default function ExportScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: headerPaddingTop }]}>
-        <Text style={styles.title}>{headerTitle}</Text>
-        <Text style={styles.subtitle}>{headerSubtitle}</Text>
+        <View style={styles.headerCopy}>
+          <Text style={styles.title}>{headerTitle}</Text>
+          <Text style={styles.subtitle}>{headerSubtitle}</Text>
+        </View>
+        {canReceiveApprovalNotifications(profile?.role) ? (
+          <ValidationNotificationBell variant="light" />
+        ) : null}
       </View>
 
       <ScrollView
@@ -473,6 +508,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 24,
     width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   title: {
     fontSize: 28,

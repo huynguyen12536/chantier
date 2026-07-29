@@ -1,6 +1,7 @@
 import { asyncHandler } from '../../../shared/utils/asyncHandler.js';
 import { AppError } from '../../../shared/errors/AppError.js';
 import * as chantiersService from '../../chantiers/service.js';
+import * as diversService from '../../chantiers/diversService.js';
 import * as chantierMapper from '../mappers/chantierMapper.js';
 
 export const deleteChantierCascade = asyncHandler(async (req, res) => {
@@ -16,4 +17,39 @@ export const deleteChantierCascade = asyncHandler(async (req, res) => {
     const mapped = chantierMapper.toErrorResponse(err);
     res.status(mapped.status).json(mapped.body);
   }
+});
+
+async function handleRpc(name, req, res) {
+  try {
+    let result;
+    switch (name) {
+      case 'create_chantier_divers':
+        result = await diversService.createChantierDivers(req.user, req.body ?? {});
+        break;
+      case 'approve_chantier_divers':
+        result = await diversService.approveChantierDivers(req.user, req.body ?? {});
+        break;
+      case 'reject_chantier_divers':
+        await diversService.rejectChantierDivers(req.user, req.body ?? {});
+        result = null;
+        break;
+      case 'get_collaborator_divers_notifications':
+        result = await diversService.getCollaboratorDiversNotifications(
+          req.user,
+          req.body ?? {},
+        );
+        break;
+      default:
+        throw new AppError(`RPC not supported: ${name}`, 400);
+    }
+    res.status(200).json(result);
+  } catch (err) {
+    const mapped = chantierMapper.toErrorResponse(err);
+    res.status(mapped.status).json(mapped.body);
+  }
+}
+
+export const rpcDispatch = asyncHandler(async (req, res) => {
+  const name = req.params.name ?? req.body?.rpc ?? req.path.split('/').pop();
+  await handleRpc(name, req, res);
 });

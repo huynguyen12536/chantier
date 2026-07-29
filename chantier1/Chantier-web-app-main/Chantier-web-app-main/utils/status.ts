@@ -1,5 +1,10 @@
 export type LineStatut = 'draft' | 'attente' | 'validee' | 'rejetee' | 'annulee';
 
+/** Worker can edit until admin validates (or shift is cancelled). */
+export function isShiftEditable(statut: LineStatut): boolean {
+  return statut !== 'validee' && statut !== 'annulee';
+}
+
 export function declarationLookupKey(chantierId: string, date: string): string {
   return `${chantierId}__${date}`;
 }

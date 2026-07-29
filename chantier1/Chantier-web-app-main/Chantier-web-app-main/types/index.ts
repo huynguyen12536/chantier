@@ -8,9 +8,14 @@ export type Profile = {
   matricule: string;
   phone: string;
   role: UserRole;
+  avatar_path?: string | null;
+  avatar_updated_at?: string | null;
   created_at: string;
   updated_at: string;
 };
+
+export type ChantierSource = 'standard' | 'divers';
+export type ChantierDiversStatut = 'en_attente' | 'approuve' | 'rejete';
 
 export type Chantier = {
   id: string;
@@ -22,6 +27,13 @@ export type Chantier = {
   date_fin: string | null;
   heure_debut: string | null;
   heure_fin: string | null;
+  source?: ChantierSource;
+  divers_statut?: ChantierDiversStatut | null;
+  created_by?: string | null;
+  divers_reviewed_by?: string | null;
+  divers_reviewed_at?: string | null;
+  divers_rejection_reason?: string | null;
+  divers_creation_reason?: string | null;
   created_at: string;
 };
 
@@ -73,6 +85,20 @@ export type PeriodeTravail = {
   panier_repas: boolean;
   deplacement: boolean;
   chantiers?: Chantier;
+};
+
+export type AbsenceMotif = 'personal' | 'medical' | 'vacation' | 'other';
+
+export type Absence = {
+  id: string;
+  user_id: string;
+  date_debut: string;
+  date_fin: string;
+  motif: AbsenceMotif | null;
+  commentaire: string | null;
+  created_at: string;
+  updated_at: string;
+  profiles?: Pick<Profile, 'id' | 'nom' | 'prenom' | 'matricule' | 'avatar_path' | 'avatar_updated_at'>;
 };
 
 export type Language = 'fr' | 'en';

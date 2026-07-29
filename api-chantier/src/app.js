@@ -15,6 +15,7 @@ import zonesRoutes from './modules/zones/routes.js';
 import timesheetRoutes from './modules/timesheet/routes.js';
 import validationRoutes from './modules/validation/routes.js';
 import exportRoutes from './modules/export/routes.js';
+import storageRoutes from './modules/storage/routes.js';
 import { realtimeRoutes, initRealtime } from './modules/realtime/index.js';
 import { mountCompat } from './modules/compat/index.js';
 
@@ -31,10 +32,13 @@ export function createApp(options = {}) {
   app.use(helmet({
     // SSE streams must not be cached / CSP-blocked for EventSource clients
     contentSecurityPolicy: false,
+    // Allow FE (ngrok / other origin) to read API responses
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
   }));
   app.use(
     cors({
       origin: env.corsOrigin === '*' ? true : env.corsOrigin.split(',').map((s) => s.trim()),
+      credentials: true,
     }),
   );
   app.use(express.json({ limit: '1mb' }));
@@ -65,6 +69,7 @@ export function createApp(options = {}) {
   app.use('/api/timesheet', timesheetRoutes);
   app.use('/api/validation', validationRoutes);
   app.use('/api/export', exportRoutes);
+  app.use('/api/storage', storageRoutes);
   app.use('/events', realtimeRoutes);
 
   // Imp-12 Wave A — FE compatibility aliases (no business)

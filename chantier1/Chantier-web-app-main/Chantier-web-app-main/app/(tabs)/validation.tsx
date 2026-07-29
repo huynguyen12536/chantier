@@ -15,13 +15,34 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/services/supabase';
-import { Check, Clock, ChevronDown, X, List, Building2, User, MapPin, Search, UtensilsCrossed } from 'lucide-react-native';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Check, Clock, ChevronDown, X, List, Building2, MapPin, Search, UtensilsCrossed } from 'lucide-react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { ConfirmModal } from '@/components/common';
+import { ValidationNotificationBell } from '@/components/common/ValidationNotificationBell';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
 import { getChefManagedChantierIds } from '@/utils/team';
-import { calculateDuration } from '@/utils/time';
+import { calculateDuration, shiftOutsideChantierFrame } from '@/utils/time';
+import { parseDateKey, type DateLocale } from '@/utils/date';
+import {
+  isBlockedByPendingDiversChantier,
+  type ChantierDiversStatut,
+  type ChantierSource,
+} from '@/utils/chantierDivers';
+import { clearApprovalDeepLinkParams, parseApprovalDeepLink } from '@/utils/approvalDeepLink';
+import { scrollViewIntoVisible } from '@/utils/scrollIntoView';
+
+function declarationChantierBlocked(decl: DeclarationWithDetails): boolean {
+  return isBlockedByPendingDiversChantier(
+    decl.chantiers?.source as ChantierSource | undefined,
+    decl.chantiers?.divers_statut as ChantierDiversStatut | undefined,
+  );
+}
+
+function isActionablePendingDeclaration(decl: DeclarationWithDetails): boolean {
+  return decl.statut === 'soumise' && !declarationChantierBlocked(decl);
+}
 
 type DeclarationPeriodSlot = {
   id: string;
@@ -30,6 +51,7 @@ type DeclarationPeriodSlot = {
   panier_repas: boolean;
   deplacement: boolean;
   statut: string;
+  commentaire: string | null;
 };
 
 type DeclarationWithDetails = {
@@ -50,10 +72,16 @@ type DeclarationWithDetails = {
     nom: string;
     prenom: string;
     matricule: string;
+    avatar_path?: string | null;
+    avatar_updated_at?: string | null;
   };
   chantiers: {
     nom: string;
     code: string;
+    heure_debut: string | null;
+    heure_fin: string | null;
+    source?: ChantierSource | null;
+    divers_statut?: ChantierDiversStatut | null;
   };
 };
 
@@ -61,6 +89,8 @@ type UserWeeklySummary = {
   user_id: string;
   nom: string;
   prenom: string;
+  avatar_path?: string | null;
+  avatar_updated_at?: string | null;
   totalHours: number;
   mainChantier: string;
   declarations: DeclarationWithDetails[];
@@ -71,6 +101,8 @@ type UserByWorksiteSummary = {
   user_id: string;
   nom: string;
   prenom: string;
+  avatar_path?: string | null;
+  avatar_updated_at?: string | null;
   declarations: DeclarationWithDetails[];
   hasPending: boolean;
   totalHours: number;
@@ -80,8 +112,10 @@ type WorksiteValidationSummary = {
   chantier_id: string;
   chantierNom: string;
   chantierCode: string;
+  chantierBlocked: boolean;
   users: UserByWorksiteSummary[];
   pendingDeclarationCount: number;
+  soumiseDeclarationCount: number;
 };
 
 type CancelPromptState =
@@ -109,9 +143,16 @@ const REALTIME_RELOAD_DEBOUNCE_MS = 400;
 
 export default function ValidationScreen() {
   const { profile } = useAuth();
-  const { t } = useLanguage();
+  const { t, dateLocale } = useLanguage();
+  const router = useRouter();
   const { scrollBottomPadding, headerPaddingTop } = useTabBarInset();
-  const routeParams = useLocalSearchParams<{ filter?: string; expandedUserId?: string }>();
+  const routeParams = useLocalSearchParams<{
+    filter?: string;
+    expandedUserId?: string;
+    highlightChantierId?: string;
+    highlightDeclId?: string;
+    _focus?: string;
+  }>();
   const [weeklyData, setWeeklyData] = useState<UserWeeklySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
@@ -125,6 +166,12 @@ export default function ValidationScreen() {
   const [validateAllConfirm, setValidateAllConfirm] = useState<ValidateAllConfirmState>(null);
   const [feedbackModal, setFeedbackModal] = useState<FeedbackModalState>(null);
   const [search, setSearch] = useState('');
+  const [highlightDeclId, setHighlightDeclId] = useState<string | null>(null);
+  const scrollViewRef = React.useRef<ScrollView>(null);
+  const declCardRefs = React.useRef<Record<string, View | null>>({});
+  const pendingScrollDeclIdRef = React.useRef<string | null>(null);
+  const lastHandledFocusRef = React.useRef<string | null>(null);
+  const highlightClearTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Le modal fait un fondu de sortie : pendant l'animation, `feedbackModal` est
   // déjà null. On garde le dernier contenu affiché pour éviter un flash "danger"
@@ -135,16 +182,73 @@ export default function ValidationScreen() {
   }
   const feedbackContent = feedbackModal ?? lastFeedbackRef.current;
 
+  const applyDeepLink = useCallback(() => {
+    const parsed = parseApprovalDeepLink(routeParams);
+    if (!parsed.focusKey) return;
+    if (parsed.focusKey === lastHandledFocusRef.current) return;
+
+    setSearch('');
+    if (parsed.filter) {
+      setFilter(parsed.filter);
+    } else if (parsed.highlightDeclId) {
+      setFilter('pending');
+    }
+    if (parsed.highlightChantierId) {
+      setSelectedWorksiteId(parsed.highlightChantierId);
+    }
+    if (parsed.expandedUserId) {
+      setExpandedUserId(parsed.expandedUserId);
+    }
+    if (parsed.highlightDeclId) {
+      setHighlightDeclId(parsed.highlightDeclId);
+      pendingScrollDeclIdRef.current = parsed.highlightDeclId;
+      if (highlightClearTimerRef.current) {
+        clearTimeout(highlightClearTimerRef.current);
+      }
+      highlightClearTimerRef.current = setTimeout(() => {
+        setHighlightDeclId(null);
+        highlightClearTimerRef.current = null;
+      }, 6000);
+    }
+
+    lastHandledFocusRef.current = parsed.focusKey;
+    clearApprovalDeepLinkParams(router.setParams);
+  }, [routeParams, router]);
+
   useFocusEffect(
     useCallback(() => {
-      if (routeParams.filter === 'pending' || routeParams.filter === 'all') {
-        setFilter(routeParams.filter);
-      }
-      if (routeParams.expandedUserId) {
-        setExpandedUserId(routeParams.expandedUserId);
-      }
-    }, [routeParams.filter, routeParams.expandedUserId])
+      applyDeepLink();
+    }, [applyDeepLink]),
   );
+
+  useEffect(() => {
+    if (loading) return;
+    const declId = pendingScrollDeclIdRef.current;
+    if (!declId) return;
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const tryScroll = () => {
+      if (cancelled) return;
+      attempts += 1;
+      const node = declCardRefs.current[declId];
+      if (node) {
+        scrollViewIntoVisible(scrollViewRef, node, { delayMs: 120, offset: 120 });
+        pendingScrollDeclIdRef.current = null;
+        return;
+      }
+      if (attempts < 8) {
+        setTimeout(tryScroll, 200);
+      }
+    };
+
+    const starter = setTimeout(tryScroll, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(starter);
+    };
+  }, [loading, selectedWorksiteId, expandedUserId, weeklyData.length, highlightDeclId]);
 
   /** Always loads every statut for the team; tab “En attente” vs “Toutes” only changes what we display (see displayedWeeklyUsers). Realtime/polling then stay correct on both tabs. */
   const loadDeclarations = useCallback(async (options?: { silent?: boolean }) => {
@@ -157,8 +261,8 @@ export default function ValidationScreen() {
         .from('declarations_heures')
         .select(`
           *,
-          profiles!declarations_heures_user_id_fkey (nom, prenom, matricule),
-          chantiers (nom, code)
+          profiles!declarations_heures_user_id_fkey (nom, prenom, matricule, avatar_path, avatar_updated_at),
+          chantiers (nom, code, heure_debut, heure_fin, source, divers_statut)
         `)
         .order('date', { ascending: false });
 
@@ -193,7 +297,7 @@ export default function ValidationScreen() {
 
         const { data: periodes, error: periodesError } = await supabase
           .from('periodes_travail')
-          .select('id, user_id, chantier_id, date, heure_debut, heure_fin, panier_repas, deplacement, statut')
+          .select('id, user_id, chantier_id, date, heure_debut, heure_fin, panier_repas, deplacement, statut, commentaire')
           .in('user_id', userIds)
           .gte('date', minDate)
           .lte('date', maxDate)
@@ -217,6 +321,10 @@ export default function ValidationScreen() {
               panier_repas: readPeriodBoolean(p.panier_repas),
               deplacement: readPeriodBoolean(p.deplacement),
               statut: String(p.statut ?? ''),
+              commentaire:
+                typeof p.commentaire === 'string' && p.commentaire.trim()
+                  ? p.commentaire.trim()
+                  : null,
             };
             const list = periodsByDeclKey.get(k) ?? [];
             list.push(slot);
@@ -248,6 +356,8 @@ export default function ValidationScreen() {
             user_id: decl.user_id,
             nom: decl.profiles.nom,
             prenom: decl.profiles.prenom,
+            avatar_path: decl.profiles.avatar_path,
+            avatar_updated_at: decl.profiles.avatar_updated_at,
             totalHours: 0,
             mainChantier: decl.chantiers.nom,
             declarations: [],
@@ -260,7 +370,7 @@ export default function ValidationScreen() {
         if (decl.statut !== 'annulee') {
           summary.totalHours += decl.heures_normales + decl.heures_supplementaires;
         }
-        if (decl.statut === 'soumise') {
+        if (isActionablePendingDeclaration(decl)) {
           summary.hasPending = true;
         }
       });
@@ -302,6 +412,11 @@ export default function ValidationScreen() {
           { event: '*', schema: 'public', table: 'periodes_travail' },
           scheduleReloadFromRealtime
         )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'chantiers' },
+          scheduleReloadFromRealtime
+        )
         .subscribe((status, err) => {
           if (__DEV__ && status === 'SUBSCRIBED') {
             console.debug('[validation] realtime subscribed', channelName);
@@ -338,6 +453,8 @@ export default function ValidationScreen() {
         chantier_id: string;
         chantierNom: string;
         chantierCode: string;
+        chantierSource?: ChantierSource | null;
+        chantierDiversStatut?: ChantierDiversStatut | null;
         usersMap: Map<string, UserByWorksiteSummary>;
       }
     >();
@@ -350,6 +467,8 @@ export default function ValidationScreen() {
             chantier_id: chantierId,
             chantierNom: decl.chantiers.nom,
             chantierCode: decl.chantiers.code,
+            chantierSource: decl.chantiers.source,
+            chantierDiversStatut: decl.chantiers.divers_statut,
             usersMap: new Map<string, UserByWorksiteSummary>(),
           });
         }
@@ -359,6 +478,8 @@ export default function ValidationScreen() {
             user_id: user.user_id,
             nom: user.nom,
             prenom: user.prenom,
+            avatar_path: user.avatar_path,
+            avatar_updated_at: user.avatar_updated_at,
             declarations: [],
             hasPending: false,
             totalHours: 0,
@@ -372,7 +493,7 @@ export default function ValidationScreen() {
     return Array.from(chantierMap.values())
       .map((chantier) => {
         const users = Array.from(chantier.usersMap.values()).map((u) => {
-          const hasPending = u.declarations.some((d) => d.statut === 'soumise');
+          const hasPending = u.declarations.some((d) => isActionablePendingDeclaration(d));
           const totalHours = u.declarations.reduce(
             (sum, d) =>
               d.statut === 'annulee'
@@ -388,6 +509,10 @@ export default function ValidationScreen() {
           };
         });
         const pendingDeclarationCount = users.reduce(
+          (sum, u) => sum + u.declarations.filter((d) => isActionablePendingDeclaration(d)).length,
+          0,
+        );
+        const soumiseDeclarationCount = users.reduce(
           (sum, u) => sum + u.declarations.filter((d) => d.statut === 'soumise').length,
           0,
         );
@@ -395,8 +520,13 @@ export default function ValidationScreen() {
           chantier_id: chantier.chantier_id,
           chantierNom: chantier.chantierNom,
           chantierCode: chantier.chantierCode,
+          chantierBlocked: isBlockedByPendingDiversChantier(
+            chantier.chantierSource,
+            chantier.chantierDiversStatut,
+          ),
           users: users.sort((a, b) => `${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`, 'fr')),
           pendingDeclarationCount,
+          soumiseDeclarationCount,
         };
       })
       .sort((a, b) => a.chantierNom.localeCompare(b.chantierNom, 'fr'));
@@ -441,7 +571,9 @@ export default function ValidationScreen() {
   const visibleWorksites = useMemo(
     () =>
       filter === 'pending'
-        ? worksiteData.filter((w) => w.pendingDeclarationCount > 0)
+        ? worksiteData.filter(
+            (w) => w.pendingDeclarationCount > 0 || (w.chantierBlocked && w.soumiseDeclarationCount > 0),
+          )
         : allTabFilteredWorksites,
     [allTabFilteredWorksites, filter, worksiteData],
   );
@@ -619,13 +751,17 @@ export default function ValidationScreen() {
         const declarations = u.declarations.map((d) =>
           d.id === declId ? { ...d, statut: 'annulee' } : d
         );
-        const hasPending = declarations.some((d) => d.statut === 'soumise');
+        const hasPending = declarations.some((d) => isActionablePendingDeclaration(d));
         return { ...u, declarations, hasPending };
       })
     );
   };
 
   const updateDeclaration = async (decl: DeclarationWithDetails, statut: 'validee' | 'rejetee') => {
+    if (declarationChantierBlocked(decl) && (statut === 'validee' || statut === 'rejetee')) {
+      Alert.alert(t.common.error, t.chantierDivers.shiftBlockedUntilWorksiteApproved);
+      return;
+    }
     setProcessingDeclIds((prev) => ({ ...prev, [decl.id]: true }));
     try {
       await validateDeclaration(decl, statut);
@@ -801,7 +937,7 @@ export default function ValidationScreen() {
       if (!user) return;
 
       const pendingDeclarations = user.declarations.filter(
-        (d) => d.statut === 'soumise' && (!chantierId || d.chantier_id === chantierId)
+        (d) => isActionablePendingDeclaration(d) && (!chantierId || d.chantier_id === chantierId)
       );
 
       if (pendingDeclarations.length === 0) {
@@ -829,7 +965,7 @@ export default function ValidationScreen() {
     }
 
     const totalDeclarations = usersWithPending.reduce(
-      (sum, u) => sum + u.declarations.filter((d) => d.statut === 'soumise').length,
+      (sum, u) => sum + u.declarations.filter((d) => isActionablePendingDeclaration(d)).length,
       0
     );
 
@@ -848,7 +984,7 @@ export default function ValidationScreen() {
     try {
       const usersWithPending = weeklyData.filter((u) => u.hasPending);
       const pendingDeclarations = usersWithPending.flatMap((user) =>
-        user.declarations.filter((d) => d.statut === 'soumise')
+        user.declarations.filter((d) => isActionablePendingDeclaration(d))
       );
 
       for (const decl of pendingDeclarations) {
@@ -906,6 +1042,7 @@ export default function ValidationScreen() {
     const isProcessing =
       Boolean(processingDeclIds[decl.id]) || cancellingUserId === userId;
     const isPending = decl.statut === 'soumise';
+    const chantierBlocked = isPending && declarationChantierBlocked(decl);
     const timeRangeLabel = period
       ? formatSinglePeriodLabel(period)
       : decl.timeRangeLabel;
@@ -917,12 +1054,33 @@ export default function ValidationScreen() {
     const hasTravelAllowance = period?.deplacement === true;
     const showAllowanceIcons =
       Boolean(period) && (hasMealAllowance || hasTravelAllowance);
+    const showReason = Boolean(
+      period?.commentaire
+      && period.heure_fin
+      && shiftOutsideChantierFrame(
+        period.heure_debut,
+        period.heure_fin,
+        decl.chantiers.heure_debut,
+        decl.chantiers.heure_fin,
+      ),
+    );
 
     return (
-      <View key={cardKey ?? decl.id} style={styles.declCard}>
-        <View style={styles.declCardLeft}>
+      <View
+        key={cardKey ?? decl.id}
+        ref={(node) => {
+          declCardRefs.current[decl.id] = node;
+        }}
+        collapsable={false}
+        style={[
+          styles.declCard,
+          chantierBlocked && styles.declCardBlocked,
+          highlightDeclId === decl.id && styles.declCardHighlighted,
+        ]}
+      >
+        <View style={[styles.declCardLeft, chantierBlocked && styles.declCardLeftMuted]}>
           <View style={styles.declDateRow}>
-            <Text style={styles.declDate}>{formatDateShort(decl.date)}</Text>
+            <Text style={styles.declDate}>{formatDateShort(decl.date, dateLocale)}</Text>
             <Text style={styles.declDateTotalHours}>{formatHours(totalHours)}h</Text>
             {showAllowanceIcons ? (
               <View style={styles.declAllowanceIcons}>
@@ -952,12 +1110,33 @@ export default function ValidationScreen() {
               {timeRangeLabel}
             </Text>
           ) : null}
+          {chantierBlocked ? (
+            <Text style={styles.declChantierBlockedBadge}>
+              {t.chantierDivers.shiftBlockedUntilWorksiteApproved}
+            </Text>
+          ) : null}
+          {showReason ? (
+            <View style={styles.declReasonBox}>
+              <Text style={styles.declReasonLabel}>
+                {t.validation.durationDifferenceReason}
+              </Text>
+              <Text style={styles.declReasonText}>{period!.commentaire}</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.declCardRight}>
           {isPending ? (
             isProcessing ? (
               <ActivityIndicator size="small" color={Colors.primary} />
+            ) : chantierBlocked ? (
+              <TouchableOpacity
+                style={styles.declIconBtnReject}
+                onPress={() => handleCancelDeclaration(decl.id)}
+                activeOpacity={0.75}
+              >
+                <X size={16} color="#DC2626" strokeWidth={2.5} />
+              </TouchableOpacity>
             ) : (
               <View style={styles.declIconActions}>
                 <TouchableOpacity
@@ -1029,7 +1208,7 @@ export default function ValidationScreen() {
 
   const usersWithPending = weeklyData.filter((u) => u.hasPending);
   const pendingDeclarationCount = usersWithPending.reduce(
-    (sum, u) => sum + u.declarations.filter((d) => d.statut === 'soumise').length,
+    (sum, u) => sum + u.declarations.filter((d) => isActionablePendingDeclaration(d)).length,
     0
   );
 
@@ -1047,6 +1226,7 @@ export default function ValidationScreen() {
               <Text style={styles.headerTitle}>{t.validation.title}</Text>
               <Text style={styles.headerSubtitle}>{t.validation.subtitle}</Text>
             </View>
+            <ValidationNotificationBell variant="light" />
           </View>
 
           <View style={styles.tabBar}>
@@ -1113,6 +1293,7 @@ export default function ValidationScreen() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
@@ -1176,13 +1357,15 @@ export default function ValidationScreen() {
             const isWorksiteExpanded = selectedWorksiteId === worksite.chantier_id;
             const worksiteUsers =
               filter === 'pending'
-                ? worksite.users.filter((u) => u.hasPending)
+                ? worksite.users.filter((u) =>
+                    u.declarations.some((d) => d.statut === 'soumise'),
+                  )
                 : worksite.users;
 
             return (
-              <View key={worksite.chantier_id} style={styles.userCard}>
+              <View key={worksite.chantier_id} style={[styles.userCard, worksite.chantierBlocked && styles.userCardBlocked]}>
                 <TouchableOpacity
-                  style={styles.userCardHeader}
+                  style={[styles.userCardHeader, worksite.chantierBlocked && styles.userCardHeaderBlocked]}
                   activeOpacity={0.8}
                   onPress={() => {
                     setSelectedWorksiteId(isWorksiteExpanded ? null : worksite.chantier_id);
@@ -1206,9 +1389,15 @@ export default function ValidationScreen() {
                     </View>
                   </View>
                   <View style={styles.userHeaderRight}>
-                    {filter === 'pending' && worksite.pendingDeclarationCount > 0 && (
+                    {filter === 'pending'
+                      && (worksite.pendingDeclarationCount > 0
+                        || (worksite.chantierBlocked && worksite.soumiseDeclarationCount > 0)) && (
                       <View style={styles.tabCount}>
-                        <Text style={styles.tabCountText}>{worksite.pendingDeclarationCount}</Text>
+                        <Text style={styles.tabCountText}>
+                          {worksite.chantierBlocked
+                            ? worksite.soumiseDeclarationCount
+                            : worksite.pendingDeclarationCount}
+                        </Text>
                       </View>
                     )}
                     <View style={[styles.chevronWrap, isWorksiteExpanded && styles.chevronWrapExpanded]}>
@@ -1219,6 +1408,11 @@ export default function ValidationScreen() {
 
                 {isWorksiteExpanded && (
                   <View style={styles.userDetailsExpanded}>
+                    {worksite.chantierBlocked ? (
+                      <Text style={styles.worksiteBlockedBanner}>
+                        {t.chantierDivers.shiftBlockedUntilWorksiteApproved}
+                      </Text>
+                    ) : null}
                     {worksiteUsers.length === 0 ? (
                       <View style={styles.emptyState}>
                         <Text style={styles.emptyText}>
@@ -1234,27 +1428,51 @@ export default function ValidationScreen() {
                         const pendingCount = displayedDeclarations.filter(
                           (d) => d.statut === 'soumise'
                         ).length;
+                        const hasSoumiseAtWorksite = user.declarations.some(
+                          (d) => d.statut === 'soumise',
+                        );
                         const displayedTotalHours = sumDeclarationHours(displayedDeclarations);
                         const isExpanded = expandedUserId === user.user_id;
 
                         return (
-                          <View key={user.user_id} style={styles.userCardNested}>
+                          <View
+                            key={user.user_id}
+                            style={[
+                              styles.userCardNested,
+                              worksite.chantierBlocked && styles.userCardNestedBlocked,
+                            ]}
+                          >
                             <View style={styles.userCardHeader}>
                               <View style={styles.nestedUserHeaderLeft}>
                                 <View style={styles.userRowIconWrap}>
-                                  <User size={17} color={Colors.primary} strokeWidth={2.3} />
+                                  <UserAvatar
+                                    avatarPath={user.avatar_path}
+                                    avatarUpdatedAt={user.avatar_updated_at}
+                                    prenom={user.prenom}
+                                    nom={user.nom}
+                                    size={32}
+                                    variant="initials"
+                                  />
                                 </View>
                                 <View style={styles.userMainInfo}>
                                   <View style={styles.userNameRow}>
                                     <Text style={styles.userName} numberOfLines={1}>
                                       {user.prenom} {user.nom}
                                     </Text>
-                                    <Text style={styles.userNameHours}>
+                                    <Text
+                                      style={[
+                                        styles.userNameHours,
+                                        worksite.chantierBlocked && styles.userNameHoursMuted,
+                                      ]}
+                                    >
                                       {formatHours(displayedTotalHours)}h
                                     </Text>
                                     {pendingCount > 0 && (
                                       <View style={styles.pendingDot}>
-                                        <Clock size={11} color="#F59E0B" />
+                                        <Clock
+                                          size={11}
+                                          color={worksite.chantierBlocked ? '#9CA3AF' : '#F59E0B'}
+                                        />
                                       </View>
                                     )}
                                   </View>
@@ -1294,7 +1512,7 @@ export default function ValidationScreen() {
                                   )}
                               </View>
                             )}
-                            {filter === 'pending' && user.hasPending && (
+                            {filter === 'pending' && (user.hasPending || (worksite.chantierBlocked && hasSoumiseAtWorksite)) && (
                               <View style={styles.userActions}>
                                 <TouchableOpacity
                                   style={[styles.userActionButton, styles.cancelUserButton]}
@@ -1308,14 +1526,16 @@ export default function ValidationScreen() {
                                   )}
                                   <Text style={styles.userActionButtonText}>{t.validation.cancelAllShifts}</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity
-                                  style={[styles.userActionButton, styles.validateUserButton]}
-                                  onPress={() => handleValidateUser(user.user_id, selectedWorksiteId ?? undefined)}
-                                  disabled={cancellingUserId === user.user_id}
-                                >
-                                  <Check size={15} color="#FFF" strokeWidth={2.5} />
-                                  <Text style={styles.userActionButtonText}>{t.common.validate}</Text>
-                                </TouchableOpacity>
+                                {user.hasPending ? (
+                                  <TouchableOpacity
+                                    style={[styles.userActionButton, styles.validateUserButton]}
+                                    onPress={() => handleValidateUser(user.user_id, selectedWorksiteId ?? undefined)}
+                                    disabled={cancellingUserId === user.user_id}
+                                  >
+                                    <Check size={15} color="#FFF" strokeWidth={2.5} />
+                                    <Text style={styles.userActionButtonText}>{t.common.validate}</Text>
+                                  </TouchableOpacity>
+                                ) : null}
                               </View>
                             )}
                           </View>
@@ -1475,9 +1695,8 @@ function expandDeclarationToCardItems(decl: DeclarationWithDetails): {
   }));
 }
 
-function formatDateShort(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('fr-FR', {
+function formatDateShort(dateStr: string, locale: DateLocale = 'fr-FR'): string {
+  return parseDateKey(dateStr).toLocaleDateString(locale, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -1521,6 +1740,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingBottom: 20,
+    gap: 12,
   },
   headerCopy: {
     flex: 1,
@@ -1678,6 +1898,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
   },
+  userCardBlocked: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  userCardHeaderBlocked: {},
   userCardNested: {
     backgroundColor: '#FFF',
     borderRadius: 10,
@@ -1685,6 +1911,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F0F0F0',
     marginBottom: 8,
+  },
+  userCardNestedBlocked: {
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E5E7EB',
+  },
+  worksiteBlockedBanner: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+    marginHorizontal: 12,
+    marginBottom: 8,
+    lineHeight: 17,
   },
   userCardHeader: {
     flexDirection: 'row',
@@ -1760,6 +1998,9 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     flexShrink: 0,
   },
+  userNameHoursMuted: {
+    color: '#9CA3AF',
+  },
   pendingDot: {
     width: 18,
     height: 18,
@@ -1828,6 +2069,24 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     marginBottom: 0,
   },
+  declCardBlocked: {
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E5E7EB',
+  },
+  declCardHighlighted: {
+    borderColor: Colors.primary,
+    borderWidth: 2,
+    backgroundColor: '#FFF7F2',
+  },
+  declCardLeftMuted: {
+    opacity: 0.95,
+  },
+  declChantierBlockedBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    marginTop: 2,
+  },
   declCardLeft: {
     flex: 1,
     gap: 4,
@@ -1858,6 +2117,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.text.primary,
     letterSpacing: -0.2,
+  },
+  declReasonBox: {
+    marginTop: 5,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
+    borderRadius: 6,
+    backgroundColor: '#FFF3ED',
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+  },
+  declReasonLabel: {
+    marginBottom: 2,
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.45,
+  },
+  declReasonText: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+    color: Colors.text.primary,
   },
   declAllowanceIcons: {
     flexDirection: 'row',
@@ -1930,7 +2212,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 9,
-    borderRadius: 8,
+    borderRadius: 20,
     gap: 5,
   },
   validateUserButton: {

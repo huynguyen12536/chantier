@@ -1,6 +1,6 @@
 {
-  "imported_at": "2026-07-15T07:40:57.774Z",
-  "merged_at": "2026-07-15T06:33:54.751Z",
+  "imported_at": "2026-07-15T14:45:18.355Z",
+  "merged_at": "2026-07-15T14:44:39.255Z",
   "merged_path": "C:\\Users\\Gigabyte\\Downloads\\DFM\\chantier\\migration-analysis\\data-dumps\\merged.json",
   "id_remap_count": 1,
   "audit": [
@@ -26,13 +26,6 @@
       "temporary_password": "Phase15-TempPass!"
     },
     {
-      "id": "abcca969-52ff-40fc-902d-82de4743462f",
-      "email": "jasmine.n@gmail.com",
-      "role": "chef_equipe",
-      "reason": "password_hash unavailable in merged dump (auth.users not extracted)",
-      "temporary_password": "Phase15-TempPass!"
-    },
-    {
       "id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
       "email": "joseph.ad@arson-concept.ch",
       "role": "admin",
@@ -50,6 +43,13 @@
       "id": "f7c50816-459c-4a6d-a782-fe498d1988e4",
       "email": "jasmine.collab@gmail.com",
       "role": "ouvrier",
+      "reason": "password_hash unavailable in merged dump (auth.users not extracted)",
+      "temporary_password": "Phase15-TempPass!"
+    },
+    {
+      "id": "abcca969-52ff-40fc-902d-82de4743462f",
+      "email": "jasmine.n@gmail.com",
+      "role": "admin",
       "reason": "password_hash unavailable in merged dump (auth.users not extracted)",
       "temporary_password": "Phase15-TempPass!"
     },
@@ -110,12 +110,12 @@
       "local": 0
     },
     "periodes_travail": {
-      "merged": 41,
-      "local": 41
+      "merged": 59,
+      "local": 59
     },
     "declarations_heures": {
-      "merged": 41,
-      "local": 41
+      "merged": 57,
+      "local": 57
     }
   },
   "fk_orphans": [
@@ -200,16 +200,16 @@
       "only_in_local": []
     },
     "periodes_travail": {
-      "merged_count": 41,
-      "local_count": 41,
-      "matching": 41,
+      "merged_count": 59,
+      "local_count": 59,
+      "matching": 59,
       "only_in_merged": [],
       "only_in_local": []
     },
     "declarations_heures": {
-      "merged_count": 41,
-      "local_count": 41,
-      "matching": 41,
+      "merged_count": 57,
+      "local_count": 57,
+      "matching": 57,
       "only_in_merged": [],
       "only_in_local": []
     }

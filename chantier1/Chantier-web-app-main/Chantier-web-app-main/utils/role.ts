@@ -59,6 +59,27 @@ export function isWorker(role: UserRole): boolean {
   return role === 'ouvrier';
 }
 
+export function canReviewChantierDivers(role: UserRole): boolean {
+  return role === 'admin' || role === 'administratif';
+}
+
+/** Roles that see the approval notification bell (timesheet and/or worksite requests). */
+export function canReceiveApprovalNotifications(role: UserRole | undefined): boolean {
+  if (!role) return false;
+  return canValidate(role) || canReviewChantierDivers(role);
+}
+
+/** Ouvrier sees collaborator notifications (shift status + new worksites). */
+export function canReceiveCollaboratorNotifications(role: UserRole | undefined): boolean {
+  if (!role) return false;
+  return isWorker(role);
+}
+
+export function canViewTeamAbsences(role: UserRole | undefined): boolean {
+  if (!role) return false;
+  return role === 'chef_equipe' || role === 'admin' || role === 'administratif';
+}
+
 /** Default tab route after login or when opening the app. */
 export function getHomeRouteForRole(role: UserRole | undefined): HomeRoute {
   switch (role) {
@@ -81,11 +102,11 @@ export function getVisibleTabCount(role: UserRole | undefined): number {
     case 'ouvrier':
       return 3;
     case 'chef_equipe':
-      return 4;
+      return 5;
     case 'admin':
-      return 4;
+      return 5;
     case 'administratif':
-      return 2;
+      return 3;
     default:
       return 1;
   }

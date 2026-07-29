@@ -24,9 +24,26 @@ function cadreFromChantier(chantier) {
 }
 
 /**
+ * True when declared hours start before or end after the chantier cadre.
+ * Outside-cadre shifts are allowed; callers must require a reason (commentaire).
+ */
+export function isShiftOutsideCadre(travailDebut, travailFin, chantier) {
+  const cadre = cadreFromChantier(chantier);
+  if (!cadre || !travailDebut || !travailFin) return false;
+  const w0 = minutesFromTime(travailDebut);
+  const w1 = minutesFromTime(travailFin);
+  const c0 = minutesFromTime(cadre.debut);
+  const c1 = minutesFromTime(cadre.fin);
+  if (w0 == null || w1 == null || c0 == null || c1 == null) return false;
+  if (w1 <= w0 || c1 <= c0) return false;
+  return w0 < c0 || w1 > c1;
+}
+
+/**
  * Split one work interval into normales / supplémentaires.
  * Cadre present → intersection = normales; after cadre_fin = HS.
  * No cadre → min(total, 7) / max(total-7, 0).
+ * Declaring outside the cadre is allowed (see isShiftOutsideCadre + commentaire).
  */
 export function splitHours(travailDebut, travailFin, cadreDebut, cadreFin) {
   const total = durationHours(travailDebut, travailFin);

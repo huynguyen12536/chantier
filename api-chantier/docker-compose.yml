@@ -27,6 +27,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      minio:
+        condition: service_started
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -34,8 +36,36 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production-use-long-random-string}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      MINIO_ENABLED: ${MINIO_ENABLED:-true}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-chantier-assets}
+      MINIO_PUBLIC_HOST: ${MINIO_PUBLIC_HOST:-localhost:9000}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:16035}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@chantier.local}
     ports:
       - "${API_PORT:-3000}:3000"
 
+  minio:
+    image: minio/minio:latest
+    container_name: chantier-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - chantier_minio_data:/data
+
 volumes:
   chantier_pg_data:
+  chantier_minio_data:

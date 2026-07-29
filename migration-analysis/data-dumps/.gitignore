@@ -1,0 +1,5 @@
+# Ignore dump artifacts (PII / business data)
+*
+!.gitignore
+!README.md
+!dump-and-merge.mjs

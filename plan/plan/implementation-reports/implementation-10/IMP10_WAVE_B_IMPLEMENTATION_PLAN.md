@@ -1,7 +1,7 @@
 # IMP10_WAVE_B_IMPLEMENTATION_PLAN.md
 
 **Date:** 2026-07-15  
-**Status:** Investigation — coding **blocked** on DRs + Human design approval  
+**Status:** **SUPERSEDED** — Imp-10 **CLOSED** (`IMP10_FINAL_CLOSURE.md`). Retained as Wave B planning record.  
 **Assumes:** Wave A CLOSED; in-process + ephemeral platform retained unless DRs reopen
 
 ---

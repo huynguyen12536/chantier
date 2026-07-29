@@ -4,7 +4,7 @@
 **Module:** Imp-10 Background Jobs — **Wave A**  
 **Human verdict:** **APPROVED**  
 **Status:** **COMPLETE / CLOSED**  
-**Wave B / Wave C:** **BLOCKED** — require separate Human authorization  
+**Superseded phase status:** Imp-10 is now **CLOSED** (`IMP10_FINAL_CLOSURE.md`). Wave B1 COMPLETE; Wave C **DEFERRED**. This document remains the Wave A point-in-time closure record.  
 
 **Code head:** `6a2a169bd1`  
 **Docs head (closure pack):** (this commit)

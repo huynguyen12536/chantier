@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { AppError } from '../../shared/errors/AppError.js';
 import { hashPassword, ROLES, publicProfile } from '../auth/service.js';
 import { logger } from '../../shared/utils/logger.js';
+import { query } from '../../shared/db/pool.js';
 import * as repo from './repository.js';
 
 const nonEmptyName = z.string().trim().min(1).max(120);
@@ -171,20 +172,74 @@ async function assertDemotionAllowed(existing, nextRole) {
 /**
  * Delete user — CVL: admin only; cannot self-delete (SUMMARY §5 rule 2–3).
  */
+async function cleanupUserDiversBlockers(userId, adminId) {
+  const { rows: pending } = await query(
+    `SELECT id FROM chantiers
+     WHERE created_by = $1 AND source = 'divers' AND divers_statut = 'en_attente'`,
+    [userId],
+  );
+
+  for (const chantier of pending) {
+    const chantierId = chantier.id;
+    await query(`DELETE FROM declarations_heures WHERE chantier_id = $1`, [chantierId]);
+    await query(`DELETE FROM periodes_travail WHERE chantier_id = $1`, [chantierId]);
+    await query(`DELETE FROM affectations_chantiers WHERE chantier_id = $1`, [chantierId]);
+    await query(`DELETE FROM zones_chantiers WHERE chantier_id = $1`, [chantierId]);
+    await query(`DELETE FROM chantiers WHERE id = $1`, [chantierId]);
+  }
+
+  await query(
+    `UPDATE chantiers SET created_by = $1
+     WHERE created_by = $2 AND source = 'divers' AND divers_statut IN ('approuve', 'rejete')`,
+    [adminId, userId],
+  );
+  await query(
+    `UPDATE chantiers SET divers_reviewed_by = $1 WHERE divers_reviewed_by = $2`,
+    [adminId, userId],
+  );
+}
+
+function mapDeleteUserError(err) {
+  const raw = err?.message ?? String(err ?? '');
+  if (raw.includes('periodes_travail') && raw.includes('does not exist')) {
+    return 'Erreur base de données lors de la suppression (trigger periodes_travail). Contactez l\'administrateur pour appliquer la migration fix_auth_delete_user_search_path.';
+  }
+  if (raw.includes('violates foreign key constraint')) {
+    return 'Impossible de supprimer cet utilisateur : des enregistrements liés existent encore dans la base.';
+  }
+  if (raw.includes('chantiers_divers_fields_consistent')) {
+    return 'Impossible de supprimer cet utilisateur : des chantiers divers liés bloquent la suppression. Appliquez la migration fix_delete_user_divers_chantiers.';
+  }
+  if (raw.includes('zone')) {
+    return 'Impossible de supprimer cet utilisateur : il est encore chef d\'au moins une zone d\'équipe. Réassignez la zone ou supprimez-la d\'abord dans la gestion.';
+  }
+  return raw || 'Impossible de supprimer cet utilisateur.';
+}
+
 export async function deleteUser(id, actor) {
   if (!actor || actor.role !== 'admin') {
     throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
   }
   if (actor.id === id) {
-    throw new AppError('Cannot delete yourself', 400, { code: 'SELF_DELETE' });
+    throw new AppError('Impossible de supprimer votre propre compte', 400, { code: 'SELF_DELETE' });
   }
 
   if (await repo.ownsZone(id)) {
-    throw new AppError('Cannot delete chef with owned zone', 409, { code: 'ZONE_RESTRICT' });
+    throw new AppError(
+      'Impossible de supprimer cet utilisateur : il est encore chef d\'au moins une zone d\'équipe. Réassignez la zone ou supprimez-la d\'abord dans la gestion.',
+      409,
+      { code: 'ZONE_RESTRICT' },
+    );
   }
 
-  const ok = await repo.deleteById(id);
-  if (!ok) throw new AppError('User not found', 404, { code: 'NOT_FOUND' });
-  logger.info('admin.user.deleted', { actorId: actor.id, userId: id });
-  return { ok: true };
+  try {
+    await cleanupUserDiversBlockers(id, actor.id);
+    const ok = await repo.deleteById(id);
+    if (!ok) throw new AppError('User not found', 404, { code: 'NOT_FOUND' });
+    logger.info('admin.user.deleted', { actorId: actor.id, userId: id });
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new AppError(mapDeleteUserError(err), 500, { code: 'DELETE_FAILED' });
+  }
 }

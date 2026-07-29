@@ -21,6 +21,27 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production-use-long-random-string}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      MINIO_ENABLED: ${MINIO_ENABLED:-true}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-chantier-assets}
+      MINIO_PUBLIC_HOST: ${MINIO_PUBLIC_HOST:-localhost:9000}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:16035}
+      SMTP_HOST: ${SMTP_HOST:-${MAIL_HOST:-}}
+      SMTP_PORT: ${SMTP_PORT:-${MAIL_PORT:-587}}
+      SMTP_USER: ${SMTP_USER:-${MAIL_USERNAME:-}}
+      SMTP_PASS: ${SMTP_PASS:-${MAIL_PASSWORD:-}}
+      SMTP_FROM: ${SMTP_FROM:-${MAIL_FROM_EMAIL:-noreply@chantier.local}}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-${MAIL_FROM_NAME:-Tubesca 3D}}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Tubesca 3D}
+      OTP_SECRET: ${OTP_SECRET:-${JWT_SECRET:-change-me-in-production-use-long-random-string}}
 
   web:
     build:

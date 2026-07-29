@@ -28,6 +28,14 @@ function mapRow(row) {
     heure_debut_apres_midi: row.heure_debut_apres_midi,
     heure_fin_apres_midi: row.heure_fin_apres_midi,
     actif: row.actif,
+    source: row.source ?? 'standard',
+    divers_statut: row.divers_statut ?? null,
+    created_by: row.created_by ?? null,
+    divers_creation_reason: row.divers_creation_reason ?? null,
+    divers_reviewed_by: row.divers_reviewed_by ?? null,
+    divers_reviewed_at: row.divers_reviewed_at ?? null,
+    divers_rejection_reason: row.divers_rejection_reason ?? null,
+    created_at: row.created_at ?? null,
   };
 }
 

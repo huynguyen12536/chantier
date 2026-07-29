@@ -90,4 +90,4 @@ Optional (DR gated):
 
 Imp-10 investigation only.
 
-Coding remains blocked until Human approval.
+**SUPERSEDED:** Imp-10 **CLOSED**. Coding gates satisfied — see `IMP10_FINAL_CLOSURE.md`.

@@ -5,8 +5,8 @@ export async function insertPeriod(client, row) {
     client,
     `INSERT INTO periodes_travail (
        user_id, chantier_id, date, heure_debut, heure_fin,
-       latitude, longitude, panier, deplacement, from_suggestion, statut
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       latitude, longitude, panier, deplacement, from_suggestion, statut, commentaire
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
      RETURNING *`,
     [
       row.user_id,
@@ -20,6 +20,7 @@ export async function insertPeriod(client, row) {
       row.deplacement ?? false,
       row.from_suggestion ?? false,
       row.statut ?? (row.heure_fin ? 'terminee' : 'en_cours'),
+      row.commentaire ?? null,
     ],
   );
   return rows[0];
@@ -38,6 +39,7 @@ export async function updatePeriod(client, id, patch) {
        statut = COALESCE($8, statut),
        validated_by = COALESCE($9, validated_by),
        validated_at = COALESCE($10, validated_at),
+       commentaire = CASE WHEN $11::boolean THEN $12 ELSE commentaire END,
        updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
@@ -52,6 +54,8 @@ export async function updatePeriod(client, id, patch) {
       patch.statut ?? null,
       patch.validated_by ?? null,
       patch.validated_at ?? null,
+      patch.commentaire !== undefined,
+      patch.commentaire !== undefined ? patch.commentaire : null,
     ],
   );
   return rows[0];
@@ -84,6 +88,35 @@ export async function listPeriodsByKey(client, userId, chantierId, date) {
     [userId, chantierId, date],
   );
   return rows;
+}
+
+/**
+ * Exact slot duplicate: same user, chantier, date, start/end.
+ * Panier is an attribute of the slot, not part of identity — two rows with the
+ * same times but different panier flags are still duplicates.
+ * Rejected periods are ignored so a rejected line can be re-declared.
+ */
+export async function findDuplicatePeriod(client, row) {
+  const { rows } = await clientQuery(
+    client,
+    `SELECT * FROM periodes_travail
+     WHERE user_id = $1
+       AND chantier_id = $2
+       AND date = $3::date
+       AND heure_debut = $4::time
+       AND heure_fin IS NOT DISTINCT FROM $5::time
+       AND statut <> 'rejetee'
+     LIMIT 1
+     FOR UPDATE`,
+    [
+      row.user_id,
+      row.chantier_id,
+      row.date,
+      row.heure_debut,
+      row.heure_fin ?? null,
+    ],
+  );
+  return rows[0] ?? null;
 }
 
 export async function listPeriods(client, filters = {}) {

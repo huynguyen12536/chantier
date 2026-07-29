@@ -111,13 +111,15 @@ export function BottomSheetOverlay({ onDismiss, style, children }: BottomSheetOv
     <View style={[styles.overlay, style]}>
       {onDismiss ? (
         <Pressable
-          style={StyleSheet.absoluteFill}
+          style={[StyleSheet.absoluteFill, styles.backdrop]}
           onPress={onDismiss}
           accessibilityRole="button"
           accessibilityLabel="Fermer"
         />
       ) : null}
-      {children}
+      <View style={styles.sheetSlot} pointerEvents="box-none">
+        {children}
+      </View>
     </View>
   );
 }
@@ -159,6 +161,15 @@ export function DraggableBottomSheet({
 
 const styles = StyleSheet.create({
   overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    zIndex: 0,
+  },
+  sheetSlot: {
+    zIndex: 2,
+    width: '100%',
     flex: 1,
     justifyContent: 'flex-end',
   },

@@ -14,6 +14,8 @@ import {
   ImageBackground,
   Platform,
   Pressable,
+  Keyboard,
+  useWindowDimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import {
@@ -35,15 +37,20 @@ import {
   MapPin,
   Calendar,
   Clock,
+  ClipboardCheck,
   HardHat,
   Eye,
   EyeOff,
+  XCircle,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { Translations } from '@/i18n';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { parseEdgeFunctionError } from '@/utils/edgeFunctionError';
 import { supabase, supabaseUrl, supabaseAnonKey } from '@/services/supabase';
+import { updateUserPassword } from '@/utils/adminUpdateUserPassword';
 import { Profile, Chantier, UserRole } from '@/types';
 import { Colors } from '@/constants/colors';
 import { isChantierAssignableRole } from '@/constants';
@@ -51,24 +58,30 @@ import {
   canAccessManagement,
   canDeleteInManagement,
   canManageUsers,
+  canReviewChantierDivers,
   isAdmin,
   isAdminUserRoleLocked,
 } from '@/utils/role';
 import { getChefManagedChantierIds, resolveAffectationChefEquipeId } from '@/utils/team';
 import { generateWorksiteCode } from '@/utils/worksiteCode';
-import { getMinEndTime, isEndAfterStart } from '@/utils/time';
+import { formatTime, getMinEndTime, isEndAfterStart } from '@/utils/time';
 import { isEmailValid } from '@/utils/email';
 import {
   isPhoneValid,
   normalizePhone,
 } from '@/utils/phone';
 import { PhoneField } from '@/components/common/PhoneField';
+import { ValidationNotificationBell } from '@/components/common/ValidationNotificationBell';
+import { ChantierDiversAdminSection } from '@/components/management/ChantierDiversAdminSection';
+import { ChantierDiversRejectedSection } from '@/components/management/ChantierDiversRejectedSection';
 import { RoleSelectField } from '@/components/common/RoleSelectField';
-import { BottomSheetOverlay, DraggableBottomSheet, TimePickerModal } from '@/components/common';
+import { BottomSheetOverlay, DraggableBottomSheet, TimePickerModal, UserAvatar } from '@/components/common';
+import { clearApprovalDeepLinkParams, parseApprovalDeepLink } from '@/utils/approvalDeepLink';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type Tab = 'users' | 'worksites';
+type WorksiteView = 'pending' | 'list' | 'rejected';
 
 type EditUserForm = {
   nom: string;
@@ -247,18 +260,44 @@ function normalizeTeamSelection(
   return [...new Set([...locked, ...chefEquipeIds, ...workerIds])];
 }
 
+const webWordBreak =
+  Platform.OS === 'web'
+    ? ({
+        wordBreak: 'break-word',
+        overflowWrap: 'anywhere',
+        maxWidth: '100%',
+      } as object)
+    : null;
+
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function ManagementScreen() {
   const { profile, refreshProfile } = useAuth();
   const { t, language } = useLanguage();
+  const router = useRouter();
   const { scrollBottomPadding, headerPaddingTop } = useTabBarInset();
+  const { width: windowWidth } = useWindowDimensions();
+  const narrowHeader = windowWidth < 380;
+  const routeParams = useLocalSearchParams<{
+    tab?: string;
+    worksiteView?: string;
+    highlightChantierId?: string;
+    _focus?: string;
+  }>();
   const userFormRoles = useMemo(() => getUserFormRoles(t), [t]);
   const mgmt = t.management;
   const m = mgmt.modals;
   const dateLocale = language === 'en' ? 'en-GB' : 'fr-FR';
   const [activeTab, setActiveTab] = useState<Tab>('users');
+  const [worksiteView, setWorksiteView] = useState<WorksiteView>('list');
+  const [pendingDiversCount, setPendingDiversCount] = useState(0);
+  const [rejectedDiversCount, setRejectedDiversCount] = useState(0);
+  const [highlightChantierId, setHighlightChantierId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const pendingScrollRef = useRef<ScrollView>(null);
+  const rejectedScrollRef = useRef<ScrollView>(null);
+  const lastHandledFocusRef = useRef<string | null>(null);
+  const highlightClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Users state
   const [users, setUsers] = useState<Profile[]>([]);
@@ -269,6 +308,7 @@ export default function ManagementScreen() {
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [userForm, setUserForm] = useState<EditUserForm>({ nom: '', prenom: '', email: '', matricule: '', phone: '', role: 'ouvrier' });
   const [addUserPassword, setAddUserPassword] = useState('');
+  const [editUserPassword, setEditUserPassword] = useState('');
   const [savingUser, setSavingUser] = useState(false);
   const [deleteUserConfirm, setDeleteUserConfirm] = useState<Profile | null>(null);
   const [deletingUser, setDeletingUser] = useState(false);
@@ -294,6 +334,9 @@ export default function ManagementScreen() {
 
   const [error, setError] = useState<string | null>(null);
   const [userModalError, setUserModalError] = useState<string | null>(null);
+
+  const canResetUserPassword =
+    profile?.role === 'admin' || profile?.role === 'administratif';
 
   const loadUsers = useCallback(async (refreshing = false) => {
     if (refreshing) setUsersRefreshing(true);
@@ -390,12 +433,83 @@ export default function ManagementScreen() {
     }
   }, [profile?.id, profile?.role, t]);
 
+  const loadPendingDiversCount = useCallback(async () => {
+    if (!profile?.role || !canReviewChantierDivers(profile.role)) {
+      setPendingDiversCount(0);
+      return;
+    }
+    try {
+      const { count, error } = await supabase
+        .from('chantiers')
+        .select('*', { count: 'exact', head: true })
+        .eq('source', 'divers')
+        .eq('divers_statut', 'en_attente');
+      if (error) throw error;
+      setPendingDiversCount(count ?? 0);
+    } catch {
+      setPendingDiversCount(0);
+    }
+  }, [profile?.role]);
+
+  const loadRejectedDiversCount = useCallback(async () => {
+    if (!profile?.role || !canReviewChantierDivers(profile.role)) {
+      setRejectedDiversCount(0);
+      return;
+    }
+    try {
+      const { count, error } = await supabase
+        .from('chantiers')
+        .select('id', { count: 'exact', head: true })
+        .eq('source', 'divers')
+        .eq('divers_statut', 'rejete');
+      if (error) throw error;
+      setRejectedDiversCount(count ?? 0);
+    } catch {
+      setRejectedDiversCount(0);
+    }
+  }, [profile?.role]);
+
   const showUsersTab = profile?.role ? canManageUsers(profile.role) : false;
   const showTabBar = profile?.role ? isAdmin(profile.role) : false;
+  const canReviewDivers = profile?.role ? canReviewChantierDivers(profile.role) : false;
+  const showWorksiteSubTabs = activeTab === 'worksites' && canReviewDivers;
+  const showWorksiteList = activeTab === 'worksites' && (!canReviewDivers || worksiteView === 'list');
+  const showWorksitePending = activeTab === 'worksites' && canReviewDivers && worksiteView === 'pending';
+  const showWorksiteRejected = activeTab === 'worksites' && canReviewDivers && worksiteView === 'rejected';
   const canDelete = profile?.role ? canDeleteInManagement(profile.role) : false;
   const isChefEquipe = profile?.role === 'chef_equipe';
 
-  useEffect(() => { loadUsers(); loadWorksites(); loadZones(); }, [loadUsers, loadWorksites, loadZones]);
+  useEffect(() => { loadUsers(); loadWorksites(); loadZones(); loadPendingDiversCount(); loadRejectedDiversCount(); }, [loadUsers, loadWorksites, loadZones, loadPendingDiversCount, loadRejectedDiversCount]);
+
+  const applyDeepLink = useCallback(() => {
+    const parsed = parseApprovalDeepLink(routeParams);
+    if (!parsed.focusKey) return;
+    if (parsed.focusKey === lastHandledFocusRef.current) return;
+
+    setSearch('');
+    setActiveTab(parsed.tab ?? 'worksites');
+    setWorksiteView(parsed.worksiteView ?? 'pending');
+
+    if (parsed.highlightChantierId) {
+      setHighlightChantierId(parsed.highlightChantierId);
+      if (highlightClearTimerRef.current) {
+        clearTimeout(highlightClearTimerRef.current);
+      }
+      highlightClearTimerRef.current = setTimeout(() => {
+        setHighlightChantierId(null);
+        highlightClearTimerRef.current = null;
+      }, 6000);
+    }
+
+    lastHandledFocusRef.current = parsed.focusKey;
+    clearApprovalDeepLinkParams(router.setParams);
+  }, [routeParams, router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      applyDeepLink();
+    }, [applyDeepLink]),
+  );
 
   useEffect(() => {
     if (profile?.role === 'chef_equipe') {
@@ -414,6 +528,12 @@ export default function ManagementScreen() {
   const switchTab = (tab: Tab) => {
     if (tab === 'users' && !showUsersTab) return;
     setActiveTab(tab);
+    setSearch('');
+    setError(null);
+  };
+
+  const switchWorksiteView = (view: WorksiteView) => {
+    setWorksiteView(view);
     setSearch('');
     setError(null);
   };
@@ -485,6 +605,7 @@ export default function ManagementScreen() {
 
   const openEditUser = (user: Profile) => {
     setUserModalError(null);
+    setEditUserPassword('');
     setEditingUser(user);
     setUserForm({
       nom: user.nom,
@@ -495,6 +616,11 @@ export default function ManagementScreen() {
       role: user.role,
     });
     setEditUserModal(true);
+  };
+
+  const handleSaveEditUser = () => {
+    Keyboard.dismiss();
+    void saveUser();
   };
 
   const saveUser = async () => {
@@ -546,7 +672,7 @@ export default function ManagementScreen() {
           ? editingUser.role
           : normalizedForm.role;
 
-      const { error } = await supabase
+      const { data: updatedProfile, error } = await supabase
         .from('profiles')
         .update({
           nom: normalizedForm.nom,
@@ -556,8 +682,46 @@ export default function ManagementScreen() {
           phone: normalizePhone(normalizedForm.phone),
           role: roleToSave,
         })
-        .eq('id', editingUser.id);
+        .eq('id', editingUser.id)
+        .select('id')
+        .maybeSingle();
       if (error) throw error;
+      if (!updatedProfile) {
+        throw new Error(t.management.errors.saveFailed);
+      }
+
+      const newPassword = editUserPassword.trim();
+      if (canResetUserPassword) {
+        if (newPassword && newPassword.length < 6) {
+          setUserModalError(t.management.errors.passwordMinLength);
+          return;
+        }
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          setUserModalError(t.management.errors.sessionExpired);
+          return;
+        }
+        try {
+          await updateUserPassword(editingUser.id, session.access_token, {
+            email: normalizedForm.email.trim(),
+            ...(newPassword ? { password: newPassword } : {}),
+          });
+        } catch (pwErr: unknown) {
+          const msg = pwErr instanceof Error ? pwErr.message : '';
+          setUserModalError(
+            msg && msg !== 'update_password_failed'
+              ? msg
+              : t.management.errors.updatePasswordFailed,
+          );
+          await loadUsers();
+          if (editingUser.id === profile?.id) {
+            await refreshProfile();
+          }
+          return;
+        }
+      }
+
+      setEditUserPassword('');
       setUserModalError(null);
       setEditUserModal(false);
       await loadUsers();
@@ -588,7 +752,7 @@ export default function ManagementScreen() {
         }
       );
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || t.management.errors.deleteError);
+      if (!res.ok) throw new Error(parseEdgeFunctionError(json, t.management.errors.deleteError));
       setError(null);
       setDeleteUserConfirm(null);
       await loadUsers();
@@ -722,7 +886,7 @@ export default function ManagementScreen() {
         }));
         const { error: addError } = await supabase
           .from('affectations_chantiers')
-          .insert(affectations);
+          .upsert(affectations, { onConflict: 'user_id,chantier_id' });
         if (addError) throw addError;
       }
 
@@ -841,11 +1005,16 @@ export default function ManagementScreen() {
       >
         <View style={[styles.headerOverlay, { paddingTop: headerPaddingTop }]}>
           <View style={styles.headerTop}>
-            <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>{mgmt.title}</Text>
-            <Text style={styles.headerSubtitle}>{mgmt.subtitle}</Text>
+            <View style={styles.headerTitleWrap}>
+              <Text style={[styles.headerTitle, narrowHeader && styles.headerTitleNarrow]}>
+                {mgmt.title}
+              </Text>
+              <Text style={[styles.headerSubtitle, narrowHeader && styles.headerSubtitleNarrow]}>
+                {mgmt.subtitle}
+              </Text>
             </View>
-            {showTabBar && (
+            <ValidationNotificationBell variant="light" />
+            {showTabBar && ((showUsersTab && activeTab === 'users') || showWorksiteList) && (
               <TouchableOpacity
                 style={styles.headerAddBtn}
                 onPress={showUsersTab && activeTab === 'users' ? openAddUser : openAddWs}
@@ -896,24 +1065,107 @@ export default function ManagementScreen() {
         </View>
       </ImageBackground>
 
-      {/* Search bar */}
-      <View style={styles.searchRow}>
-        <View style={styles.searchBox}>
-          <Search size={16} color={Colors.text.secondary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder={showUsersTab && activeTab === 'users' ? m.searchUser : m.searchWorksite}
-            placeholderTextColor={Colors.text.disabled}
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <X size={16} color={Colors.text.secondary} />
+      {showWorksiteSubTabs ? (
+        <View style={styles.worksiteSubHeader}>
+          <View style={styles.subTabBar}>
+            <TouchableOpacity
+              style={[styles.subTab, worksiteView === 'pending' && styles.subTabActive]}
+              onPress={() => switchWorksiteView('pending')}
+              activeOpacity={0.8}
+            >
+              <ClipboardCheck
+                size={16}
+                color={worksiteView === 'pending' ? Colors.primary : Colors.text.secondary}
+              />
+              <Text style={[styles.subTabText, worksiteView === 'pending' && styles.subTabTextActive]}>
+                {mgmt.worksiteViews.pending}
+              </Text>
+              {worksiteView === 'pending' && (
+                <View style={styles.tabCount}>
+                  <Text style={styles.tabCountText}>{pendingDiversCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
-          )}
+
+            <TouchableOpacity
+              style={[styles.subTab, worksiteView === 'list' && styles.subTabActive]}
+              onPress={() => switchWorksiteView('list')}
+              activeOpacity={0.8}
+            >
+              <Building2
+                size={16}
+                color={worksiteView === 'list' ? Colors.primary : Colors.text.secondary}
+              />
+              <Text style={[styles.subTabText, worksiteView === 'list' && styles.subTabTextActive]}>
+                {mgmt.worksiteViews.list}
+              </Text>
+              {worksiteView === 'list' && (
+                <View style={styles.tabCount}>
+                  <Text style={styles.tabCountText}>{worksites.length}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.subTab, worksiteView === 'rejected' && styles.subTabActive]}
+              onPress={() => switchWorksiteView('rejected')}
+              activeOpacity={0.8}
+            >
+              <XCircle
+                size={16}
+                color={worksiteView === 'rejected' ? Colors.primary : Colors.text.secondary}
+              />
+              <Text style={[styles.subTabText, worksiteView === 'rejected' && styles.subTabTextActive]}>
+                {mgmt.worksiteViews.rejected}
+              </Text>
+              {worksiteView === 'rejected' && (
+                <View style={styles.tabCount}>
+                  <Text style={styles.tabCountText}>{rejectedDiversCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {showWorksiteList ? (
+            <View style={styles.searchBox}>
+              <Search size={16} color={Colors.text.secondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={m.searchWorksite}
+                placeholderTextColor={Colors.text.disabled}
+                value={search}
+                onChangeText={setSearch}
+              />
+              {search.length > 0 && (
+                <TouchableOpacity onPress={() => setSearch('')}>
+                  <X size={16} color={Colors.text.secondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null}
         </View>
-      </View>
+      ) : null}
+
+      {/* Search bar */}
+      {(showUsersTab && activeTab === 'users') ? (
+        <View style={styles.searchRow}>
+          <View style={styles.searchBox}>
+            <Search size={16} color={Colors.text.secondary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={showUsersTab && activeTab === 'users' ? m.searchUser : m.searchWorksite}
+              placeholderTextColor={Colors.text.disabled}
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <X size={16} color={Colors.text.secondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      ) : null}
 
       {error && (
         <View style={styles.errorBanner}>
@@ -942,37 +1194,85 @@ export default function ManagementScreen() {
             </Text>
             {filteredUsers.map(user => (
               <View key={user.id} style={styles.userCard}>
-                <View style={[styles.avatar, { backgroundColor: roleColor(user.role) + '20' }]}>
-                  <Text style={[styles.avatarText, { color: roleColor(user.role) }]}>
-                    {user.prenom?.[0]}{user.nom?.[0]}
-                  </Text>
-                </View>
-                <View style={styles.userInfo}>
-                  <Text style={styles.cardName}>{user.prenom} {user.nom}</Text>
-                  <Text style={styles.cardEmail}>{user.email}</Text>
-                  <View style={styles.cardMeta}>
-                    <View style={[styles.roleBadge, { backgroundColor: roleColor(user.role) + '15' }]}>
-                      <Text style={[styles.roleText, { color: roleColor(user.role) }]}>
-                        {getRoleLabel(user.role, t)}
-                      </Text>
+                <View style={styles.userCardMainRow}>
+                  <UserAvatar
+                    avatarPath={user.avatar_path}
+                    avatarUpdatedAt={user.avatar_updated_at}
+                    prenom={user.prenom}
+                    nom={user.nom}
+                    role={user.role}
+                    size={44}
+                    variant="initials"
+                    style={styles.avatar}
+                  />
+                  <View style={styles.userInfo}>
+                    <Text style={[styles.cardName, webWordBreak]} numberOfLines={2}>
+                      {user.prenom} {user.nom}
+                    </Text>
+                    <View style={styles.cardMeta}>
+                      <View style={[styles.roleBadge, { backgroundColor: roleColor(user.role) + '15' }]}>
+                        <Text style={[styles.roleText, { color: roleColor(user.role) }]}>
+                          {getRoleLabel(user.role, t)}
+                        </Text>
+                      </View>
+                      {user.matricule ? (
+                        <Text style={[styles.matricule, webWordBreak]} numberOfLines={1}>
+                          #{user.matricule}
+                        </Text>
+                      ) : null}
                     </View>
-                    {user.matricule ? <Text style={styles.matricule}>#{user.matricule}</Text> : null}
+                  </View>
+                  <View style={styles.cardActions}>
+                    <TouchableOpacity style={styles.editBtn} onPress={() => openEditUser(user)}>
+                      <Edit2 size={15} color={Colors.primary} />
+                    </TouchableOpacity>
+                    {canDelete && user.id !== profile?.id && (
+                      <TouchableOpacity style={styles.deleteBtn} onPress={() => setDeleteUserConfirm(user)}>
+                        <Trash2 size={15} color={Colors.error} />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
-                <View style={styles.cardActions}>
-                  <TouchableOpacity style={styles.editBtn} onPress={() => openEditUser(user)}>
-                    <Edit2 size={15} color={Colors.primary} />
-                  </TouchableOpacity>
-                  {canDelete && user.id !== profile?.id && (
-                    <TouchableOpacity style={styles.deleteBtn} onPress={() => setDeleteUserConfirm(user)}>
-                      <Trash2 size={15} color={Colors.error} />
-                    </TouchableOpacity>
-                  )}
-                </View>
+                {!!user.email && (
+                  <Text style={[styles.cardEmail, styles.cardEmailFullRow, webWordBreak]}>{user.email}</Text>
+                )}
               </View>
             ))}
           </ScrollView>
         )
+      ) : showWorksitePending ? (
+        <ScrollView
+          ref={pendingScrollRef}
+          style={styles.scrollView}
+          contentContainerStyle={{ paddingBottom: scrollBottomPadding }}
+          showsVerticalScrollIndicator={false}
+        >
+          <ChantierDiversAdminSection
+            compact
+            scrollRef={pendingScrollRef}
+            highlightChantierId={highlightChantierId}
+            onPendingCountChange={setPendingDiversCount}
+            onChanged={() => {
+              loadWorksites(true);
+              loadPendingDiversCount();
+              loadRejectedDiversCount();
+            }}
+          />
+        </ScrollView>
+      ) : showWorksiteRejected ? (
+        <ScrollView
+          ref={rejectedScrollRef}
+          style={styles.scrollView}
+          contentContainerStyle={{ paddingBottom: scrollBottomPadding }}
+          showsVerticalScrollIndicator={false}
+        >
+          <ChantierDiversRejectedSection
+            compact
+            scrollRef={rejectedScrollRef}
+            highlightChantierId={highlightChantierId}
+            onRejectedCountChange={setRejectedDiversCount}
+          />
+        </ScrollView>
       ) : (
         wsLoading ? (
           <ActivityIndicator style={styles.centered} color={Colors.primary} />
@@ -1023,6 +1323,9 @@ export default function ManagementScreen() {
                     <View style={styles.wsCardBody}>
                         <View style={styles.wsTitleRow}>
                           <Text style={styles.wsTitle} numberOfLines={1}>{ws.nom}</Text>
+                          <Text style={styles.wsHours}>
+                            {formatTime(ws.heure_debut || '')} – {formatTime(ws.heure_fin || '')}
+                          </Text>
                           <View style={styles.wsCardActions}>
                             <TouchableOpacity style={styles.wsActionBtn} onPress={() => openEditWs(ws)}>
                               {isChefEquipe ? (
@@ -1143,22 +1446,27 @@ export default function ManagementScreen() {
       <Modal visible={editUserModal} animationType="slide" transparent>
         <BottomSheetOverlay
           style={styles.modalOverlay}
-          onDismiss={() => { setUserModalError(null); setEditUserModal(false); }}
+          onDismiss={() => { setUserModalError(null); setEditUserPassword(''); setEditUserModal(false); }}
         >
           <DraggableBottomSheet
             visible={editUserModal}
             initial={0.85}
-            onDismiss={() => { setUserModalError(null); setEditUserModal(false); }}
-            style={styles.modalSheet}
+            onDismiss={() => { setUserModalError(null); setEditUserPassword(''); setEditUserModal(false); }}
+            style={[styles.modalSheet, styles.modalSheetFlex]}
           >
+            <View style={styles.modalSheetBody}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{m.editUser.title}</Text>
-              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => { setUserModalError(null); setEditUserModal(false); }}>
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => { setUserModalError(null); setEditUserPassword(''); setEditUserModal(false); }}>
                 <X size={20} color={Colors.primary} />
               </TouchableOpacity>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {userModalError ? <Text style={styles.modalError}>{userModalError}</Text> : null}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              style={styles.modalScrollFlex}
+              contentContainerStyle={styles.modalScrollContent}
+            >
               <FieldLabel icon={User}>{m.fields.firstName}</FieldLabel>
               <TextInput style={styles.fieldInput} value={userForm.prenom} onChangeText={v => setUserForm(f => ({ ...f, prenom: v }))} placeholder={m.fields.firstName} placeholderTextColor={Colors.text.disabled} />
               <FieldLabel icon={User}>{m.fields.lastName}</FieldLabel>
@@ -1176,6 +1484,14 @@ export default function ManagementScreen() {
                 placeholderTextColor={Colors.text.disabled}
               />
               <PhoneField phone={userForm.phone} onChangePhone={phone => { setUserModalError(null); setUserForm(f => ({ ...f, phone })); }} fieldKey={editingUser?.id} />
+              {canResetUserPassword && (
+                <PasswordField
+                  value={editUserPassword}
+                  onChangeText={(v) => { setUserModalError(null); setEditUserPassword(v); }}
+                  label={m.fields.newPasswordOptional}
+                  placeholder={m.fields.newPasswordHint}
+                />
+              )}
               {editingUser && editingUser.id !== profile?.id && (
                 <>
                   <FieldLabel icon={ShieldCheck}>{m.fields.role}</FieldLabel>
@@ -1192,12 +1508,21 @@ export default function ManagementScreen() {
                   )}
                 </>
               )}
-              <View style={{ height: 16 }} />
-              <TouchableOpacity style={styles.saveBtn} onPress={saveUser} disabled={savingUser}>
-                {savingUser ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnText}>{m.save}</Text>}
-              </TouchableOpacity>
-              <View style={{ height: 32 }} />
             </ScrollView>
+            {userModalError ? <Text style={styles.modalError}>{userModalError}</Text> : null}
+            <TouchableOpacity
+              style={[styles.saveBtn, styles.modalSaveFooter]}
+              onPress={handleSaveEditUser}
+              disabled={savingUser}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              {...(Platform.OS === 'web'
+                ? ({ onClick: (e: { stopPropagation?: () => void }) => e.stopPropagation?.() } as object)
+                : {})}
+            >
+              {savingUser ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnText}>{m.save}</Text>}
+            </TouchableOpacity>
+            </View>
           </DraggableBottomSheet>
         </BottomSheetOverlay>
       </Modal>
@@ -1212,8 +1537,9 @@ export default function ManagementScreen() {
             visible={addUserModal}
             initial={0.88}
             onDismiss={() => { setUserModalError(null); setAddUserModal(false); }}
-            style={styles.modalSheet}
+            style={[styles.modalSheet, styles.modalSheetFlex]}
           >
+            <View style={styles.modalSheetBody}>
             <View style={styles.modalHeroHeader}>
               <View style={styles.modalHeroCopy}>
                 <Text style={styles.modalHeroSubtitle}>{m.addUser.heroSubtitle}</Text>
@@ -1222,7 +1548,12 @@ export default function ManagementScreen() {
                 <ChevronDown size={24} color={Colors.primary} strokeWidth={2.5} />
               </TouchableOpacity>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              style={styles.modalScrollFlex}
+              contentContainerStyle={styles.modalScrollContent}
+            >
               {userModalError ? <Text style={styles.modalError}>{userModalError}</Text> : null}
               <FieldLabel icon={User}>{m.fields.firstName}</FieldLabel>
               <TextInput style={styles.fieldInput} value={userForm.prenom} onChangeText={v => setUserForm(f => ({ ...f, prenom: v }))} placeholder={m.fields.firstName} placeholderTextColor={Colors.text.disabled} />
@@ -1240,12 +1571,16 @@ export default function ManagementScreen() {
                 onChange={(role) => setUserForm((f) => ({ ...f, role }))}
                 options={userFormRoles}
               />
-              <View style={{ height: 16 }} />
-              <TouchableOpacity style={styles.saveBtn} onPress={saveAddUser} disabled={savingUser}>
-                {savingUser ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnText}>{m.addUser.createButton}</Text>}
-              </TouchableOpacity>
-              <View style={{ height: 32 }} />
             </ScrollView>
+            <Pressable
+              style={({ pressed }) => [styles.saveBtn, styles.modalSaveFooter, pressed && styles.saveBtnPressed]}
+              onPress={() => { void saveAddUser(); }}
+              disabled={savingUser}
+              accessibilityRole="button"
+            >
+              {savingUser ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnText}>{m.addUser.createButton}</Text>}
+            </Pressable>
+            </View>
           </DraggableBottomSheet>
         </BottomSheetOverlay>
       </Modal>
@@ -1339,22 +1674,24 @@ function EmailField({ email, onChangeEmail }: EmailFieldProps) {
 type PasswordFieldProps = {
   value: string;
   onChangeText: (value: string) => void;
+  label?: string;
+  placeholder?: string;
 };
 
-function PasswordField({ value, onChangeText }: PasswordFieldProps) {
+function PasswordField({ value, onChangeText, label, placeholder }: PasswordFieldProps) {
   const { t } = useLanguage();
   const m = t.management.modals;
   const [show, setShow] = useState(false);
 
   return (
     <>
-      <FieldLabel icon={Lock}>{m.fields.password}</FieldLabel>
+      <FieldLabel icon={Lock}>{label ?? m.fields.password}</FieldLabel>
       <View style={styles.passwordFieldWrap}>
         <TextInput
           style={styles.passwordFieldInput}
           value={value}
           onChangeText={onChangeText}
-          placeholder={m.fields.password}
+          placeholder={placeholder ?? m.fields.password}
           placeholderTextColor={Colors.text.disabled}
           secureTextEntry={!show}
           autoComplete="new-password"
@@ -2085,11 +2422,19 @@ const styles = StyleSheet.create({
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 10,
     paddingBottom: 20,
+    minWidth: 0,
+  },
+  headerTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 4,
   },
   headerTitle: { fontSize: 24, fontWeight: '800', color: '#FFF' },
+  headerTitleNarrow: { fontSize: 20, lineHeight: 24 },
   headerSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 3, fontWeight: '500' },
+  headerSubtitleNarrow: { fontSize: 12, lineHeight: 16 },
   headerAddBtn: {
     width: 40,
     height: 40,
@@ -2139,6 +2484,48 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: Colors.primary,
+  },
+
+  subTabBar: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  worksiteSubHeader: {
+    backgroundColor: '#FFF7F2',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 107, 53, 0.14)',
+  },
+  subTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 107, 53, 0.08)',
+  },
+  subTabActive: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.18)',
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  subTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text.secondary,
+  },
+  subTabTextActive: {
+    color: Colors.text.primary,
   },
 
   // Search
@@ -2193,14 +2580,14 @@ const styles = StyleSheet.create({
 
   // User card
   userCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: Colors.surface,
     marginHorizontal: 16,
     marginTop: 8,
     borderRadius: 14,
     padding: 14,
-    gap: 12,
+    gap: 8,
+    minWidth: 0,
+    overflow: 'hidden',
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
@@ -2208,6 +2595,13 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: 'rgba(255, 107, 53, 0.12)',
+  },
+  userCardMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+    minWidth: 0,
   },
   avatar: {
     width: 46,
@@ -2217,14 +2611,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: { fontSize: 15, fontWeight: '700' },
-  userInfo: { flex: 1 },
+  userInfo: { flex: 1, minWidth: 0 },
   cardName: { fontSize: 15, fontWeight: '600', color: Colors.text.primary },
-  cardEmail: { fontSize: 12, color: Colors.text.secondary, marginTop: 2 },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  cardEmail: { fontSize: 12, color: Colors.text.secondary, lineHeight: 16 },
+  cardEmailFullRow: {
+    width: '100%',
+    paddingLeft: 58,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  cardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+    minWidth: 0,
+  },
   roleBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   roleText: { fontSize: 11, fontWeight: '600' },
   matricule: { fontSize: 11, color: Colors.text.disabled, fontWeight: '500' },
-  cardActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardActions: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
   editBtn: { padding: 8, borderRadius: 8, backgroundColor: Colors.primary + '10' },
   deleteBtn: { padding: 8, borderRadius: 8, backgroundColor: Colors.error + '10' },
 
@@ -2310,6 +2717,7 @@ const styles = StyleSheet.create({
   },
   wsTitle: {
     flex: 1,
+    minWidth: 0,
     fontSize: 15,
     fontWeight: '700',
     color: Colors.cardWarm.title,
@@ -2317,7 +2725,18 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 4,
   },
+  wsHours: {
+    flexShrink: 0,
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.primary,
+    lineHeight: 20,
+    textShadowColor: 'rgba(255, 255, 255, 0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 2,
+  },
   wsCardActions: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -2470,6 +2889,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 18,
     elevation: 12,
+  },
+  modalSheetFlex: {
+    flexDirection: 'column',
+  },
+  modalSheetBody: {
+    flex: 1,
+    minHeight: 0,
+    flexDirection: 'column',
+  },
+  modalScrollFlex: {
+    flex: 1,
+    minHeight: 0,
+  },
+  modalScrollContent: {
+    paddingBottom: 12,
+  },
+  modalSaveFooter: {
+    marginTop: 8,
+    marginBottom: Platform.OS === 'web' ? 16 : 24,
+    flexShrink: 0,
+  },
+  saveBtnPressed: {
+    opacity: 0.88,
   },
   modalHandle: {
     width: 46,

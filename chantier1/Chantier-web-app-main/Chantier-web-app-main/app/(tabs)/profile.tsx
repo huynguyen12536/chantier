@@ -6,18 +6,23 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
 import { HeaderLanguageSwitcher } from '@/components/common/HeaderLanguageSwitcher';
-import { User, LogOut, HardHat, Mail, Hash } from 'lucide-react-native';
+import { UserAvatar } from '@/components/common';
+import { LogOut, HardHat, Mail, Hash } from 'lucide-react-native';
+import { pickAvatarImage, uploadUserAvatar } from '@/utils/avatar';
 
 export default function ProfileScreen() {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, refreshProfile } = useAuth();
   const { t } = useLanguage();
   const { scrollBottomPadding, headerPaddingTop } = useTabBarInset();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const handleSignOut = () => {
     setShowLogoutModal(true);
@@ -26,6 +31,31 @@ export default function ProfileScreen() {
   const confirmSignOut = async () => {
     setShowLogoutModal(false);
     await signOut();
+  };
+
+  const handleChangeAvatar = async () => {
+    if (!profile?.id || avatarUploading) return;
+    try {
+      const asset = await pickAvatarImage();
+      if (!asset?.uri) return;
+      setAvatarUploading(true);
+      await uploadUserAvatar({
+        userId: profile.id,
+        imageUri: asset.uri,
+        mimeType: asset.mimeType,
+        previousAvatarPath: profile.avatar_path,
+      });
+      await refreshProfile();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      if (message === 'PERMISSION_DENIED') {
+        Alert.alert(t.profile.changeAvatar, t.profile.avatarPermissionDenied);
+      } else {
+        Alert.alert(t.profile.changeAvatar, t.profile.avatarUploadFailed);
+      }
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   const getRoleLabel = (role: string): string => {
@@ -48,9 +78,28 @@ export default function ProfileScreen() {
         <View style={styles.headerLanguageRow}>
           <HeaderLanguageSwitcher variant="light" />
         </View>
-        <View style={styles.avatarContainer}>
-          <User size={48} color="#FFF" strokeWidth={2} />
-        </View>
+        <TouchableOpacity
+          style={styles.avatarContainer}
+          onPress={handleChangeAvatar}
+          disabled={avatarUploading}
+          accessibilityRole="button"
+          accessibilityLabel={t.profile.changeAvatar}
+        >
+          <UserAvatar
+            avatarPath={profile?.avatar_path}
+            avatarUpdatedAt={profile?.avatar_updated_at}
+            prenom={profile?.prenom}
+            nom={profile?.nom}
+            role={profile?.role}
+            size={96}
+            variant="profile"
+          />
+          {avatarUploading ? (
+            <View style={styles.avatarLoadingOverlay}>
+              <ActivityIndicator color="#FFF" />
+            </View>
+          ) : null}
+        </TouchableOpacity>
         <Text style={styles.name}>
           {profile?.prenom} {profile?.nom}
         </Text>
@@ -206,6 +255,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    overflow: 'hidden',
+  },
+  avatarLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   name: {
     fontSize: 28,

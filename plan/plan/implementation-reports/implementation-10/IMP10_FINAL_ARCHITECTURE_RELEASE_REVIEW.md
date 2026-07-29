@@ -129,15 +129,14 @@ Only debt present in locked DRs / accepted reports.
 | Wave B1 code (M1/M2) + reports + checklist | **COMPLETE** |
 | Regression reports (A + B1) | **COMPLETE** |
 | Decision logs (A + B sealed) | **COMPLETE** |
-| Investigation index | **COMPLETE** (lists B1 pack) |
-| Roadmap Imp-10 status | **COMPLETE** (Wave B1 COMPLETE; Wave C BLOCKED) |
+| Investigation index | **COMPLETE** (points to final closure) |
+| Roadmap Imp-10 status | **COMPLETE / CLOSED** (Wave C DEFERRED) |
 
 ### Missing / optional formality (not a code defect)
 
 | Item | Note |
 |---|---|
-| `IMP10_WAVE_B1_FINAL_CLOSURE.md` | Wave A has `IMP10_WAVE_A_FINAL_CLOSURE.md`; B1 uses checklist + reports. Optional symmetry only — **not required for this audit pass** |
-| `IMP10_DECISION_LOG.md` status line | Still may say Wave B1 “APPROVED pending”; Human has now accepted B1 — **stale status text only**, not an implementation gap |
+| `IMP10_WAVE_B1_FINAL_CLOSURE.md` | Covered by `IMP10_FINAL_CLOSURE.md` + B1 checklist — **not required** |
 
 No missing **required** gate from Human-accepted deliverables list.
 
@@ -148,7 +147,7 @@ No missing **required** gate from Human-accepted deliverables list.
 | Question | Answer | Justification |
 |---|---|---|
 | Can Imp-10 be considered COMPLETE? | **YES** (authorized scope) | Wave A + Wave B1 Human-accepted; DRs match code; Wave C was never authorized and is not required to close authorized scope |
-| Should Wave C remain blocked? | **YES** | Explicitly BLOCKED; DLQ/admin API needs separate auth; DR-006=A stands |
+| Should Wave C remain deferred? | **YES** | Explicitly DEFERRED; DLQ/admin API needs separate auth; DR-006=A stands |
 | Should Imp-12 Wave B remain blocked? | **YES** | Separate track; Imp-10 must not pull FE adapters |
 | Should any DR be reopened? | **NO** | No DR violated; limitations are sealed choices |
 

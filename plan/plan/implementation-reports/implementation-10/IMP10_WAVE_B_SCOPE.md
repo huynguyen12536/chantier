@@ -98,4 +98,4 @@ Evidence baseline:
 
 ## Coding now?
 
-**NO.** Investigation only. Coding blocked until Wave B DRs answered + Human design review approval.
+**SUPERSEDED:** Imp-10 **CLOSED**. See `IMP10_FINAL_CLOSURE.md`.

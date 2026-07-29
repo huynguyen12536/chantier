@@ -1,12 +1,14 @@
 import { Platform, useWindowDimensions } from 'react-native';
 import { Tabs } from 'expo-router';
-import { SquareCheck as CheckSquare, ChartBar as BarChart2, User, Settings2, LayoutDashboard, Calendar } from 'lucide-react-native';
+import { SquareCheck as CheckSquare, ChartBar as BarChart2, User, Settings2, LayoutDashboard, Calendar, CalendarClock } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { ApprovalNotificationsProvider } from '@/contexts/ApprovalNotificationsContext';
+import { CollaboratorNotificationsProvider } from '@/contexts/CollaboratorNotificationsContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
 import { TAB_BAR_HEIGHT } from '@/constants/layout';
 import { UserRole } from '@/types';
-import { canAccessManagement, canExport, getHomeRouteForRole, getVisibleTabCount } from '@/utils/role';
+import { canAccessManagement, canExport, canViewTeamAbsences, getHomeRouteForRole, getVisibleTabCount } from '@/utils/role';
 
 export default function TabsLayout() {
   const { profile, loading } = useAuth();
@@ -19,6 +21,7 @@ export default function TabsLayout() {
   const showValidation = profile?.role === 'chef_equipe' || profile?.role === 'admin';
   const showExport = profile?.role ? canExport(profile.role as UserRole) : false;
   const showManagement = profile?.role ? canAccessManagement(profile.role as UserRole) : false;
+  const showTeamAbsences = profile?.role ? canViewTeamAbsences(profile.role as UserRole) : false;
 
   const visibleTabCount = getVisibleTabCount(profile?.role);
   const equalTabWidth = visibleTabCount > 0 ? windowWidth / visibleTabCount : windowWidth;
@@ -26,6 +29,8 @@ export default function TabsLayout() {
   if (loading) return null;
 
   return (
+    <ApprovalNotificationsProvider>
+    <CollaboratorNotificationsProvider>
     <Tabs
       initialRouteName={(() => {
         if (!profile?.role) return 'index';
@@ -119,6 +124,15 @@ export default function TabsLayout() {
           href: showManagement ? '/(tabs)/management' : null,
         }}
       />
+      {/* chef/admin/administratif: Team absences */}
+      <Tabs.Screen
+        name="team-absences"
+        options={{
+          title: t.tabs.absences,
+          tabBarIcon: ({ size, color }) => <CalendarClock size={size} color={color} />,
+          href: showTeamAbsences ? '/(tabs)/team-absences' : null,
+        }}
+      />
       {/* 4. Profil - all */}
       <Tabs.Screen
         name="profile"
@@ -133,5 +147,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="select-worksite" options={{ href: null }} />
       <Tabs.Screen name="user-payroll" options={{ href: null }} />
     </Tabs>
+    </CollaboratorNotificationsProvider>
+    </ApprovalNotificationsProvider>
   );
 }

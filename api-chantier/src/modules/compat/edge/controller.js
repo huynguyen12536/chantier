@@ -1,6 +1,8 @@
 import { asyncHandler } from '../../../shared/utils/asyncHandler.js';
 import { AppError } from '../../../shared/errors/AppError.js';
 import * as usersService from '../../users/service.js';
+import * as diversService from '../../chantiers/diversService.js';
+import * as mailOtp from '../../mail/otp.js';
 import * as edgeUserMapper from '../mappers/edgeUserMapper.js';
 
 export const createUser = asyncHandler(async (req, res) => {
@@ -34,3 +36,37 @@ export const deleteUser = asyncHandler(async (req, res) => {
 export const options = (_req, res) => {
   res.status(200).end();
 };
+
+export const sendPasswordResetOtp = asyncHandler(async (req, res) => {
+  try {
+    const result = await mailOtp.sendPasswordResetOtp(req.body?.email, req.body?.lang);
+    res.status(200).json(result);
+  } catch (err) {
+    const code = err.code ?? err.message;
+    const status = err.statusCode ?? (code === 'rate_limited' ? 429 : 500);
+    res.status(status).json({ error: code });
+  }
+});
+
+export const resetPasswordWithOtp = asyncHandler(async (req, res) => {
+  try {
+    const result = await mailOtp.resetPasswordWithOtp(
+      req.body?.email,
+      req.body?.otp,
+      req.body?.password,
+    );
+    res.status(200).json(result);
+  } catch (err) {
+    const code = err.code ?? err.message;
+    res.status(err.statusCode ?? 400).json({ error: code });
+  }
+});
+
+export const updateUserPassword = asyncHandler(async (req, res) => {
+  try {
+    const result = await diversService.adminUpdateUserAuth(req.user, req.body ?? {});
+    res.status(200).json(result);
+  } catch (err) {
+    res.status(err.statusCode ?? 400).json({ error: err.message });
+  }
+});

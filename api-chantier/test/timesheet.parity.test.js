@@ -97,7 +97,7 @@ describe('Imp-06 CVL parity P1–P6', () => {
     return (await res.json()).accessToken;
   }
 
-  it('P1: worker without assignment rejected', async () => {
+  it('P1: worker without assignment can still declare', async () => {
     const app = createApp();
     const { base, close } = await listen(app);
     try {
@@ -120,9 +120,10 @@ describe('Imp-06 CVL parity P1–P6', () => {
           heure_fin: '12:00',
         }),
       });
-      assert.equal(res.status, 403);
+      assert.equal(res.status, 201);
       const body = await res.json();
-      assert.equal(body.error?.code, 'FORBIDDEN_CHANTIER');
+      assert.ok(body.period?.id);
+      assert.equal(body.period.chantier_id, chantierA);
     } finally {
       await close();
     }
@@ -340,6 +341,101 @@ describe('Imp-06 CVL parity P1–P6', () => {
       );
       assert.equal(rows.rows.length, 1);
       assert.equal(rows.rows[0].statut, 'annulee');
+    } finally {
+      await close();
+    }
+  });
+
+  it('rejects exact duplicate period slot with 409', async () => {
+    const app = createApp();
+    const { base, close } = await listen(app);
+    try {
+      const token = await login(base, ouvEmail);
+      const payload = {
+        chantier_id: chantierA,
+        date: '2026-08-10',
+        heure_debut: '09:00',
+        heure_fin: '10:00',
+        panier_repas: false,
+      };
+      const first = await fetch(`${base}/api/timesheet/periods`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      assert.equal(first.status, 201);
+
+      const dup = await fetch(`${base}/api/timesheet/periods`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      assert.equal(dup.status, 409);
+      const body = await dup.json();
+      assert.match(String(body.error?.message || body.error || ''), /already exists/i);
+
+      // Same times with different panier is still a duplicate slot
+      const dupPanier = await fetch(`${base}/api/timesheet/periods`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ...payload, panier_repas: true }),
+      });
+      assert.equal(dupPanier.status, 409);
+    } finally {
+      await close();
+    }
+  });
+
+  it('rejects nb_paniers above 2 with 400', async () => {
+    const app = createApp();
+    const { base, close } = await listen(app);
+    try {
+      const token = await login(base, ouvEmail);
+      const date = '2026-08-11';
+      for (let i = 0; i < 2; i += 1) {
+        const res = await fetch(`${base}/api/timesheet/periods`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            chantier_id: chantierA,
+            date,
+            heure_debut: `${10 + i}:00`,
+            heure_fin: `${10 + i}:30`,
+            panier_repas: true,
+          }),
+        });
+        assert.equal(res.status, 201);
+      }
+
+      const third = await fetch(`${base}/api/timesheet/periods`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          chantier_id: chantierA,
+          date,
+          heure_debut: '12:00',
+          heure_fin: '12:30',
+          panier_repas: true,
+        }),
+      });
+      assert.equal(third.status, 400);
+      const body = await third.json();
+      assert.match(String(body.error?.message || body.error || ''), /nb_paniers/i);
     } finally {
       await close();
     }

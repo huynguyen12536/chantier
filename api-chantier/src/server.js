@@ -2,6 +2,7 @@ import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { closePool, pingDatabase } from './shared/db/pool.js';
 import { startJobs, stopJobs } from './modules/jobs/index.js';
+import { seedWorksiteImagesIfNeeded } from './modules/storage/service.js';
 
 const app = createApp();
 
@@ -18,6 +19,9 @@ async function start() {
     console.log(`[api-chantier] listening on http://localhost:${env.port} (${env.nodeEnv})`);
     // Imp-10 Wave A — in-process job runner (DR-001=A). No REST mounts.
     startJobs();
+    void seedWorksiteImagesIfNeeded().catch((err) => {
+      console.warn('[storage] worksite image seed skipped:', err.message);
+    });
   });
 
   const shutdown = async (signal) => {

@@ -88,10 +88,9 @@ export const deleteZone = asyncHandler(async (req, res) => {
 export const listZoneChantiers = asyncHandler(async (req, res) => {
   try {
     const zoneId = pickUuid(req.query, 'zone_id');
-    if (!zoneId) {
-      throw new AppError('zone_id required', 400, { code: 'VALIDATION_ERROR' });
-    }
-    let rows = await zonesService.listZoneChantiers(zoneId, req.user);
+    let rows = zoneId
+      ? await zonesService.listZoneChantiers(zoneId, req.user)
+      : await zonesService.listAllZoneChantiers(req.user);
     if (pickEq(req.query, 'embed') === 'chantiers') {
       const chantiers = mapChantierRows(await chantiersService.listChantiers());
       const byId = new Map(chantiers.map((c) => [c.id, c]));

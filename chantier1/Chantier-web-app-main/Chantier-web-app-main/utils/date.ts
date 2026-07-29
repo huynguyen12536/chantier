@@ -1,6 +1,15 @@
-export function formatDate(dateStr: string): string {
+import type { Language } from '@/i18n';
+
+/** BCP 47 locale for date labels. French stays the default everywhere. */
+export type DateLocale = 'fr-FR' | 'en-GB';
+
+export function dateLocaleFromLanguage(language: Language): DateLocale {
+  return language === 'en' ? 'en-GB' : 'fr-FR';
+}
+
+export function formatDate(dateStr: string, locale: DateLocale = 'fr-FR'): string {
   const date = new Date(dateStr);
-  return date.toLocaleDateString('fr-FR', {
+  return date.toLocaleDateString(locale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -8,18 +17,18 @@ export function formatDate(dateStr: string): string {
   });
 }
 
-export function formatDateShort(dateStr: string): string {
+export function formatDateShort(dateStr: string, locale: DateLocale = 'fr-FR'): string {
   const date = new Date(dateStr);
-  return date.toLocaleDateString('fr-FR', {
+  return date.toLocaleDateString(locale, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
   });
 }
 
-/** French label like "Lun. 27 mai" */
-export function formatWeekDayLabel(dateStr: string): string {
-  const formatted = parseDateKey(dateStr).toLocaleDateString('fr-FR', {
+/** Label like "Lun. 27 mai" (fr) / "Mon 27 May" (en). */
+export function formatWeekDayLabel(dateStr: string, locale: DateLocale = 'fr-FR'): string {
+  const formatted = parseDateKey(dateStr).toLocaleDateString(locale, {
     weekday: 'short',
     day: 'numeric',
     month: 'long',
@@ -27,9 +36,9 @@ export function formatWeekDayLabel(dateStr: string): string {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
-/** French label like "Lun. 27 mai 2026" */
-export function formatWeekDayLabelWithYear(dateStr: string): string {
-  const formatted = parseDateKey(dateStr).toLocaleDateString('fr-FR', {
+/** Label like "Lun. 27 mai 2026" (fr) / "Mon 27 May 2026" (en). */
+export function formatWeekDayLabelWithYear(dateStr: string, locale: DateLocale = 'fr-FR'): string {
+  const formatted = parseDateKey(dateStr).toLocaleDateString(locale, {
     weekday: 'short',
     day: 'numeric',
     month: 'long',
@@ -80,10 +89,10 @@ export function getEndOfWeek(): string {
   return sunday.toISOString().split('T')[0];
 }
 
-export function getWeekRange(): string {
+export function getWeekRange(locale: DateLocale = 'fr-FR'): string {
   const start = new Date(getStartOfWeek());
   const end = new Date(getEndOfWeek());
-  return `${start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
+  return `${start.toLocaleDateString(locale, { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString(locale, { day: 'numeric', month: 'short' })}`;
 }
 
 /** Calendar date in the device local timezone (not UTC). */
@@ -103,4 +112,25 @@ export function parseDateKey(value?: string): Date {
   const [year, month, day] = value.split('-').map(Number);
   const parsed = new Date(year, (month || 1) - 1, day || 1);
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+/** Shift a YYYY-MM-DD key by `delta` calendar days. */
+export function addDaysToDateKey(dateKey: string, delta: number): string {
+  const next = parseDateKey(dateKey);
+  next.setDate(next.getDate() + delta);
+  return formatDateKey(next);
+}
+
+/** Calendar key `YYYY-MM-DD` from Postgres `date`, ISO datetime, or route param. */
+export function normalizeDateKey(value?: string | null): string {
+  if (value == null || value === '') return '';
+  const raw = String(value).trim();
+  const head = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  return head ? head[1] : raw;
+}
+
+/** Weekday initials Sun→Sat for calendar / week strip cells. */
+export function weekdayInitials(locale: DateLocale = 'fr-FR'): string[] {
+  if (locale.startsWith('en')) return ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  return ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 }

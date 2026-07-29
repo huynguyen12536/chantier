@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  BackHandler,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Check, CheckSquare, ChevronDown, Clock, Building2, Square, UtensilsCrossed, Car } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,8 +17,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ConfirmModal, SelectWorksiteModal, TimePickerModal } from '@/components/common';
+import {
+  ChantierDiversFormModal,
+  type CreatedChantierDivers,
+} from '@/components/declare-day/ChantierDiversFormModal';
 import { Colors } from '@/constants/colors';
-import { formatWeekDayLabel, getWeekDateStringsFromDate, parseDateKey } from '@/utils/date';
+import {
+  formatWeekDayLabel,
+  getWeekDateStringsFromDate,
+  normalizeDateKey,
+  parseDateKey,
+  weekdayInitials,
+  type DateLocale,
+} from '@/utils/date';
 import {
   computeReplicationOverlapMap,
   fetchPreviousWeekHint,
@@ -19,11 +40,23 @@ import {
   getEndTimeForNewStart,
   getMinEndTime,
   isEndAfterStart,
-  timeRangesOverlap,
   toDbTimeString,
 } from '@/utils/time';
-import { declarationLookupKey } from '@/utils/status';
+import { requiresFrameReason, isPendingDiversChantier, defaultShiftTimesForWorksite } from '@/utils/chantierDivers';
+import { isWorker } from '@/utils/role';
+import {
+  buildDeclarationStatutMap,
+  checkShiftOverlapForDate,
+  filterActivePeriodsForShiftOverlap,
+  shiftOverlapsActivePeriods,
+  type ShiftOverlapPeriod,
+} from '@/utils/shiftOverlap';
+import { declarationLookupKey, isShiftEditable, resolveLineStatut } from '@/utils/status';
 import { supabase } from '@/services/supabase';
+import { findAbsenceForDate, findFirstAbsenceOnDates } from '@/utils/absence';
+import { appAlert } from '@/utils/appAlert';
+
+import type { ChantierDiversStatut, ChantierSource } from '@/types';
 
 interface Worksite {
   id: string;
@@ -31,6 +64,8 @@ interface Worksite {
   code: string;
   heure_debut: string | null;
   heure_fin: string | null;
+  source?: ChantierSource;
+  divers_statut?: ChantierDiversStatut | null;
 }
 
 interface WorkLine {
@@ -41,50 +76,21 @@ interface WorkLine {
   heure_fin: string;
   panier_repas: boolean;
   deplacement: boolean;
+  commentaire: string;
 }
-
-type ActivePeriod = {
-  chantier_id: string;
-  heure_debut: string | null;
-  heure_fin: string | null;
-  statut: string;
-};
 
 const WORK_WEEK_LENGTH = 5;
 
-const WEEKDAY_INITIALS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
-
-function formatWeekDayCellLabel(dateStr: string): { letter: string; shortLabel: string } {
+function formatWeekDayCellLabel(
+  dateStr: string,
+  locale: DateLocale,
+): { letter: string; shortLabel: string } {
   const date = parseDateKey(dateStr);
-  const short = date.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '');
+  const short = date.toLocaleDateString(locale, { weekday: 'short' }).replace('.', '');
   return {
-    letter: WEEKDAY_INITIALS[date.getDay()],
+    letter: weekdayInitials(locale)[date.getDay()],
     shortLabel: short.charAt(0).toUpperCase() + short.slice(1),
   };
-}
-
-function filterActivePeriods(
-  periods: (ActivePeriod & { date?: string })[],
-  dateStr: string,
-  declByKey: Map<string, string>,
-): ActivePeriod[] {
-  return periods.filter((period) => {
-    const declStatut = declByKey.get(declarationLookupKey(period.chantier_id, dateStr));
-    if (declStatut === 'annulee') return false;
-    if (period.statut === 'annulee') return false;
-    return true;
-  });
-}
-
-function hasOverlapWithPeriods(
-  dbDebut: string,
-  dbFin: string,
-  periods: ActivePeriod[],
-): boolean {
-  return periods.some((existing) => {
-    if (!existing.heure_debut || !existing.heure_fin) return false;
-    return timeRangesOverlap(dbDebut, dbFin, existing.heure_debut, existing.heure_fin);
-  });
 }
 
 function resolveParam(value?: string | string[]): string {
@@ -105,11 +111,12 @@ const createDefaultLine = (): WorkLine => ({
   heure_fin: '16:45',
   panier_repas: true,
   deplacement: true,
+  commentaire: '',
 });
 
 export default function DeclareDayScreen() {
   const { profile } = useAuth();
-  const { t } = useLanguage();
+  const { t, dateLocale } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
@@ -121,9 +128,13 @@ export default function DeclareDayScreen() {
     panierRepas?: string;
     deplacement?: string;
     prefillWeek?: string;
+    editMode?: string;
+    periodId?: string;
+    extraSlot?: string;
   }>();
   const linesInitializedRef = useRef(false);
   const prefillWeekAppliedRef = useRef(false);
+  const overlapFetchGenRef = useRef(0);
 
   const dateStr = resolveParam(params.date);
   const dayLabel = resolveParam(params.dayLabel);
@@ -131,17 +142,24 @@ export default function DeclareDayScreen() {
   const prefillChantierId = resolveParam(params.chantierId);
   const prefillHeureDebut = resolveParam(params.heureDebut);
   const prefillHeureFin = resolveParam(params.heureFin);
+  const hasPanierParam = params.panierRepas !== undefined;
+  const hasDeplacementParam = params.deplacement !== undefined;
   const prefillPanierRepas = resolveParam(params.panierRepas) === '1';
   const prefillDeplacement = resolveParam(params.deplacement) === '1';
+  const isExtraSlot = resolveParam(params.extraSlot) === '1';
   const hasPrefill = Boolean(prefillChantierId);
+  const editPeriodId = resolveParam(params.periodId);
+  const isEditMode = resolveParam(params.editMode) === '1' && Boolean(editPeriodId);
 
   const [worksites, setWorksites] = useState<Worksite[]>([]);
   const [lines, setLines] = useState<WorkLine[]>(() => [createDefaultLine()]);
   const [worksitesLoading, setWorksitesLoading] = useState(true);
   const [showWorksitePicker, setShowWorksitePicker] = useState(false);
+  const [showDiversForm, setShowDiversForm] = useState(false);
   const [timePicker, setTimePicker] = useState<{ field: 'heure_debut' | 'heure_fin'; value: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [overlapModalVisible, setOverlapModalVisible] = useState(false);
+  const [invalidDurationModalVisible, setInvalidDurationModalVisible] = useState(false);
   const [applyWeekLoading, setApplyWeekLoading] = useState(false);
   const [applySelectedDays, setApplySelectedDays] = useState<Set<string>>(new Set());
   const [weekOverlapByDate, setWeekOverlapByDate] = useState<Record<string, boolean>>({});
@@ -156,46 +174,140 @@ export default function DeclareDayScreen() {
     [weekDates],
   );
 
+  // Always format from the date key so EN/FR switches correctly
+  // (route dayLabel may have been baked in French).
   const formattedDate = useMemo(() => {
-    if (dayLabel) return dayLabel;
-    if (!dateStr) return '—';
-    return formatWeekDayLabel(dateStr);
-  }, [dateStr, dayLabel]);
+    if (!dateStr) return dayLabel || '—';
+    return formatWeekDayLabel(dateStr, dateLocale);
+  }, [dateStr, dayLabel, dateLocale]);
+
+  useEffect(() => {
+    if (!profile?.id || !dateStr) return;
+    let cancelled = false;
+    void (async () => {
+      const absence = await findAbsenceForDate(profile.id, dateStr);
+      if (cancelled || !absence) return;
+      appAlert(t.common.error, t.absences.errors.dayAlreadyAbsent, [
+        {
+          text: t.common.ok,
+          onPress: () => {
+            if (router.canGoBack()) router.back();
+            else router.replace('/(tabs)/ouvrier-dashboard');
+          },
+        },
+      ]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id, dateStr, router, t]);
 
   const loadWorksites = useCallback(async () => {
     try {
       setWorksitesLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('chantiers')
-        .select('id, nom, code, heure_debut, heure_fin, actif')
-        .eq('actif', true)
+        .select('id, nom, code, heure_debut, heure_fin, actif, source, divers_statut, created_by')
         .order('nom', { ascending: true });
+
+      if (profile?.id && isWorker(profile.role)) {
+        query = query.or(
+          `actif.eq.true,and(source.eq.divers,divers_statut.eq.en_attente,created_by.eq.${profile.id})`,
+        );
+      } else {
+        query = query.eq('actif', true);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
-      const ws: Worksite[] = (data || []).map((c: any) => ({
+      const ws: Worksite[] = (data || []).map((c: {
+        id: string;
+        nom: string;
+        code: string;
+        heure_debut: string | null;
+        heure_fin: string | null;
+        source?: ChantierSource;
+        divers_statut?: ChantierDiversStatut | null;
+      }) => ({
         id: c.id,
         nom: c.nom,
         code: c.code,
         heure_debut: c.heure_debut ?? null,
         heure_fin: c.heure_fin ?? null,
+        source: c.source ?? 'standard',
+        divers_statut: c.divers_statut ?? null,
       }));
       setWorksites(ws);
 
       if (!linesInitializedRef.current && ws.length > 0) {
         linesInitializedRef.current = true;
-        const prefillWs = hasPrefill ? ws.find((w) => w.id === prefillChantierId) : undefined;
+        const prefillWs = (isEditMode || hasPrefill)
+          ? ws.find((w) => w.id === prefillChantierId)
+          : undefined;
         const defaultWs = prefillWs ?? ws[0];
+
+        let heureDebut = prefillHeureDebut;
+        let heureFin = prefillHeureFin;
+        if (!heureDebut || !heureFin) {
+          const shiftDefaults = defaultShiftTimesForWorksite({
+            source: defaultWs.source,
+            diversStatut: defaultWs.divers_statut,
+            chantierDebut: defaultWs.heure_debut,
+            chantierFin: defaultWs.heure_fin,
+            formatChantierTime: formatTime,
+          });
+          heureDebut = heureDebut || shiftDefaults.debut;
+          heureFin = heureFin || shiftDefaults.fin;
+        }
+        // First shift of the day: Meal + Travel ON by default.
+        // Extra slot: OFF. Edit: preserve stored values.
+        let panierRepas = true;
+        let deplacement = true;
+
+        if (isExtraSlot) {
+          // 2nd+ shift that day: start at previous end, no end suggestion, allowances off.
+          heureDebut = prefillHeureDebut || heureDebut;
+          heureFin = '';
+          panierRepas = hasPanierParam ? prefillPanierRepas : false;
+          deplacement = hasDeplacementParam ? prefillDeplacement : false;
+        } else if (isEditMode) {
+          // Editing must preserve the stored values passed by the consultation screen.
+          heureFin = prefillHeureFin || heureFin;
+          panierRepas = hasPanierParam ? prefillPanierRepas : true;
+          deplacement = hasDeplacementParam ? prefillDeplacement : true;
+        } else {
+          // First shift (with or without time/chantier prefill): always Meal + Travel on.
+          if (hasPrefill || prefillHeureFin) {
+            heureFin = prefillHeureFin || heureFin;
+          }
+          panierRepas = true;
+          deplacement = true;
+        }
+
+        let existingCommentaire = '';
+        if (isEditMode && editPeriodId && profile?.id) {
+          const { data: periodRow } = await supabase
+            .from('periodes_travail')
+            .select('commentaire')
+            .eq('id', editPeriodId)
+            .eq('user_id', profile.id)
+            .maybeSingle();
+          existingCommentaire = typeof periodRow?.commentaire === 'string'
+            ? periodRow.commentaire
+            : '';
+        }
+
         setLines([{
-          id: `line-${Date.now()}`,
+          id: isEditMode && editPeriodId ? editPeriodId : `line-${Date.now()}`,
           chantier_id: defaultWs.id,
           chantierNom: defaultWs.nom,
-          heure_debut: prefillHeureDebut
-            || (defaultWs.heure_debut ? formatTime(defaultWs.heure_debut) : '07:30'),
-          heure_fin: prefillHeureFin
-            || (defaultWs.heure_fin ? formatTime(defaultWs.heure_fin) : '16:45'),
-          panier_repas: hasPrefill ? prefillPanierRepas : true,
-          deplacement: hasPrefill ? prefillDeplacement : true,
+          heure_debut: heureDebut,
+          heure_fin: heureFin,
+          panier_repas: panierRepas,
+          deplacement,
+          commentaire: existingCommentaire,
         }]);
       }
     } catch (error) {
@@ -205,11 +317,18 @@ export default function DeclareDayScreen() {
     }
   }, [
     hasPrefill,
+    isEditMode,
+    isExtraSlot,
+    editPeriodId,
+    profile?.id,
+    profile?.role,
     prefillChantierId,
     prefillHeureDebut,
     prefillHeureFin,
     prefillPanierRepas,
     prefillDeplacement,
+    hasPanierParam,
+    hasDeplacementParam,
   ]);
 
   useEffect(() => {
@@ -217,7 +336,7 @@ export default function DeclareDayScreen() {
     setLines([createDefaultLine()]);
     prefillWeekAppliedRef.current = false;
     void loadWorksites();
-  }, [dateStr, loadWorksites, prefillWeek]);
+  }, [dateStr, loadWorksites, prefillWeek, isEditMode, editPeriodId]);
 
   const currentLine = lines[0] || null;
 
@@ -227,25 +346,82 @@ export default function DeclareDayScreen() {
 
   const handleSelectWorksite = (ws: { id: string; nom: string; code: string }) => {
     const found = worksites.find((w) => w.id === ws.id);
-    updateLine({
-      chantier_id: ws.id,
-      chantierNom: ws.nom,
-      heure_debut: found?.heure_debut ? formatTime(found.heure_debut) : currentLine?.heure_debut || '07:30',
-      heure_fin: found?.heure_fin ? formatTime(found.heure_fin) : currentLine?.heure_fin || '16:45',
-    });
+    if (isExtraSlot) {
+      // Keep previous-end start and empty end; only change chantier.
+      updateLine({
+        chantier_id: ws.id,
+        chantierNom: ws.nom,
+      });
+    } else {
+      const shiftDefaults = found
+        ? defaultShiftTimesForWorksite({
+            source: found.source,
+            diversStatut: found.divers_statut,
+            chantierDebut: found.heure_debut,
+            chantierFin: found.heure_fin,
+            formatChantierTime: formatTime,
+          })
+        : {
+            debut: currentLine?.heure_debut || '07:30',
+            fin: currentLine?.heure_fin || '16:45',
+          };
+      updateLine({
+        chantier_id: ws.id,
+        chantierNom: ws.nom,
+        heure_debut: shiftDefaults.debut,
+        heure_fin: shiftDefaults.fin,
+      });
+    }
     setShowWorksitePicker(false);
   };
+
+  const handleChantierDiversCreated = useCallback((created: CreatedChantierDivers) => {
+    const ws: Worksite = {
+      id: created.id,
+      nom: created.nom,
+      code: created.code,
+      heure_debut: formatTime(created.heure_debut),
+      heure_fin: formatTime(created.heure_fin),
+      source: 'divers',
+      divers_statut: 'en_attente',
+    };
+    setWorksites((prev) => {
+      const next = [...prev.filter((w) => w.id !== ws.id), ws];
+      return next.sort((a, b) => a.nom.localeCompare(b.nom));
+    });
+    setLines([{
+      id: `line-${Date.now()}`,
+      chantier_id: ws.id,
+      chantierNom: ws.nom,
+      heure_debut: defaultShiftTimesForWorksite({
+        source: 'divers',
+        diversStatut: 'en_attente',
+      }).debut,
+      heure_fin: defaultShiftTimesForWorksite({
+        source: 'divers',
+        diversStatut: 'en_attente',
+      }).fin,
+      panier_repas: true,
+      deplacement: true,
+      commentaire: '',
+    }]);
+    setShowDiversForm(false);
+  }, []);
 
   const handleTimeConfirm = (value: string) => {
     if (!timePicker || !currentLine) return;
 
     if (timePicker.field === 'heure_debut') {
-      const heure_fin = getEndTimeForNewStart(
-        value,
-        currentLine.heure_debut,
-        currentLine.heure_fin,
-      );
-      updateLine({ heure_debut: value, heure_fin });
+      if (isExtraSlot && !currentLine.heure_fin) {
+        updateLine({ heure_debut: value });
+      } else {
+        const heure_fin = getEndTimeForNewStart(
+          value,
+          currentLine.heure_debut,
+          currentLine.heure_fin,
+        );
+        updateLine({ heure_debut: value, heure_fin });
+      }
     } else {
       const heure_fin = isEndAfterStart(currentLine.heure_debut, value)
         ? value
@@ -263,30 +439,77 @@ export default function DeclareDayScreen() {
     });
   }, [router]);
 
-  const buildLinePayload = useCallback((line: WorkLine, targetDate: string) => ({
-    user_id: profile!.id,
-    chantier_id: line.chantier_id,
-    date: targetDate,
-    heure_debut: toDbTimeString(line.heure_debut),
-    heure_fin: toDbTimeString(line.heure_fin),
-    panier_repas: line.panier_repas,
-    deplacement: line.deplacement,
-    statut: 'terminee',
-    latitude_debut: 0,
-    longitude_debut: 0,
-    latitude_fin: 0,
-    longitude_fin: 0,
-  }), [profile]);
+  const buildLinePayload = useCallback((line: WorkLine, targetDate: string) => {
+    const worksite = worksites.find((w) => w.id === line.chantier_id);
+    const needsReason = requiresFrameReason({
+      workDebut: line.heure_debut,
+      workFin: line.heure_fin,
+      chantierDebut: worksite?.heure_debut,
+      chantierFin: worksite?.heure_fin,
+      chantierSource: worksite?.source,
+      diversStatut: worksite?.divers_statut,
+    });
+    return {
+      user_id: profile!.id,
+      chantier_id: line.chantier_id,
+      date: targetDate,
+      heure_debut: toDbTimeString(line.heure_debut),
+      heure_fin: toDbTimeString(line.heure_fin),
+      panier_repas: line.panier_repas,
+      deplacement: line.deplacement,
+      commentaire: needsReason ? line.commentaire.trim() : null,
+      statut: 'terminee',
+      latitude_debut: 0,
+      longitude_debut: 0,
+      latitude_fin: 0,
+      longitude_fin: 0,
+    };
+  }, [profile, worksites]);
+
+  const selectedWorksite = useMemo(
+    () => worksites.find((w) => w.id === currentLine?.chantier_id) ?? null,
+    [worksites, currentLine?.chantier_id],
+  );
+
+  const reasonRequired = useMemo(() => {
+    if (!currentLine?.heure_debut || !currentLine?.heure_fin) return false;
+    return requiresFrameReason({
+      workDebut: currentLine.heure_debut,
+      workFin: currentLine.heure_fin,
+      chantierDebut: selectedWorksite?.heure_debut,
+      chantierFin: selectedWorksite?.heure_fin,
+      chantierSource: selectedWorksite?.source,
+      diversStatut: selectedWorksite?.divers_statut,
+    });
+  }, [
+    currentLine?.heure_debut,
+    currentLine?.heure_fin,
+    selectedWorksite?.heure_debut,
+    selectedWorksite?.heure_fin,
+    selectedWorksite?.source,
+    selectedWorksite?.divers_statut,
+  ]);
+
+  useEffect(() => {
+    if (reasonRequired) return;
+    if (!currentLine?.commentaire) return;
+    setLines((prev) => prev.map((line, index) => (
+      index === 0 && line.commentaire ? { ...line, commentaire: '' } : line
+    )));
+  }, [reasonRequired, currentLine?.commentaire]);
 
   const loadWeekOverlapMap = useCallback(async (line: WorkLine) => {
     if (!profile?.id || weekDates.length === 0) {
+      return {} as Record<string, boolean>;
+    }
+    if (!line.heure_debut || !line.heure_fin) {
       return {} as Record<string, boolean>;
     }
 
     const [periodsRes, declRes] = await Promise.all([
       supabase
         .from('periodes_travail')
-        .select('chantier_id, date, heure_debut, heure_fin, statut')
+        .select('id, chantier_id, date, heure_debut, heure_fin, statut')
         .eq('user_id', profile.id)
         .gte('date', weekDates[0])
         .lte('date', weekDates[6]),
@@ -301,28 +524,27 @@ export default function DeclareDayScreen() {
     if (periodsRes.error) throw periodsRes.error;
     if (declRes.error) throw declRes.error;
 
-    const declByKey = new Map<string, string>();
-    for (const row of declRes.data || []) {
-      declByKey.set(
-        declarationLookupKey(row.chantier_id as string, row.date as string),
-        row.statut as string,
-      );
-    }
+    const declByKey = buildDeclarationStatutMap(
+      (declRes.data || []) as { chantier_id: string; date: string; statut: string }[],
+    );
 
-    const dbDebut = toDbTimeString(line.heure_debut);
-    const dbFin = toDbTimeString(line.heure_fin);
     const overlapByDate: Record<string, boolean> = {};
 
     for (const targetDate of weekDates) {
       const dayPeriods = (periodsRes.data || []).filter(
-        (p: ActivePeriod & { date: string }) => p.date === targetDate,
+        (p: ShiftOverlapPeriod & { date: string; id?: string }) =>
+          normalizeDateKey(p.date) === targetDate && (!isEditMode || p.id !== editPeriodId),
       );
-      const activePeriods = filterActivePeriods(dayPeriods, targetDate, declByKey);
-      overlapByDate[targetDate] = hasOverlapWithPeriods(dbDebut, dbFin, activePeriods);
+      const activePeriods = filterActivePeriodsForShiftOverlap(dayPeriods, targetDate, declByKey);
+      overlapByDate[targetDate] = shiftOverlapsActivePeriods(
+        line.heure_debut,
+        line.heure_fin,
+        activePeriods,
+      );
     }
 
     return overlapByDate;
-  }, [profile?.id, weekDates]);
+  }, [profile?.id, weekDates, isEditMode, editPeriodId]);
 
   const withLockedCurrentDay = useCallback((
     dates: Iterable<string>,
@@ -336,34 +558,85 @@ export default function DeclareDayScreen() {
     return next;
   }, [prefillWeek, dateStr, weekDates]);
 
-  const refreshWeekSelection = useCallback(async () => {
+  const computeOverlapConflict = useCallback((
+    overlapByDate: Record<string, boolean>,
+    selectedDays: Set<string>,
+  ) => {
+    if (!currentLine?.heure_debut || !currentLine?.heure_fin) return false;
+    if (!isEndAfterStart(currentLine.heure_debut, currentLine.heure_fin)) return false;
+    if (isEditMode) {
+      return Boolean(dateStr && overlapByDate[dateStr]);
+    }
+    const targetDates = Array.from(
+      withLockedCurrentDay(selectedDays, overlapByDate),
+    );
+    if (targetDates.length === 0) {
+      return Boolean(dateStr && overlapByDate[dateStr]);
+    }
+    return targetDates.some((d) => overlapByDate[d]);
+  }, [
+    currentLine?.heure_debut,
+    currentLine?.heure_fin,
+    isEditMode,
+    dateStr,
+    withLockedCurrentDay,
+  ]);
+
+  const refreshWeekSelection = useCallback(async (fetchGen: number) => {
     if (!currentLine?.chantier_id) {
-      setWeekOverlapByDate({});
-      setApplySelectedDays(new Set());
+      if (fetchGen === overlapFetchGenRef.current) {
+        setWeekOverlapByDate({});
+        setApplySelectedDays(new Set());
+        setOverlapModalVisible(false);
+      }
+      return;
+    }
+
+    if (!currentLine.heure_debut || !currentLine.heure_fin) {
+      if (fetchGen === overlapFetchGenRef.current) {
+        setWeekOverlapByDate({});
+        setOverlapModalVisible(false);
+      }
       return;
     }
 
     try {
-      setApplyWeekLoading(true);
+      if (fetchGen === overlapFetchGenRef.current) {
+        setApplyWeekLoading(true);
+      }
       const overlapByDate = await loadWeekOverlapMap(currentLine);
+      if (fetchGen !== overlapFetchGenRef.current) return;
+
       setWeekOverlapByDate(overlapByDate);
-      setApplySelectedDays((prev) => withLockedCurrentDay(
-        [...prev].filter(
-          (targetDate) => workWeekDates.includes(targetDate) && !overlapByDate[targetDate],
-        ),
-        overlapByDate,
-      ));
+
+      const filtered = [...applySelectedDays].filter(
+        (targetDate) => workWeekDates.includes(targetDate) && !overlapByDate[targetDate],
+      );
+      const nextSelected = withLockedCurrentDay(filtered, overlapByDate);
+      setApplySelectedDays(nextSelected);
     } catch (error: unknown) {
+      if (fetchGen !== overlapFetchGenRef.current) return;
       const message = error instanceof Error ? error.message : t.timesheet.errorValidate;
       Alert.alert(t.common.error, message);
     } finally {
-      setApplyWeekLoading(false);
+      if (fetchGen === overlapFetchGenRef.current) {
+        setApplyWeekLoading(false);
+      }
     }
-  }, [currentLine, dateStr, weekDates, workWeekDates, loadWeekOverlapMap, t, withLockedCurrentDay]);
+  }, [
+    currentLine,
+    applySelectedDays,
+    workWeekDates,
+    loadWeekOverlapMap,
+    t,
+    withLockedCurrentDay,
+    computeOverlapConflict,
+  ]);
 
   useEffect(() => {
     if (prefillWeek && !prefillWeekAppliedRef.current) return;
-    void refreshWeekSelection();
+    const fetchGen = ++overlapFetchGenRef.current;
+    void refreshWeekSelection(fetchGen);
   }, [
     prefillWeek,
     currentLine?.chantier_id,
@@ -371,7 +644,6 @@ export default function DeclareDayScreen() {
     currentLine?.heure_fin,
     dateStr,
     weekDates,
-    refreshWeekSelection,
   ]);
 
   const toggleApplyDay = (targetDate: string) => {
@@ -392,12 +664,57 @@ export default function DeclareDayScreen() {
   const submitLinesToDates = async (targetDates: string[]) => {
     if (!profile?.id || !dateStr) return false;
 
+    if (!currentLine?.chantier_id) return false;
+    if (!currentLine.heure_debut || !currentLine.heure_fin) return false;
+    if (!isEndAfterStart(currentLine.heure_debut, currentLine.heure_fin)) return false;
+
+    const overlapByDate = await loadWeekOverlapMap(currentLine);
+
+    if (isEditMode && editPeriodId) {
+      const dbOverlap = await checkShiftOverlapForDate(
+        profile.id,
+        dateStr,
+        currentLine.heure_debut,
+        currentLine.heure_fin,
+        editPeriodId,
+      );
+      if (overlapByDate[dateStr] || dbOverlap) {
+        setOverlapModalVisible(true);
+        return false;
+      }
+
+      const payload = buildLinePayload(currentLine, dateStr);
+      const { error } = await supabase
+        .from('periodes_travail')
+        .update(payload)
+        .eq('id', editPeriodId)
+        .eq('user_id', profile.id);
+
+      if (error) throw error;
+
+      // Pop edit screen — avoid replace which stacks a second declare-day-empty
+      // and forces the user to press Back twice.
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace({
+          pathname: '/declare-day-empty',
+          params: { date: dateStr, dayLabel },
+        });
+      }
+      return true;
+    }
+
     const uniqueDates = Array.from(new Set(targetDates));
 
-    if (!currentLine?.chantier_id) return false;
-    const overlapByDate = await loadWeekOverlapMap(currentLine);
     for (const targetDate of uniqueDates) {
-      if (overlapByDate[targetDate]) {
+      const dbOverlap = await checkShiftOverlapForDate(
+        profile.id,
+        targetDate,
+        currentLine.heure_debut,
+        currentLine.heure_fin,
+      );
+      if (overlapByDate[targetDate] || dbOverlap) {
         setOverlapModalVisible(true);
         return false;
       }
@@ -419,9 +736,60 @@ export default function DeclareDayScreen() {
       return;
     }
 
-    const targetDates = Array.from(applySelectedDays);
+    if (!currentLine.heure_debut || !currentLine.heure_fin) {
+      Alert.alert(t.common.error, t.timesheet.invalidLine);
+      return;
+    }
+    if (!isEndAfterStart(currentLine.heure_debut, currentLine.heure_fin)) {
+      Alert.alert(t.common.error, t.timesheet.invalidLine);
+      return;
+    }
+
+    if (reasonRequired && !currentLine.commentaire.trim()) {
+      Alert.alert(
+        t.common.error,
+        t.ouvrierDashboard?.reasonRequired
+          ?? 'Indique une raison lorsque le créneau dépasse les horaires du chantier.',
+      );
+      return;
+    }
+
+    if (isEditMode) {
+      const blocked = await findFirstAbsenceOnDates(profile.id, [dateStr]);
+      if (blocked) {
+        appAlert(t.common.error, t.absences.errors.dayAlreadyAbsent);
+        return;
+      }
+      try {
+        setSubmitting(true);
+        await submitLinesToDates([dateStr]);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : t.timesheet.errorValidate;
+        Alert.alert(t.common.error, message);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Source day is always intended for submit; keep it even if selection Set is empty.
+    const targetDates = Array.from(
+      withLockedCurrentDay(applySelectedDays, weekOverlapByDate),
+    );
+
     if (targetDates.length === 0) {
+      // UI shows the source day as checked, but overlap blocks it from the Set.
+      if (weekOverlapByDate[dateStr]) {
+        setOverlapModalVisible(true);
+        return;
+      }
       Alert.alert(t.common.error, t.ouvrierDashboard?.selectAtLeastOneDay ?? 'Sélectionnez au moins un jour');
+      return;
+    }
+
+    const blocked = await findFirstAbsenceOnDates(profile.id, targetDates);
+    if (blocked) {
+      appAlert(t.common.error, t.absences.errors.dayAlreadyAbsent);
       return;
     }
 
@@ -441,14 +809,66 @@ export default function DeclareDayScreen() {
     [worksites]
   );
 
+  const overlapBlocksSubmit = useMemo(() => {
+    if (applyWeekLoading) return false;
+    if (!currentLine?.heure_debut || !currentLine?.heure_fin) return false;
+    if (!isEndAfterStart(currentLine.heure_debut, currentLine.heure_fin)) return false;
+    return computeOverlapConflict(weekOverlapByDate, applySelectedDays);
+  }, [
+    currentLine?.heure_debut,
+    currentLine?.heure_fin,
+    weekOverlapByDate,
+    applySelectedDays,
+    computeOverlapConflict,
+    applyWeekLoading,
+  ]);
+
+  const invalidShiftDuration = useMemo(() => {
+    if (!currentLine?.heure_debut || !currentLine?.heure_fin) return false;
+    return !isEndAfterStart(currentLine.heure_debut, currentLine.heure_fin);
+  }, [currentLine?.heure_debut, currentLine?.heure_fin]);
+
+  useEffect(() => {
+    if (applyWeekLoading) return;
+    if (invalidShiftDuration) {
+      setInvalidDurationModalVisible(true);
+      setOverlapModalVisible(false);
+      return;
+    }
+    setInvalidDurationModalVisible(false);
+  }, [
+    applyWeekLoading,
+    invalidShiftDuration,
+    currentLine?.heure_debut,
+    currentLine?.heure_fin,
+  ]);
+
+  useEffect(() => {
+    if (applyWeekLoading || invalidShiftDuration) return;
+    setOverlapModalVisible(overlapBlocksSubmit);
+  }, [applyWeekLoading, overlapBlocksSubmit, invalidShiftDuration]);
+
   const canSubmit = useMemo(() => {
-    if (applyWeekLoading || worksitesLoading || applySelectedDays.size === 0) return false;
-    return Boolean(currentLine?.chantier_id);
+    if (worksitesLoading || applyWeekLoading) return false;
+    if (!currentLine?.chantier_id) return false;
+    if (!currentLine.heure_debut || !currentLine.heure_fin) return false;
+    if (!isEndAfterStart(currentLine.heure_debut, currentLine.heure_fin)) return false;
+    if (reasonRequired && !currentLine.commentaire.trim()) return false;
+    if (overlapBlocksSubmit) return false;
+    if (isEditMode) return true;
+    return applySelectedDays.size > 0 || Boolean(dateStr);
   }, [
     currentLine?.chantier_id,
+    currentLine?.heure_debut,
+    currentLine?.heure_fin,
+    currentLine?.commentaire,
+    reasonRequired,
     applyWeekLoading,
     worksitesLoading,
     applySelectedDays.size,
+    isEditMode,
+    dateStr,
+    overlapBlocksSubmit,
   ]);
 
   const suggestableWeekDays = useMemo(
@@ -518,11 +938,66 @@ export default function DeclareDayScreen() {
       router.back();
       return;
     }
+    if (isEditMode && dateStr) {
+      router.replace({
+        pathname: '/declare-day-empty',
+        params: { date: dateStr, dayLabel },
+      });
+      return;
+    }
     router.replace({
       pathname: '/(tabs)/ouvrier-dashboard',
       params: dateStr ? { focusDate: dateStr } : undefined,
     });
-  }, [router, dateStr]);
+  }, [router, dateStr, dayLabel, isEditMode]);
+
+  useEffect(() => {
+    if (!isEditMode || !editPeriodId || !profile?.id) return;
+
+    void (async () => {
+      const { data, error } = await supabase
+        .from('periodes_travail')
+        .select('id, statut, chantier_id, date')
+        .eq('id', editPeriodId)
+        .eq('user_id', profile.id)
+        .maybeSingle();
+
+      if (error || !data) {
+        Alert.alert(t.common.error, t.timesheet.errorValidate);
+        handleBack();
+        return;
+      }
+
+      const { data: declRows } = await supabase
+        .from('declarations_heures')
+        .select('chantier_id, date, statut')
+        .eq('user_id', profile.id)
+        .eq('date', data.date as string);
+
+      const declByKey = new Map<string, string>();
+      for (const row of declRows || []) {
+        declByKey.set(
+          declarationLookupKey(row.chantier_id as string, row.date as string),
+          row.statut as string,
+        );
+      }
+
+      const resolved = resolveLineStatut(
+        data.statut as string,
+        data.chantier_id as string,
+        data.date as string,
+        declByKey,
+      );
+
+      if (!isShiftEditable(resolved)) {
+        Alert.alert(
+          t.common.error,
+          t.ouvrierDashboard?.shiftNotEditable ?? 'Ce créneau ne peut plus être modifié.',
+        );
+        handleBack();
+      }
+    })();
+  }, [isEditMode, editPeriodId, profile?.id, t, handleBack]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -549,7 +1024,9 @@ export default function DeclareDayScreen() {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>
-            {t.ouvrierDashboard?.addLineTitle ?? 'Déclarer ma journée'}
+            {isEditMode
+              ? (t.ouvrierDashboard?.editLineTitle ?? 'Modifier le créneau')
+              : (t.ouvrierDashboard?.addLineTitle ?? 'Déclarer ma journée')}
           </Text>
           <Text style={styles.headerDate}>{formattedDate}</Text>
         </View>
@@ -578,6 +1055,11 @@ export default function DeclareDayScreen() {
                 ? (t.common.loading as string)
                 : (currentLine?.chantierNom || t.timesheet.select)}
             </Text>
+            {selectedWorksite && isPendingDiversChantier(selectedWorksite.source, selectedWorksite.divers_statut) ? (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>{t.chantierDivers.pendingBadge}</Text>
+              </View>
+            ) : null}
             <ChevronDown size={18} color={Colors.text.secondary} />
           </TouchableOpacity>
         </View>
@@ -612,7 +1094,7 @@ export default function DeclareDayScreen() {
               style={styles.timeCard}
               onPress={() => {
                 if (!currentLine) return;
-                const endValue = isEndAfterStart(currentLine.heure_debut, currentLine.heure_fin)
+                const endValue = currentLine.heure_fin && isEndAfterStart(currentLine.heure_debut, currentLine.heure_fin)
                   ? currentLine.heure_fin
                   : getMinEndTime(currentLine.heure_debut);
                 setTimePicker({ field: 'heure_fin', value: endValue });
@@ -624,11 +1106,40 @@ export default function DeclareDayScreen() {
                 <View style={styles.timeIconWrap}>
                   <Clock size={16} color={Colors.primary} />
                 </View>
-                <Text style={styles.timeCardTime}>{currentLine?.heure_fin || '16:45'}</Text>
+                <Text
+                  style={[
+                    styles.timeCardTime,
+                    !currentLine?.heure_fin && styles.timeCardTimePlaceholder,
+                  ]}
+                >
+                  {currentLine?.heure_fin
+                    || (t.timesheet.selectTime ?? t.timesheet.select ?? '—')}
+                </Text>
               </View>
             </TouchableOpacity>
           </View>
         </View>
+
+        {reasonRequired ? (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionLabel}>
+              {t.ouvrierDashboard?.reasonLabel ?? 'RAISON'}
+            </Text>
+            <TextInput
+              style={styles.reasonInput}
+              value={currentLine?.commentaire ?? ''}
+              onChangeText={(value) => updateLine({ commentaire: value })}
+              placeholder={
+                t.ouvrierDashboard?.reasonPlaceholder
+                  ?? 'Explique pourquoi le créneau sort du cadre horaire…'
+              }
+              placeholderTextColor={Colors.text.disabled}
+              multiline
+              textAlignVertical="top"
+              maxLength={500}
+            />
+          </View>
+        ) : null}
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionLabel}>
@@ -646,7 +1157,10 @@ export default function DeclareDayScreen() {
                 </View>
               )}
               <View style={[styles.optionIconWrap, currentLine?.panier_repas && styles.optionIconWrapActive]}>
-                <UtensilsCrossed size={22} color={currentLine?.panier_repas ? Colors.primary : Colors.text.secondary} />
+                <UtensilsCrossed
+                  size={22}
+                  color={currentLine?.panier_repas ? Colors.primary : Colors.text.secondary}
+                />
               </View>
               <Text style={[styles.optionLabel, currentLine?.panier_repas && styles.optionLabelActive]}>
                 {t.timesheet.meal}
@@ -664,7 +1178,10 @@ export default function DeclareDayScreen() {
                 </View>
               )}
               <View style={[styles.optionIconWrap, currentLine?.deplacement && styles.optionIconWrapActive]}>
-                <Car size={22} color={currentLine?.deplacement ? Colors.primary : Colors.text.secondary} />
+                <Car
+                  size={22}
+                  color={currentLine?.deplacement ? Colors.primary : Colors.text.secondary}
+                />
               </View>
               <Text style={[styles.optionLabel, currentLine?.deplacement && styles.optionLabelActive]}>
                 {t.timesheet.displacement}
@@ -673,6 +1190,7 @@ export default function DeclareDayScreen() {
           </View>
         </View>
 
+        {!isEditMode ? (
         <View style={styles.weekSectionCard}>
           <View style={styles.weekSectionHeader}>
             <Text style={styles.weekSectionTitle}>
@@ -711,9 +1229,10 @@ export default function DeclareDayScreen() {
                 const isSourceDay = !prefillWeek && targetDate === dateStr;
                 const isWorkDay = workWeekDates.includes(targetDate);
                 const hasOverlap = Boolean(weekOverlapByDate[targetDate]);
-                const isChecked = isSourceDay || applySelectedDays.has(targetDate);
+                const sourceBlocked = isSourceDay && hasOverlap;
+                const isChecked = (!sourceBlocked && isSourceDay) || applySelectedDays.has(targetDate);
                 const canToggle = Boolean(currentLine?.chantier_id) && isWorkDay && !isSourceDay && !hasOverlap;
-                const { letter, shortLabel } = formatWeekDayCellLabel(targetDate);
+                const { letter, shortLabel } = formatWeekDayCellLabel(targetDate, dateLocale);
 
                 return (
                   <TouchableOpacity
@@ -722,12 +1241,18 @@ export default function DeclareDayScreen() {
                       styles.weekDayCell,
                       hasOverlap && styles.weekDayCellDisabled,
                     ]}
-                    onPress={() => canToggle && toggleApplyDay(targetDate)}
-                    activeOpacity={canToggle ? 0.7 : 1}
-                    disabled={!canToggle}
+                    onPress={() => {
+                      if (sourceBlocked) {
+                        setOverlapModalVisible(true);
+                        return;
+                      }
+                      if (canToggle) toggleApplyDay(targetDate);
+                    }}
+                    activeOpacity={canToggle || sourceBlocked ? 0.7 : 1}
+                    disabled={!canToggle && !sourceBlocked}
                   >
                     <View style={styles.weekDayBadgeWrap}>
-                      {isSourceDay ? (
+                      {isSourceDay && !sourceBlocked ? (
                         <View style={styles.weekDayBadgeRing}>
                           <View style={styles.weekDayBadgeCurrent}>
                             <Text style={styles.weekDayLetterSelected} numberOfLines={1}>
@@ -741,6 +1266,7 @@ export default function DeclareDayScreen() {
                             styles.weekDayBadge,
                             isChecked && styles.weekDayBadgeSelected,
                             !isChecked && styles.weekDayBadgeUnselected,
+                            sourceBlocked && styles.weekDayBadgeBlocked,
                           ]}
                         >
                           <Text
@@ -772,20 +1298,26 @@ export default function DeclareDayScreen() {
             </View>
           ) : null}
         </View>
+        ) : null}
       </ScrollView>
 
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TouchableOpacity
-          style={[styles.submitBtn, (!canSubmit || submitting) && styles.submitBtnDisabled]}
-          onPress={handleSubmit}
-          disabled={!canSubmit || submitting}
+          style={[
+            styles.submitBtn,
+            (submitting || !canSubmit) && styles.submitBtnDisabled,
+          ]}
+          onPress={() => void handleSubmit()}
+          disabled={submitting || !canSubmit}
           activeOpacity={0.85}
         >
           {submitting ? (
             <ActivityIndicator color="#FFF" size="small" />
           ) : (
             <Text style={styles.submitBtnText}>
-              {t.ouvrierDashboard?.validateDay ?? 'Valider la journée'}
+              {isEditMode
+                ? (t.ouvrierDashboard?.saveEditCta ?? 'Enregistrer les modifications')
+                : (t.ouvrierDashboard?.validateDay ?? 'Valider la journée')}
             </Text>
           )}
         </TouchableOpacity>
@@ -797,8 +1329,27 @@ export default function DeclareDayScreen() {
         title={t.timesheet.selectWorksiteModal}
         selectedId={currentLine?.chantier_id || null}
         worksites={worksiteOptions}
+        searchPlaceholder={t.timesheet.searchWorksitePlaceholder}
+        noResultsMessage={t.timesheet.noWorksiteSearchResults}
         onClose={() => setShowWorksitePicker(false)}
         onSelect={handleSelectWorksite}
+        chantierDiversLabel={
+          profile && isWorker(profile.role) ? t.chantierDivers.cta : undefined
+        }
+        onPressChantierDivers={
+          profile && isWorker(profile.role)
+            ? () => {
+                setShowWorksitePicker(false);
+                setShowDiversForm(true);
+              }
+            : undefined
+        }
+      />
+
+      <ChantierDiversFormModal
+        visible={showDiversForm}
+        onClose={() => setShowDiversForm(false)}
+        onCreated={handleChantierDiversCreated}
       />
 
       {/* Time Picker */}
@@ -829,6 +1380,18 @@ export default function DeclareDayScreen() {
         confirmLabel={t.common.ok}
         onCancel={() => setOverlapModalVisible(false)}
         onConfirm={() => setOverlapModalVisible(false)}
+        singleButton
+      />
+
+      {/* Start/end duration invalid (e.g. same time) */}
+      <ConfirmModal
+        visible={invalidDurationModalVisible}
+        title={t.timesheet.invalidShiftDurationTitle}
+        message={t.timesheet.invalidShiftDurationMessage}
+        cancelLabel={t.common.cancel}
+        confirmLabel={t.common.ok}
+        onCancel={() => setInvalidDurationModalVisible(false)}
+        onConfirm={() => setInvalidDurationModalVisible(false)}
         singleButton
       />
     </View>
@@ -935,6 +1498,19 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     fontWeight: '600',
   },
+  pendingBadge: {
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 4,
+  },
+  pendingBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.primary,
+    textTransform: 'uppercase',
+  },
   timeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -976,6 +1552,12 @@ const styles = StyleSheet.create({
     color: Colors.text.primary,
     letterSpacing: -0.5,
   },
+  timeCardTimePlaceholder: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text.secondary,
+    letterSpacing: 0,
+  },
   timeArrowWrap: {
     width: 24,
     alignItems: 'center',
@@ -985,6 +1567,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: Colors.text.disabled,
     fontWeight: '600',
+  },
+  reasonInput: {
+    minHeight: 96,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFE8DC',
+    backgroundColor: '#FFF7F2',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    fontWeight: '500',
+    color: Colors.text.primary,
   },
   optionsRow: {
     flexDirection: 'row',
@@ -1110,6 +1704,11 @@ const styles = StyleSheet.create({
   weekDayBadgeUnselected: {
     backgroundColor: '#F3F4F6',
   },
+  weekDayBadgeBlocked: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1.5,
+    borderColor: '#F87171',
+  },
   weekDayBadgeSelected: {
     backgroundColor: Colors.primary,
   },
@@ -1178,6 +1777,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF7F2',
     paddingHorizontal: 24,
     paddingTop: 12,
+    zIndex: 20,
+    elevation: 20,
+    gap: 10,
   },
   submitBtn: {
     backgroundColor: Colors.primary,
@@ -1192,7 +1794,10 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   submitBtnDisabled: {
-    opacity: 0.6,
+    backgroundColor: '#D1D5DB',
+    opacity: 1,
+    elevation: 0,
+    shadowOpacity: 0,
   },
   submitBtnText: {
     color: '#FFF',

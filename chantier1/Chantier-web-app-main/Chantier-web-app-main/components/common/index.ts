@@ -8,3 +8,6 @@ export * from './ConfirmModal';
 export * from './DatePickerModal';
 export * from './DraggableSheetHandle';
 export * from './PrefillWeekButton';
+export * from './UserAvatar';
+export * from './ValidationNotificationBell';
+export * from './CollaboratorNotificationBell';

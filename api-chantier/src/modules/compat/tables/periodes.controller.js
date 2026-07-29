@@ -48,9 +48,19 @@ function applyExtraFilters(rows, query) {
     out = out.filter((r) => set.has(r.chantier_id));
   }
   const dateGte = pickDate(query, 'date_gte');
-  if (dateGte) out = out.filter((r) => String(r.date) >= dateGte);
+  if (dateGte) {
+    out = out.filter((r) => {
+      const key = String(r.date ?? '').slice(0, 10);
+      return key >= dateGte;
+    });
+  }
   const dateLte = pickDate(query, 'date_lte');
-  if (dateLte) out = out.filter((r) => String(r.date) <= dateLte);
+  if (dateLte) {
+    out = out.filter((r) => {
+      const key = String(r.date ?? '').slice(0, 10);
+      return key <= dateLte;
+    });
+  }
   const statut = pickEq(query, 'statut');
   if (statut) out = out.filter((r) => r.statut === statut);
   const statutNeq = pickEq(query, 'statut_neq');
@@ -66,8 +76,13 @@ function applyExtraFilters(rows, query) {
   }
   const datesIn = pickEq(query, 'date_in');
   if (datesIn) {
-    const set = new Set(datesIn.split(',').map((s) => s.trim()).filter(Boolean));
-    out = out.filter((r) => set.has(String(r.date)));
+    const set = new Set(
+      datesIn
+        .split(',')
+        .map((s) => s.trim().slice(0, 10))
+        .filter(Boolean),
+    );
+    out = out.filter((r) => set.has(String(r.date ?? '').slice(0, 10)));
   }
   return out;
 }

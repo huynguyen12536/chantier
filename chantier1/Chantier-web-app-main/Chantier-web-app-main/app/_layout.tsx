@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
+import { AppAlertProvider } from '@/contexts/AppAlertContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { getHomeRouteForRole } from '@/utils/role';
@@ -18,8 +19,17 @@ function RootNavigator() {
     if (loading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const authScreen = (segments as string[])[1];
+    const publicAuthScreens = ['login', 'forgot-password', 'reset-password'];
+    const onPublicAuthScreen =
+      inAuthGroup && authScreen != null && publicAuthScreens.includes(authScreen);
 
-    if (!session && !inAuthGroup) {
+    if (!session && !onPublicAuthScreen) {
+      router.replace('/(auth)/login');
+      return;
+    }
+
+    if (session && !profile && !loading) {
       router.replace('/(auth)/login');
       return;
     }
@@ -28,7 +38,7 @@ function RootNavigator() {
 
     const homeRoute = getHomeRouteForRole(profile.role);
 
-    if (inAuthGroup) {
+    if (inAuthGroup && authScreen === 'login') {
       router.replace(homeRoute);
       return;
     }
@@ -57,6 +67,8 @@ function RootNavigator() {
       />
       <Stack.Screen name="declare-day-empty" options={{ presentation: 'card', animation: 'fade' }} />
       <Stack.Screen name="choose-day" options={{ presentation: 'card', animation: 'fade' }} />
+      <Stack.Screen name="declare-absence" options={{ presentation: 'card', animation: 'fade' }} />
+      <Stack.Screen name="absence-detail" options={{ presentation: 'card', animation: 'fade' }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );
@@ -77,10 +89,12 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <LanguageProvider>
-        <AuthProvider>
-          <RootNavigator />
-          <StatusBar style="auto" />
-        </AuthProvider>
+        <AppAlertProvider>
+          <AuthProvider>
+            <RootNavigator />
+            <StatusBar style="auto" />
+          </AuthProvider>
+        </AppAlertProvider>
       </LanguageProvider>
     </SafeAreaProvider>
   );

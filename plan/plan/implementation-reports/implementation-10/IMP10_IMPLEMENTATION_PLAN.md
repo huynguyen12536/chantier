@@ -1,8 +1,8 @@
 # IMP10_IMPLEMENTATION_PLAN.md
 
 **Date:** 2026-07-15  
-**Status:** Investigation — coding **blocked**  
-**Prerequisite:** Close DRs in `IMP10_DECISION_LOG.md` + Human wave authorization
+**Status:** **SUPERSEDED** — Imp-10 **CLOSED** (`IMP10_FINAL_CLOSURE.md`). Retained as Wave A/B planning record.  
+**Prerequisite (historical):** DRs + Human wave authorization (satisfied)
 
 ---
 

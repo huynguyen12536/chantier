@@ -22,6 +22,14 @@ export const list = asyncHandler(async (req, res) => {
       const want = actif === 'true';
       rows = rows.filter((r) => Boolean(r.actif) === want);
     }
+    const source = pickEq(req.query, 'source');
+    if (source) {
+      rows = rows.filter((r) => String(r.source ?? '') === source);
+    }
+    const diversStatut = pickEq(req.query, 'divers_statut');
+    if (diversStatut) {
+      rows = rows.filter((r) => String(r.divers_statut ?? '') === diversStatut);
+    }
     res.status(200).json(mapChantierRows(rows));
   } catch (err) {
     const mapped = toErrorResponse(err);

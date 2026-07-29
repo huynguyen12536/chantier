@@ -14,7 +14,10 @@ export function isExportAccentColumn(colIndex: number): boolean {
 }
 
 /** Largeur colonne Excel (unité caractères) avec marge pour la lisibilité. */
-export function computeColumnWidthsExcel(headers: string[], rows: string[][]): number[] {
+export function computeColumnWidthsExcel(
+  headers: string[],
+  rows: (string | number)[][],
+): number[] {
   const colCount = headers.length;
   return Array.from({ length: colCount }, (_, col) => {
     const texts = [headers[col], ...rows.map((row) => String(row[col] ?? ''))];
@@ -24,11 +27,14 @@ export function computeColumnWidthsExcel(headers: string[], rows: string[][]): n
 }
 
 /** @deprecated alias pour l'aperçu UI */
-export function computeColumnWidthsPt(headers: string[], rows: string[][]): number[] {
+export function computeColumnWidthsPt(
+  headers: string[],
+  rows: (string | number)[][],
+): number[] {
   return computeColumnWidthsExcel(headers, rows);
 }
 
-export function buildCsvContent(headers: string[], rows: string[][]): string {
+export function buildCsvContent(headers: string[], rows: (string | number)[][]): string {
   const escape = (value: string) => `"${String(value).replace(/"/g, '""')}"`;
   const lines = [
     headers.map(escape).join(';'),

@@ -34,7 +34,14 @@
       "expo-font",
       "expo-web-browser",
       "expo-secure-store",
-      "expo-local-authentication"
+      "expo-local-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Autorisez Chantier à accéder à vos photos pour votre avatar.",
+          "cameraPermission": "Autorisez Chantier à utiliser l'appareil photo pour votre avatar."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

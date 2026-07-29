@@ -2,15 +2,10 @@
  * Imp-09 SSE subscription helper (DR-P13-004=A).
  * No Supabase Realtime protocol — EventSource → reload callbacks.
  */
-import Constants from 'expo-constants';
 import { loadSession } from '@/services/session';
+import { resolveApiBaseUrl } from '@/utils/apiBaseUrl';
 
-const extra = Constants.expoConfig?.extra ?? {};
-const apiUrl = (
-  process.env.EXPO_PUBLIC_API_URL ||
-  (extra as { EXPO_PUBLIC_API_URL?: string }).EXPO_PUBLIC_API_URL ||
-  'http://localhost:3000'
-).replace(/\/$/, '');
+const apiUrl = resolveApiBaseUrl();
 
 export type SseHandlers = {
   onEvent?: (type: string, data: unknown) => void;

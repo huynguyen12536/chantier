@@ -26,4 +26,4 @@
 
 Formal closure: `IMP10_WAVE_A_FINAL_CLOSURE.md`.
 
-**Wave B / Wave C remain BLOCKED** until separate Human authorization.
+**Superseded:** Imp-10 phase **CLOSED** — Wave B1 COMPLETE; Wave C **DEFERRED**. See `IMP10_FINAL_CLOSURE.md`.

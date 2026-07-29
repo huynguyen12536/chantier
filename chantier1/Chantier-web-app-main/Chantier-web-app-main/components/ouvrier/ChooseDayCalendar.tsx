@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,38 +7,53 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Colors } from '@/constants/colors';
-import { formatDateKey, formatWeekDayLabel, getMonday, parseDateKey } from '@/utils/date';
+import { formatDateKey, formatWeekDayLabel, getMonday, parseDateKey, type DateLocale } from '@/utils/date';
 import { declarationLookupKey, resolveLineStatut } from '@/utils/status';
 import { supabase } from '@/services/supabase';
 import { navigateFromChooseDay, navigateToDaySuggestion } from '@/utils/ouvrierDeclaration';
+import { appAlert } from '@/utils/appAlert';
 
-const DAYS_SHORT = ['L', 'Ma', 'Me', 'J', 'V', 'S', 'D'];
-const MONTHS_FR = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-];
+const DAYS_SHORT_FR = ['L', 'Ma', 'Me', 'J', 'V', 'S', 'D'];
+const DAYS_SHORT_EN = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+function monthTitle(year: number, month: number, locale: DateLocale): string {
+  const label = new Date(year, month, 1).toLocaleDateString(locale, {
+    month: 'long',
+    year: 'numeric',
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
 
 type DayStatusType = 'validated' | 'pending' | 'rejected' | 'mixed' | 'undeclared' | 'weekend';
 
 export interface ChooseDayCalendarProps {
   title: string;
   showBackButton?: boolean;
+  hideHeader?: boolean;
   initialDate?: string;
   headerPaddingTop?: number;
   scrollBottomPadding?: number;
+  absenceByDate?: Record<string, string>;
+  onAbsencePress?: (absenceId: string) => void;
 }
 
 export function ChooseDayCalendar({
   title,
   showBackButton = false,
+  hideHeader = false,
   initialDate,
   headerPaddingTop,
   scrollBottomPadding = 0,
+  absenceByDate = {},
+  onAbsencePress,
 }: ChooseDayCalendarProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
-  const { t } = useLanguage();
+  const { t, dateLocale } = useLanguage();
+  const { width: windowWidth } = useWindowDimensions();
+  const compactLegend = windowWidth < 400;
+  const daysShort = dateLocale.startsWith('en') ? DAYS_SHORT_EN : DAYS_SHORT_FR;
 
   const parsedInitial = initialDate ? parseDateKey(initialDate) : new Date();
   const [currentMonth, setCurrentMonth] = useState(parsedInitial.getMonth());
@@ -183,7 +198,17 @@ export function ChooseDayCalendar({
   const handleDayPress = (day: number) => {
     if (!profile?.id) return;
     const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const dayLabel = formatWeekDayLabel(dateStr);
+    const absenceId = absenceByDate[dateStr];
+    if (absenceId) {
+      if (onAbsencePress) {
+        onAbsencePress(absenceId);
+      } else {
+        appAlert(t.common.error, t.absences.errors.dayAlreadyAbsent);
+      }
+      return;
+    }
+
+    const dayLabel = formatWeekDayLabel(dateStr, dateLocale);
     const status = dayStatuses[dateStr];
     const canView =
       status === 'validated'
@@ -196,7 +221,10 @@ export function ChooseDayCalendar({
       return;
     }
 
-    void navigateToDaySuggestion(router, profile.id, dateStr, dayLabel);
+    void navigateToDaySuggestion(router, profile.id, dateStr, dayLabel, {
+      title: t.common.error,
+      message: t.absences.errors.dayAlreadyAbsent,
+    });
   };
 
   const handleBack = () => {
@@ -208,6 +236,171 @@ export function ChooseDayCalendar({
   };
 
   if (!profile || profile.role !== 'ouvrier') return null;
+
+  const calendarBody = (
+    <>
+        <View style={styles.calendarPanel}>
+          <View style={styles.monthNav}>
+            <Pressable
+              onPress={goToPrevMonth}
+              onPressIn={() => setPressedNav('prev')}
+              onPressOut={() => setPressedNav(null)}
+              onPressCancel={() => setPressedNav(null)}
+              style={[
+                styles.monthNavBtn,
+                pressedNav === 'prev' && styles.monthNavBtnPressed,
+              ]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Mois précédent"
+            >
+              <ChevronLeft size={20} color="#FFF" strokeWidth={2.5} />
+            </Pressable>
+            <View style={styles.monthLabelWrap} pointerEvents="none">
+              <Text style={styles.monthLabel} numberOfLines={1}>
+                {monthTitle(currentYear, currentMonth, dateLocale)}
+              </Text>
+            </View>
+            <Pressable
+              onPress={goToNextMonth}
+              onPressIn={() => setPressedNav('next')}
+              onPressOut={() => setPressedNav(null)}
+              onPressCancel={() => setPressedNav(null)}
+              style={[
+                styles.monthNavBtn,
+                pressedNav === 'next' && styles.monthNavBtnPressed,
+              ]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Mois suivant"
+            >
+              <ChevronRight size={20} color="#FFF" strokeWidth={2.5} />
+            </Pressable>
+          </View>
+
+          <View style={styles.calendarBody}>
+            <View style={styles.dayHeaderRow}>
+              {daysShort.map((d, i) => (
+                <View key={i} style={styles.dayHeaderCell}>
+                  <Text style={styles.dayHeaderText}>{d}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.calendarGrid}>
+            {daysInMonth.map((day, idx) => {
+              if (day === null) {
+                return <View key={`empty-${idx}`} style={styles.calendarCell} />;
+              }
+
+              const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              const status = dayStatuses[dateStr];
+              const isToday = dateStr === today;
+              const dayOfWeek = new Date(currentYear, currentMonth, day).getDay();
+              const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+              const isAbsent = !!absenceByDate[dateStr];
+
+              const statusType = status ?? 'weekend';
+              const statusDotColors: Record<string, string> = {
+                validated: '#22C55E',
+                pending: '#F97316',
+                rejected: '#EF4444',
+                mixed: '#FBBF24',
+              };
+              const statusDot = statusDotColors[statusType];
+              const hasData = !!statusDot;
+              const dotColor = statusDot || null;
+              const inHighlightWeek = highlightWeekDates.has(dateStr);
+              const canPressDay = isAbsent || !isWeekend || hasData || statusType === 'undeclared';
+
+              return (
+                <TouchableOpacity
+                  key={dateStr}
+                  style={styles.calendarCell}
+                  onPress={() => {
+                    if (canPressDay) handleDayPress(day);
+                  }}
+                  disabled={!canPressDay}
+                >
+                  <View style={styles.dayCell}>
+                    <View style={[
+                      styles.dayNumberWrap,
+                      inHighlightWeek && styles.dayWeekHighlightRing,
+                      isToday && styles.dayCircleToday,
+                      isAbsent && !isToday && styles.dayAbsentRing,
+                    ]}>
+                      <Text style={[
+                        styles.dayText,
+                        isToday && styles.dayTextWhite,
+                        !isToday && isWeekend && !dotColor && !isAbsent && statusType !== 'undeclared' && styles.dayTextWeekend,
+                        !isToday && dotColor && {
+                          color: dotColor,
+                          fontWeight: '600',
+                        },
+                        !isToday && isAbsent && !dotColor && styles.dayTextAbsent,
+                      ]}>
+                        {day}
+                      </Text>
+                    </View>
+                    <View style={styles.dotsRow}>
+                      {isAbsent && (
+                        <View style={[styles.dayDot, { backgroundColor: Colors.primary }]} />
+                      )}
+                      {dotColor && (
+                        <View style={[styles.dayDot, { backgroundColor: dotColor }]} />
+                      )}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.legendPanel}>
+          <Text style={styles.legendTitle}>
+            {t.ouvrierDashboard?.legendTitle ?? 'Légende'}
+          </Text>
+          <View style={styles.legendGrid}>
+            <View style={[styles.legendItem, compactLegend && styles.legendItemCompact]}>
+              <View style={[styles.legendDot, { backgroundColor: '#22C55E' }]} />
+              <Text style={[styles.legendText, compactLegend && styles.legendTextCompact]}>
+                {t.ouvrierDashboard?.legendValidated ?? 'Validée'}
+              </Text>
+            </View>
+            <View style={[styles.legendItem, compactLegend && styles.legendItemCompact]}>
+              <View style={[styles.legendDot, { backgroundColor: '#F97316' }]} />
+              <Text style={[styles.legendText, compactLegend && styles.legendTextCompact]}>
+                {t.ouvrierDashboard?.legendPending ?? 'En attente'}
+              </Text>
+            </View>
+            <View style={[styles.legendItem, compactLegend && styles.legendItemCompact]}>
+              <View style={[styles.legendDot, { backgroundColor: '#EF4444' }]} />
+              <Text style={[styles.legendText, compactLegend && styles.legendTextCompact]}>
+                {t.ouvrierDashboard?.legendRejected ?? 'Rejetée'}
+              </Text>
+            </View>
+            <View style={[styles.legendItem, compactLegend && styles.legendItemCompact]}>
+              <View style={[styles.legendDot, { backgroundColor: '#FBBF24' }]} />
+              <Text style={[styles.legendText, compactLegend && styles.legendTextCompact]}>
+                {t.ouvrierDashboard?.legendMixed ?? 'État multiple'}
+              </Text>
+            </View>
+            <View style={[styles.legendItem, compactLegend && styles.legendItemCompact]}>
+              <View style={[styles.legendDot, { backgroundColor: '#9CA3AF' }]} />
+              <Text style={[styles.legendText, compactLegend && styles.legendTextCompact]}>
+                {t.absences?.legendAbsent ?? 'Absent'}
+              </Text>
+            </View>
+          </View>
+        </View>
+    </>
+  );
+
+  if (hideHeader) {
+    return <View style={styles.embeddedWrap}>{calendarBody}</View>;
+  }
 
   return (
     <View style={styles.container}>
@@ -236,139 +429,7 @@ export function ChooseDayCalendar({
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: bottomInset + 24 }]}
       >
-        <View style={styles.calendarPanel}>
-          <View style={styles.monthNav}>
-            <Pressable
-              onPress={goToPrevMonth}
-              onPressIn={() => setPressedNav('prev')}
-              onPressOut={() => setPressedNav(null)}
-              onPressCancel={() => setPressedNav(null)}
-              style={[
-                styles.monthNavBtn,
-                pressedNav === 'prev' && styles.monthNavBtnPressed,
-              ]}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Mois précédent"
-            >
-              <ChevronLeft size={20} color="#FFF" strokeWidth={2.5} />
-            </Pressable>
-            <View style={styles.monthLabelWrap} pointerEvents="none">
-              <Text style={styles.monthLabel} numberOfLines={1}>
-                {MONTHS_FR[currentMonth]} {currentYear}
-              </Text>
-            </View>
-            <Pressable
-              onPress={goToNextMonth}
-              onPressIn={() => setPressedNav('next')}
-              onPressOut={() => setPressedNav(null)}
-              onPressCancel={() => setPressedNav(null)}
-              style={[
-                styles.monthNavBtn,
-                pressedNav === 'next' && styles.monthNavBtnPressed,
-              ]}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Mois suivant"
-            >
-              <ChevronRight size={20} color="#FFF" strokeWidth={2.5} />
-            </Pressable>
-          </View>
-
-          <View style={styles.calendarBody}>
-            <View style={styles.dayHeaderRow}>
-              {DAYS_SHORT.map((d, i) => (
-                <View key={i} style={styles.dayHeaderCell}>
-                  <Text style={styles.dayHeaderText}>{d}</Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.calendarGrid}>
-            {daysInMonth.map((day, idx) => {
-              if (day === null) {
-                return <View key={`empty-${idx}`} style={styles.calendarCell} />;
-              }
-
-              const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const status = dayStatuses[dateStr];
-              const isToday = dateStr === today;
-              const dayOfWeek = new Date(currentYear, currentMonth, day).getDay();
-              const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-              const statusType = status ?? 'weekend';
-              const statusDotColors: Record<string, string> = {
-                validated: '#22C55E',
-                pending: '#F97316',
-                rejected: '#EF4444',
-                mixed: '#FBBF24',
-              };
-              const statusDot = statusDotColors[statusType];
-              const hasData = !!statusDot;
-              const dotColor = statusDot || null;
-              const inHighlightWeek = highlightWeekDates.has(dateStr);
-
-              return (
-                <TouchableOpacity
-                  key={dateStr}
-                  style={styles.calendarCell}
-                  onPress={() => {
-                    if (!isWeekend || hasData || statusType === 'undeclared') handleDayPress(day);
-                  }}
-                  disabled={isWeekend && !hasData && statusType !== 'undeclared'}
-                >
-                  <View style={styles.dayCell}>
-                    <View style={[
-                      styles.dayNumberWrap,
-                      inHighlightWeek && styles.dayWeekHighlightRing,
-                      isToday && styles.dayCircleToday,
-                    ]}>
-                      <Text style={[
-                        styles.dayText,
-                        isToday && styles.dayTextWhite,
-                        !isToday && isWeekend && !dotColor && statusType !== 'undeclared' && styles.dayTextWeekend,
-                        !isToday && dotColor && {
-                          color: dotColor,
-                          fontWeight: '600',
-                        },
-                      ]}>
-                        {day}
-                      </Text>
-                    </View>
-                    {dotColor && (
-                      <View style={[styles.dayDot, { backgroundColor: dotColor }]} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.legendPanel}>
-          <Text style={styles.legendTitle}>
-            {t.ouvrierDashboard?.legendTitle ?? 'Légende'}
-          </Text>
-          <View style={styles.legendGrid}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#22C55E' }]} />
-              <Text style={styles.legendText}>{t.ouvrierDashboard?.legendValidated ?? 'Validée'}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#F97316' }]} />
-              <Text style={styles.legendText}>{t.ouvrierDashboard?.legendPending ?? 'En attente'}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#EF4444' }]} />
-              <Text style={styles.legendText}>{t.ouvrierDashboard?.legendRejected ?? 'Rejetée'}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#FBBF24' }]} />
-              <Text style={styles.legendText}>{t.ouvrierDashboard?.legendMixed ?? 'multiple state'}</Text>
-            </View>
-          </View>
-        </View>
+        {calendarBody}
       </ScrollView>
     </View>
   );
@@ -411,6 +472,9 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     paddingTop: 16,
+    gap: 14,
+  },
+  embeddedWrap: {
     gap: 14,
   },
   calendarPanel: {
@@ -529,6 +593,14 @@ const styles = StyleSheet.create({
   dayCircleToday: {
     backgroundColor: '#FF6B35',
   },
+  dayAbsentRing: {
+    backgroundColor: 'rgba(255, 107, 53, 0.12)',
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    gap: 3,
+    minHeight: 6,
+  },
   dayDot: {
     width: 6,
     height: 6,
@@ -541,6 +613,10 @@ const styles = StyleSheet.create({
   },
   dayTextWeekend: {
     color: '#D1D5DB',
+  },
+  dayTextAbsent: {
+    color: Colors.primary,
+    fontWeight: '700',
   },
   dayTextWhite: {
     color: '#FFF',
@@ -569,29 +645,44 @@ const styles = StyleSheet.create({
   legendGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    width: '47%',
+    width: '31%',
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 96,
     backgroundColor: '#FFFCF9',
     borderRadius: 10,
     paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: '#FFE8DC',
+  },
+  legendItemCompact: {
+    width: '47%',
+    minWidth: 0,
   },
   legendDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
+    flexShrink: 0,
   },
   legendText: {
     flex: 1,
-    fontSize: 13,
+    flexShrink: 1,
+    minWidth: 0,
+    fontSize: 12,
     color: Colors.cardWarm.body,
     fontWeight: '600',
+    lineHeight: 16,
+  },
+  legendTextCompact: {
+    fontSize: 11,
+    lineHeight: 15,
   },
 });

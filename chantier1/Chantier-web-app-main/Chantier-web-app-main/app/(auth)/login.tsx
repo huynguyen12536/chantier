@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LoginLogo } from '@/components/brand/LoginLogo';
@@ -41,6 +41,7 @@ export default function LoginScreen() {
   const [devicePinChecked, setDevicePinChecked] = useState(false);
   const { signIn } = useAuth();
   const { language, setLanguage, t } = useLanguage();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const refreshDevicePin = useCallback(async () => {
@@ -181,7 +182,10 @@ export default function LoginScreen() {
                   </View>
                 </View>
 
-                <TouchableOpacity style={styles.forgotPassword}>
+                <TouchableOpacity
+                  style={styles.forgotPassword}
+                  onPress={() => router.push('/(auth)/forgot-password')}
+                >
                   <Text style={styles.forgotPasswordText}>{t.login.forgotPassword}</Text>
                 </TouchableOpacity>
 

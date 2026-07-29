@@ -245,6 +245,34 @@ export async function listZoneChantiers(zoneId, actor) {
   return rows;
 }
 
+/**
+ * List zone↔chantier links visible to the actor (management UI builds a map).
+ * - admin / administratif: all links
+ * - chef_equipe: links for owned zones only
+ * - ouvrier: forbidden (use zone_id-scoped read via membership flows)
+ */
+export async function listAllZoneChantiers(actor) {
+  if (!actor?.id) throw new AppError('Unauthorized', 401, { code: 'UNAUTHORIZED' });
+  if (['admin', 'administratif'].includes(actor.role)) {
+    const { rows } = await query(
+      `SELECT * FROM zones_chantiers ORDER BY zone_id, chantier_id`,
+    );
+    return rows;
+  }
+  if (actor.role === 'chef_equipe') {
+    const { rows } = await query(
+      `SELECT zc.*
+       FROM zones_chantiers zc
+       JOIN zones_equipe ze ON ze.id = zc.zone_id
+       WHERE ze.chef_equipe_id = $1
+       ORDER BY zc.zone_id, zc.chantier_id`,
+      [actor.id],
+    );
+    return rows;
+  }
+  throw new AppError('zone_id required', 400, { code: 'VALIDATION_ERROR' });
+}
+
 export async function listZoneOuvriers(zoneId, actor) {
   await assertCanReadZone(zoneId, actor);
   const { rows } = await query(

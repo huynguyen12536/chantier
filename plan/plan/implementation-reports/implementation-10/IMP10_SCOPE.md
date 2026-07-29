@@ -124,4 +124,4 @@ Therefore Imp-10 is an **execution reliability layer**, not a new business domai
 
 ## Coding now?
 
-**NO.** Investigation only. Coding blocked until Human closes DRs and authorizes a wave.
+**SUPERSEDED:** Imp-10 **CLOSED**. See `IMP10_FINAL_CLOSURE.md`.

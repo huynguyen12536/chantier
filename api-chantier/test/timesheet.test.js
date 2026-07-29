@@ -4,7 +4,7 @@ import { createApp } from '../src/app.js';
 import { runMigrations } from '../src/db/migrate.js';
 import { query, closePool } from '../src/shared/db/pool.js';
 import { hashPassword } from '../src/modules/auth/service.js';
-import { splitHours } from '../src/modules/timesheet/domain/calculation.js';
+import { isShiftOutsideCadre, splitHours } from '../src/modules/timesheet/domain/calculation.js';
 import { durationHours } from '../src/modules/timesheet/domain/timeUtility.js';
 
 function listen(app) {
@@ -28,6 +28,17 @@ describe('Imp-06 Timesheet domain units', () => {
     const cadre = splitHours('08:00', '18:00', '08:00', '17:00');
     assert.equal(cadre.heures_normales, 9);
     assert.equal(cadre.heures_supplementaires, 1);
+  });
+
+  it('outside cadre is detected; inside cadre is not', () => {
+    const chantier = {
+      heure_debut_matin: '08:00',
+      heure_fin_apres_midi: '17:00',
+    };
+    assert.equal(isShiftOutsideCadre('08:00', '17:00', chantier), false);
+    assert.equal(isShiftOutsideCadre('07:00', '17:00', chantier), true);
+    assert.equal(isShiftOutsideCadre('08:00', '18:00', chantier), true);
+    assert.equal(isShiftOutsideCadre('09:00', '16:00', chantier), false);
   });
 });
 

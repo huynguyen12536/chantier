@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { RotateCcw } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { isDateInSelectedRange } from '@/utils/absenceFormat';
 import { formatDateKey, parseDateKey } from '@/utils/date';
 
-const WEEKDAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const WEEKDAY_LABELS_FR = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const WEEKDAY_LABELS_EN = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 interface DatePickerModalProps {
   visible: boolean;
@@ -15,6 +18,13 @@ interface DatePickerModalProps {
   showReset?: boolean;
   onReset?: () => void;
   resetLabel?: string;
+  rangeStart?: string | null;
+  rangeEnd?: string | null;
+  highlightRange?: boolean;
+  /** YYYY-MM-DD — dates before this are disabled and shown gray. */
+  minDate?: string;
+  /** YYYY-MM-DD keys — e.g. days with a registered work shift. */
+  disabledDates?: ReadonlySet<string>;
 }
 
 export function DatePickerModal({
@@ -26,7 +36,15 @@ export function DatePickerModal({
   showReset = false,
   onReset,
   resetLabel = "Aujourd'hui",
+  rangeStart,
+  rangeEnd,
+  highlightRange = false,
+  minDate,
+  disabledDates,
 }: DatePickerModalProps) {
+  const { dateLocale } = useLanguage();
+  const weekdayLabels = dateLocale.startsWith('en') ? WEEKDAY_LABELS_EN : WEEKDAY_LABELS_FR;
+
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const parsed = parseDateKey(value);
     return new Date(parsed.getFullYear(), parsed.getMonth(), 1);
@@ -53,16 +71,26 @@ export function DatePickerModal({
     setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + direction, 1));
   };
 
+  const prevMonthLastDay = formatDateKey(new Date(year, month, 0));
+  const canGoPrev = !minDate || prevMonthLastDay >= minDate;
+
+  const monthTitle = visibleMonth
+    .toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' });
+
   return (
-    <Modal visible={visible} animationType="fade" transparent>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.navBtn} onPress={() => changeMonth(-1)}>
-              <Text style={styles.navText}>‹</Text>
+            <TouchableOpacity
+              style={[styles.navBtn, !canGoPrev && styles.navBtnDisabled]}
+              onPress={() => changeMonth(-1)}
+              disabled={!canGoPrev}
+            >
+              <Text style={[styles.navText, !canGoPrev && styles.navTextDisabled]}>‹</Text>
             </TouchableOpacity>
             <Text style={styles.title}>
-              {visibleMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+              {monthTitle.charAt(0).toUpperCase() + monthTitle.slice(1)}
             </Text>
             <TouchableOpacity style={styles.navBtn} onPress={() => changeMonth(1)}>
               <Text style={styles.navText}>›</Text>
@@ -70,7 +98,7 @@ export function DatePickerModal({
           </View>
 
           <View style={styles.weekRow}>
-            {WEEKDAY_LABELS.map((day, index) => (
+            {weekdayLabels.map((day, index) => (
               <Text key={`${day}-${index}`} style={styles.weekText}>
                 {day}
               </Text>
@@ -82,16 +110,42 @@ export function DatePickerModal({
               if (!day) return <View key={`empty-${index}`} style={styles.day} />;
               const dayValue = formatDateKey(new Date(year, month, day));
               const active = dayValue === selectedValue;
+              const rangeStartKey = rangeStart && rangeEnd && rangeStart <= rangeEnd ? rangeStart : rangeStart;
+              const rangeEndKey = rangeStart && rangeEnd && rangeStart <= rangeEnd ? rangeEnd : rangeEnd;
+              const inRange = highlightRange && isDateInSelectedRange(dayValue, rangeStartKey, rangeEndKey);
+              const isRangeStart = highlightRange && dayValue === rangeStartKey;
+              const isRangeEnd = highlightRange && dayValue === rangeEndKey;
+              const isEndpoint = isRangeStart || isRangeEnd;
+              const isPast = Boolean(minDate && dayValue < minDate);
+              const isWorkDay = Boolean(disabledDates?.has(dayValue));
+              const isDisabled = isPast || isWorkDay;
+
               return (
                 <TouchableOpacity
                   key={dayValue}
-                  style={[styles.day, active && styles.dayActive]}
+                  style={[
+                    styles.day,
+                    inRange && !isDisabled && styles.dayInRange,
+                    (active || isEndpoint) && !isDisabled && styles.dayActive,
+                    isDisabled && styles.dayDisabled,
+                  ]}
+                  disabled={isDisabled}
                   onPress={() => {
+                    if (isDisabled) return;
                     onSelect(dayValue);
                     onClose();
                   }}
                 >
-                  <Text style={[styles.dayText, active && styles.dayTextActive]}>{day}</Text>
+                  <Text
+                    style={[
+                      styles.dayText,
+                      inRange && !isEndpoint && !isDisabled && styles.dayTextInRange,
+                      (active || isEndpoint) && !isDisabled && styles.dayTextActive,
+                      isDisabled && styles.dayTextDisabled,
+                    ]}
+                  >
+                    {day}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
@@ -113,8 +167,8 @@ export function DatePickerModal({
           <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
             <Text style={styles.closeText}>{closeLabel}</Text>
           </TouchableOpacity>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
@@ -163,11 +217,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Colors.surface,
   },
+  navBtnDisabled: {
+    opacity: 0.35,
+  },
   navText: {
     fontSize: 26,
     lineHeight: 28,
     fontWeight: '700',
     color: Colors.primary,
+  },
+  navTextDisabled: {
+    color: Colors.text.secondary,
   },
   weekRow: {
     flexDirection: 'row',
@@ -189,18 +249,32 @@ const styles = StyleSheet.create({
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 19,
+    borderRadius: 8,
+  },
+  dayInRange: {
+    backgroundColor: 'rgba(255, 107, 53, 0.18)',
   },
   dayActive: {
     backgroundColor: Colors.primary,
+    borderRadius: 19,
+  },
+  dayDisabled: {
+    opacity: 0.45,
   },
   dayText: {
     fontSize: 14,
     fontWeight: '700',
     color: Colors.text.primary,
   },
+  dayTextInRange: {
+    color: Colors.primary,
+  },
   dayTextActive: {
     color: '#FFF',
+  },
+  dayTextDisabled: {
+    color: Colors.text.secondary,
+    fontWeight: '500',
   },
   resetBtn: {
     marginTop: 14,

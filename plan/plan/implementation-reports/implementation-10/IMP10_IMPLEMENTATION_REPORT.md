@@ -5,7 +5,7 @@
 **Verdict:** **PASS — Wave A COMPLETE / CLOSED** (Human APPROVED)  
 **Head of Wave A code:** `6a2a169bd1`  
 **Formal closure:** `IMP10_WAVE_A_FINAL_CLOSURE.md`  
-**Wave B / C:** **BLOCKED**
+**Wave B1:** **COMPLETE / CLOSED** · **Wave C:** **DEFERRED** · See `IMP10_FINAL_CLOSURE.md`
 
 
 ---

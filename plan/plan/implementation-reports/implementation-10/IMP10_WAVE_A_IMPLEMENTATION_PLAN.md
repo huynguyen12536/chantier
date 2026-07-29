@@ -1,7 +1,7 @@
 # IMP10_WAVE_A_IMPLEMENTATION_PLAN.md
 
 **Date:** 2026-07-15  
-**Status:** FINAL SPEC — awaiting Human approval of **this document** before coding  
+**Status:** **SUPERSEDED** — Wave A approved and delivered; Imp-10 **CLOSED** (`IMP10_FINAL_CLOSURE.md`). Retained as Wave A build spec.  
 **Human design review:** APPROVED  
 
 **DR seal (LOCKED):**

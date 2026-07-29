@@ -49,13 +49,43 @@ export function clampTimeToRange(
 }
 
 export function isEndAfterStart(start: string, end: string): boolean {
-  return timeToMinutes(end) >= timeToMinutes(start);
+  return timeToMinutes(end) > timeToMinutes(start);
 }
 
 export function calculateDuration(start: string, end: string): number {
   const startMinutes = timeToMinutes(start);
   const endMinutes = timeToMinutes(end);
   return (endMinutes - startMinutes) / 60;
+}
+
+/**
+ * True when the declared shift starts before or ends after the chantier frame.
+ * Shifts fully inside [chantierDebut, chantierFin] do not require a reason.
+ * If the chantier has no frame hours, no reason is required.
+ */
+export function shiftOutsideChantierFrame(
+  workDebut: string,
+  workFin: string,
+  chantierDebut: string | null | undefined,
+  chantierFin: string | null | undefined,
+): boolean {
+  if (!workDebut || !workFin || !chantierDebut || !chantierFin) return false;
+  const w0 = timeToMinutes(formatTime(workDebut));
+  const w1 = timeToMinutes(formatTime(workFin));
+  const c0 = timeToMinutes(formatTime(chantierDebut));
+  const c1 = timeToMinutes(formatTime(chantierFin));
+  if (w1 <= w0 || c1 <= c0) return false;
+  return w0 < c0 || w1 > c1;
+}
+
+/** @deprecated Prefer shiftOutsideChantierFrame */
+export function shiftDurationDiffersFromChantier(
+  workDebut: string,
+  workFin: string,
+  chantierDebut: string | null | undefined,
+  chantierFin: string | null | undefined,
+): boolean {
+  return shiftOutsideChantierFrame(workDebut, workFin, chantierDebut, chantierFin);
 }
 
 export type ChantierHoursBreakdown = {

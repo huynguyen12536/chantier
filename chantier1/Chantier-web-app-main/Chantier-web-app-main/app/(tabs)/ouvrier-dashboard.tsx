@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, ImageBackground, InteractionManager, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, AppStateStatus, ImageBackground, InteractionManager, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CheckCircle2, Clock, AlertCircle, HelpCircle, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, Check, Clock3, X } from 'lucide-react-native';
-import { PrefillWeekButton } from '@/components/common';
+import { PrefillWeekButton, CollaboratorNotificationBell } from '@/components/common';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
@@ -12,6 +12,11 @@ import { formatDateKey, formatWeekDayLabel, getMonday, parseDateKey } from '@/ut
 import { formatTime } from '@/utils/time';
 import { supabase } from '@/services/supabase';
 import { WeekSuggestionModal } from '@/components/ouvrier/WeekSuggestionModal';
+import {
+  isBlockedByPendingDiversChantier,
+  type ChantierDiversStatut,
+  type ChantierSource,
+} from '@/utils/chantierDivers';
 import {
   fetchPreviousWeekHint,
   navigateOuvrierWeekDay,
@@ -27,7 +32,12 @@ const CHART_BAR_WIDTH = 10;
 const CHART_BAR_OVERLAP = CHART_BAR_WIDTH / 2;
 const CHART_EMPTY = '#FFE5D8';
 const CHART_VALID = '#22C55E';
-const CHART_REJECT = '#EF4444';
+const CHART_PENDING = '#F97316';
+const CHART_PENDING_CHANTIER = '#9CA3AF';
+const CHART_MAX_BAR_HEIGHT = 44;
+/** Fallback when realtime miss (admin validate from another session). */
+const DASHBOARD_POLL_MS = 5_000;
+const DASHBOARD_REALTIME_DEBOUNCE_MS = 350;
 
 interface PeriodLine {
   id: string;
@@ -41,6 +51,10 @@ interface DaySummary {
   date: string;
   dayLabel: string;
   totalHours: number;
+  validatedHours: number;
+  pendingHours: number;
+  pendingChantierHours: number;
+  hasChantierBlocked: boolean;
   hasDeclared: boolean;
   allValidated: boolean;
   hasRejected: boolean;
@@ -50,15 +64,17 @@ interface DaySummary {
 
 export default function OuvrierDashboardScreen() {
   const { profile } = useAuth();
-  const { t } = useLanguage();
+  const { t, dateLocale } = useLanguage();
   const router = useRouter();
   const params = useLocalSearchParams<{ focusDate?: string }>();
   const { scrollBottomPadding, headerPaddingTop } = useTabBarInset();
   const skipWeekReloadRef = useRef(false);
   const weekEffectReadyRef = useRef(false);
-  const dismissedWeekKeysRef = useRef<Set<string>>(new Set());
+  /** 'empty' = dismissed when no source week existed; reopen if validated shifts appear later. */
+  const dismissedWeekKeysRef = useRef<Map<string, 'empty' | 'all'>>(new Map());
   const weekSuggestionRequestRef = useRef(0);
   const hasLoadedWeekOnceRef = useRef(false);
+  const loadWeekDataRef = useRef<(weekBase?: Date) => Promise<void>>(async () => undefined);
 
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
   const weekKey = useMemo(() => formatDateKey(weekStart), [weekStart]);
@@ -82,14 +98,27 @@ export default function OuvrierDashboardScreen() {
     const end = new Date(weekStart);
     end.setDate(end.getDate() + 6);
     const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
-    return `${start.toLocaleDateString('fr-FR', opts)} - ${end.toLocaleDateString('fr-FR', opts)}`;
-  }, [weekStart]);
+    return `${start.toLocaleDateString(dateLocale, opts)} - ${end.toLocaleDateString(dateLocale, opts)}`;
+  }, [weekStart, dateLocale]);
 
   const totalWeekHours = useMemo(
     () => daySummaries.reduce((sum, d) => sum + d.totalHours, 0),
     [daySummaries]
   );
 
+  const chartHourScale = useMemo(() => {
+    const weekMax = daySummaries.reduce(
+      (max, day) => Math.max(max, day.validatedHours, day.pendingHours, day.pendingChantierHours),
+      0,
+    );
+    return weekMax > 0 ? CHART_MAX_BAR_HEIGHT / weekMax : 0;
+  }, [daySummaries]);
+
+  const chartBarHeight = useCallback(
+    (hours: number) =>
+      hours > 0 && chartHourScale > 0 ? Math.max(hours * chartHourScale, 6) : 4,
+    [chartHourScale],
+  );
 
   const resolveStatut = (
     periodStatut: string,
@@ -133,7 +162,7 @@ export default function OuvrierDashboardScreen() {
       const [periodsRes, declRes] = await Promise.all([
         supabase
           .from('periodes_travail')
-          .select('id, date, heure_debut, heure_fin, statut, chantier_id, chantiers(nom)')
+          .select('id, date, heure_debut, heure_fin, statut, chantier_id, chantiers(nom, source, divers_statut)')
           .eq('user_id', profile.id)
           .gte('date', startDate)
           .lte('date', endDate)
@@ -162,30 +191,56 @@ export default function OuvrierDashboardScreen() {
         const dayPeriods = (periodsRes.data || []).filter((p: any) => p.date === dateStr);
 
         let totalHours = 0;
+        let validatedHours = 0;
+        let pendingHours = 0;
+        let pendingChantierHours = 0;
         const lines: PeriodLine[] = [];
 
         for (const period of dayPeriods) {
-          const resolvedStatut = resolveStatut(
+          const chantierMeta = period.chantiers as {
+            nom?: string;
+            source?: ChantierSource | null;
+            divers_statut?: ChantierDiversStatut | null;
+          } | null;
+          const blockedByChantier = isBlockedByPendingDiversChantier(
+            chantierMeta?.source,
+            chantierMeta?.divers_statut,
+          );
+
+          let resolvedStatut = resolveStatut(
             period.statut as string,
             period.chantier_id as string,
             period.date as string,
             declByKey,
           );
+          if (blockedByChantier && (resolvedStatut === 'attente' || resolvedStatut === 'draft')) {
+            resolvedStatut = 'chantier_pending';
+          }
 
-          if (resolvedStatut === 'validee' && period.heure_debut && period.heure_fin) {
+          if (period.heure_debut && period.heure_fin) {
             const [sh, sm] = (period.heure_debut as string).split(':').map(Number);
             const [eh, em] = (period.heure_fin as string).split(':').map(Number);
-            totalHours += (eh * 60 + em - (sh * 60 + sm)) / 60;
+            const durationHours = (eh * 60 + em - (sh * 60 + sm)) / 60;
+            if (resolvedStatut === 'validee') {
+              totalHours += durationHours;
+              validatedHours += durationHours;
+            } else if (resolvedStatut === 'chantier_pending') {
+              pendingChantierHours += durationHours;
+            } else if (resolvedStatut === 'attente' || resolvedStatut === 'draft') {
+              pendingHours += durationHours;
+            }
           }
 
           lines.push({
             id: period.id as string,
-            chantierNom: (period.chantiers as any)?.nom || '',
+            chantierNom: chantierMeta?.nom || '',
             heure_debut: period.heure_debut ? formatTime(period.heure_debut as string) : '',
             heure_fin: period.heure_fin ? formatTime(period.heure_fin as string) : '',
             statut: resolvedStatut,
           });
         }
+
+        const hasChantierBlocked = lines.some((l) => l.statut === 'chantier_pending');
 
         const hasDeclared = dayPeriods.length > 0 && dayPeriods.every(
           (p: any) => p.heure_debut && p.heure_fin
@@ -195,8 +250,12 @@ export default function OuvrierDashboardScreen() {
 
         summaries.push({
           date: dateStr,
-          dayLabel: formatWeekDayLabel(dateStr),
+          dayLabel: formatWeekDayLabel(dateStr, dateLocale),
           totalHours: Math.round(totalHours * 100) / 100,
+          validatedHours: Math.round(validatedHours * 100) / 100,
+          pendingHours: Math.round(pendingHours * 100) / 100,
+          pendingChantierHours: Math.round(pendingChantierHours * 100) / 100,
+          hasChantierBlocked,
           hasDeclared,
           allValidated,
           hasRejected,
@@ -207,11 +266,13 @@ export default function OuvrierDashboardScreen() {
 
       setDaySummaries(summaries);
 
+      const weekTotal = summaries.reduce((sum, d) => sum + d.totalHours, 0);
+
       const weekEmpty = summaries.length > 0
         && summaries.every((d) => d.lineCount === 0)
-        && summaries.reduce((sum, d) => sum + d.totalHours, 0) === 0;
+        && weekTotal === 0;
 
-      if (weekEmpty && profile?.id && !dismissedWeekKeysRef.current.has(loadedWeekKey)) {
+      if (weekEmpty && profile?.id) {
         const requestId = weekSuggestionRequestRef.current + 1;
         weekSuggestionRequestRef.current = requestId;
 
@@ -219,6 +280,11 @@ export default function OuvrierDashboardScreen() {
           void (async () => {
             const hint = await fetchPreviousWeekHint(profile.id, loadedWeekKey);
             if (weekSuggestionRequestRef.current !== requestId) return;
+
+            const dismissedMode = dismissedWeekKeysRef.current.get(loadedWeekKey);
+            if (hint.hasPreviousWeekData && dismissedMode === 'empty') {
+              dismissedWeekKeysRef.current.delete(loadedWeekKey);
+            }
             if (dismissedWeekKeysRef.current.has(loadedWeekKey)) return;
 
             setPreviousWeekHint(hint);
@@ -235,7 +301,9 @@ export default function OuvrierDashboardScreen() {
       setLoading(false);
       hasLoadedWeekOnceRef.current = true;
     }
-  }, [profile?.id, weekStart, getWeekDateStrings]);
+  }, [profile?.id, weekStart, getWeekDateStrings, dateLocale]);
+
+  loadWeekDataRef.current = loadWeekData;
 
   useFocusEffect(
     useCallback(() => {
@@ -247,11 +315,90 @@ export default function OuvrierDashboardScreen() {
         setWeekStart(monday);
         void loadWeekData(monday);
         router.setParams({ focusDate: '' });
-        return;
+      } else {
+        void loadWeekData();
       }
-      void loadWeekData();
     }, [params.focusDate, loadWeekData, router])
   );
+
+  // Realtime + poll while the tab stays mounted (Expo tabs often keep the screen alive).
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const channelName = `ouvrier-dashboard-${profile.id}`;
+
+    const reload = () => {
+      void loadWeekDataRef.current();
+    };
+
+    const scheduleReloadFromRealtime = (payload: {
+      eventType?: string;
+      table?: string;
+      new?: { user_id?: string; statut?: string } | null;
+      old?: { user_id?: string; statut?: string } | null;
+    }) => {
+      const nextUserId = payload?.new?.user_id ?? payload?.old?.user_id;
+      if (nextUserId && nextUserId !== profile.id) return;
+
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        reload();
+      }, DASHBOARD_REALTIME_DEBOUNCE_MS);
+    };
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'periodes_travail' },
+        scheduleReloadFromRealtime,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'declarations_heures' },
+        scheduleReloadFromRealtime,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chantiers' },
+        () => {
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            reload();
+          }, DASHBOARD_REALTIME_DEBOUNCE_MS);
+        },
+      )
+      .subscribe((status, err) => {
+        if (status === 'CHANNEL_ERROR' || err) {
+          console.warn('[ouvrier-dashboard] realtime channel issue', status, err?.message ?? err);
+        }
+      });
+
+    const pollTimer = setInterval(reload, DASHBOARD_POLL_MS);
+
+    const onAppState = (next: AppStateStatus) => {
+      if (next === 'active') reload();
+    };
+    const appSub = AppState.addEventListener('change', onAppState);
+
+    let removeVisibility: (() => void) | undefined;
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const onVisibility = () => {
+        if (document.visibilityState === 'visible') reload();
+      };
+      document.addEventListener('visibilitychange', onVisibility);
+      removeVisibility = () => document.removeEventListener('visibilitychange', onVisibility);
+    }
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      clearInterval(pollTimer);
+      appSub.remove();
+      removeVisibility?.();
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id]);
 
   useEffect(() => {
     weekSuggestionRequestRef.current += 1;
@@ -296,9 +443,13 @@ export default function OuvrierDashboardScreen() {
     return daySummaries.find((d) => d.date === todayKey) ?? null;
   }, [daySummaries]);
 
-  const todayDateLabel = useMemo(() => formatWeekDayLabel(formatDateKey(new Date())), []);
+  const todayDateLabel = useMemo(
+    () => formatWeekDayLabel(formatDateKey(new Date()), dateLocale),
+    [dateLocale],
+  );
 
-  const weekHasNoHours = !loading && daySummaries.length > 0 && totalWeekHours === 0 && daySummaries.every((d) => d.lineCount === 0);
+  const weekHasNoHours = !loading && daySummaries.length > 0 && totalWeekHours === 0
+    && daySummaries.every((d) => d.lineCount === 0);
 
   const weekSuggestionCopy = useMemo(() => {
     const ws = t.ouvrierDashboard?.weekSuggestion;
@@ -325,12 +476,18 @@ export default function OuvrierDashboardScreen() {
   }, [t, previousWeekHint, weekSuggestionMode]);
 
   const dismissWeekSuggestion = () => {
+    // Remember dismiss so poll/realtime/in-flight hint fetch cannot reopen this week.
+    dismissedWeekKeysRef.current.set(
+      weekKey,
+      weekSuggestionMode === 'suggestion' ? 'all' : 'empty',
+    );
+    weekSuggestionRequestRef.current += 1;
     setWeekSuggestionVisible(false);
   };
 
   const handleWeekSuggestionValidate = () => {
     if (!profile?.id) return;
-    dismissedWeekKeysRef.current.add(weekKey);
+    dismissedWeekKeysRef.current.set(weekKey, 'all');
     setWeekSuggestionVisible(false);
 
     if (weekSuggestionMode === 'suggestion' && (previousWeekHint?.dayPlans.length ?? 0) > 0) {
@@ -364,7 +521,13 @@ export default function OuvrierDashboardScreen() {
     const today = formatDateKey(new Date());
     const weekDates = Array.from({ length: 7 }, (_, i) => getDateString(i));
     if (weekDates.includes(today)) {
-      void navigateToDaySuggestion(router, profile.id, today, formatWeekDayLabel(today));
+      void navigateToDaySuggestion(
+        router,
+        profile.id,
+        today,
+        formatWeekDayLabel(today, dateLocale),
+        { title: t.common.error, message: t.absences.errors.dayAlreadyAbsent },
+      );
       return;
     }
 
@@ -376,7 +539,14 @@ export default function OuvrierDashboardScreen() {
 
   const handleDayPress = (day: DaySummary) => {
     if (!profile?.id) return;
-    void navigateOuvrierWeekDay(router, profile.id, day.date, day.dayLabel, day.lines);
+    void navigateOuvrierWeekDay(
+      router,
+      profile.id,
+      day.date,
+      day.dayLabel,
+      day.lines,
+      { title: t.common.error, message: t.absences.errors.dayAlreadyAbsent },
+    );
   };
 
   const handlePrefillCurrentWeek = () => {
@@ -402,10 +572,15 @@ export default function OuvrierDashboardScreen() {
           style={styles.headerGradient}
         />
         <View style={[styles.headerContent, { paddingTop: headerPaddingTop }]}>
-          <Text style={styles.greeting}>
-            {t.home.greeting} {profile.prenom}
-          </Text>
-          <Text style={styles.role}>{t.roles.ouvrier}</Text>
+          <View style={styles.headerTop}>
+            <View style={styles.headerCopy}>
+              <Text style={styles.greeting}>
+                {t.home.greeting} {profile.prenom}
+              </Text>
+              <Text style={styles.role}>{t.roles.ouvrier}</Text>
+            </View>
+            <CollaboratorNotificationBell variant="light" />
+          </View>
         </View>
       </ImageBackground>
 
@@ -479,11 +654,6 @@ export default function OuvrierDashboardScreen() {
               <View style={styles.chartContainer}>
                 <View style={styles.chartRow}>
                   {daySummaries.map((day, idx) => {
-                    const countValidee = day.lines.filter((l) => l.statut === 'validee').length;
-                    const countRejetee = day.lines.filter((l) => l.statut === 'rejetee' || l.statut === 'annulee').length;
-
-                    const maxCount = Math.max(countValidee, countRejetee, 1);
-                    const scale = 40 / maxCount;
                     const todayKey = formatDateKey(new Date());
                     const isToday = day.date === todayKey;
 
@@ -495,8 +665,8 @@ export default function OuvrierDashboardScreen() {
                               styles.chartBar,
                               styles.chartBarFirst,
                               {
-                                height: countValidee > 0 ? Math.max(countValidee * scale, 10) : 4,
-                                backgroundColor: countValidee > 0 ? CHART_VALID : CHART_EMPTY,
+                                height: chartBarHeight(day.validatedHours),
+                                backgroundColor: day.validatedHours > 0 ? CHART_VALID : CHART_EMPTY,
                               },
                             ]}
                           />
@@ -505,8 +675,18 @@ export default function OuvrierDashboardScreen() {
                               styles.chartBar,
                               styles.chartBarSecond,
                               {
-                                height: countRejetee > 0 ? Math.max(countRejetee * scale, 10) : 4,
-                                backgroundColor: countRejetee > 0 ? CHART_REJECT : CHART_EMPTY,
+                                height: chartBarHeight(day.pendingHours),
+                                backgroundColor: day.pendingHours > 0 ? CHART_PENDING : CHART_EMPTY,
+                              },
+                            ]}
+                          />
+                          <View
+                            style={[
+                              styles.chartBar,
+                              styles.chartBarThird,
+                              {
+                                height: chartBarHeight(day.pendingChantierHours),
+                                backgroundColor: day.pendingChantierHours > 0 ? CHART_PENDING_CHANTIER : CHART_EMPTY,
                               },
                             ]}
                           />
@@ -521,13 +701,22 @@ export default function OuvrierDashboardScreen() {
               </View>
 
               <View style={styles.chartLegend}>
-                <View style={styles.chartLegendItem}>
-                  <View style={[styles.chartLegendDot, { backgroundColor: CHART_VALID }]} />
-                  <Text style={styles.chartLegendText}>{t.ouvrierDashboard?.legendValidated ?? 'Validée'}</Text>
-                </View>
-                <View style={styles.chartLegendItem}>
-                  <View style={[styles.chartLegendDot, { backgroundColor: CHART_REJECT }]} />
-                  <Text style={styles.chartLegendText}>{t.ouvrierDashboard?.legendRejected ?? 'Rejetée'}</Text>
+                <Text style={styles.chartLegendTitle}>
+                  {t.ouvrierDashboard?.legendTitle ?? 'Légende'}
+                </Text>
+                <View style={styles.chartLegendRow}>
+                  <View style={styles.chartLegendItem}>
+                    <View style={[styles.chartLegendDot, { backgroundColor: CHART_VALID }]} />
+                    <Text style={styles.chartLegendText}>{t.ouvrierDashboard?.legendValidated ?? 'Validée'}</Text>
+                  </View>
+                  <View style={styles.chartLegendItem}>
+                    <View style={[styles.chartLegendDot, { backgroundColor: CHART_PENDING }]} />
+                    <Text style={styles.chartLegendText}>{t.ouvrierDashboard?.legendPending ?? 'En attente'}</Text>
+                  </View>
+                  <View style={styles.chartLegendItem}>
+                    <View style={[styles.chartLegendDot, { backgroundColor: CHART_PENDING_CHANTIER }]} />
+                    <Text style={styles.chartLegendText}>{t.ouvrierDashboard?.legendChantierPending ?? 'Chantier en attente'}</Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -553,7 +742,9 @@ export default function OuvrierDashboardScreen() {
             let StatusIcon: React.ReactNode;
 
             const hasValidee = day.lines.some((l) => l.statut === 'validee');
-            const hasAttente = day.lines.some((l) => l.statut === 'attente' || l.statut === 'draft');
+            const hasAttente = day.lines.some(
+              (l) => l.statut === 'attente' || l.statut === 'draft' || l.statut === 'chantier_pending',
+            );
             const hasRejetee = day.lines.some((l) => l.statut === 'rejetee' || l.statut === 'annulee');
             const statusCount = [hasValidee, hasAttente, hasRejetee].filter(Boolean).length;
 
@@ -584,7 +775,11 @@ export default function OuvrierDashboardScreen() {
             return (
               <TouchableOpacity
                 key={day.date}
-                style={[styles.dayRow, hasColoredDot && styles.dayRowHighlighted]}
+                style={[
+                  styles.dayRow,
+                  hasColoredDot && styles.dayRowHighlighted,
+                  day.hasChantierBlocked && styles.dayRowBlocked,
+                ]}
                 onPress={() => handleDayPress(day)}
                 activeOpacity={0.7}
               >
@@ -644,6 +839,15 @@ const styles = StyleSheet.create({
   headerContent: {
     paddingBottom: 18,
     paddingHorizontal: 20,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
     gap: 4,
   },
   greeting: {
@@ -811,7 +1015,7 @@ const styles = StyleSheet.create({
   chartBarGroup: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    width: CHART_BAR_WIDTH + CHART_BAR_OVERLAP,
+    width: CHART_BAR_WIDTH + 2 * CHART_BAR_OVERLAP,
     justifyContent: 'center',
   },
   chartBar: {
@@ -826,6 +1030,10 @@ const styles = StyleSheet.create({
     marginLeft: -CHART_BAR_OVERLAP,
     zIndex: 1,
   },
+  chartBarThird: {
+    marginLeft: -CHART_BAR_OVERLAP,
+    zIndex: 2,
+  },
   chartLabel: {
     fontSize: 10,
     fontWeight: '700',
@@ -836,16 +1044,27 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   chartLegend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 12,
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: '#FFF7F2',
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: '#FFE8DC',
+  },
+  chartLegendTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  chartLegendRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
   },
   chartLegendItem: {
     flexDirection: 'row',
@@ -902,6 +1121,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderBottomColor: 'transparent',
   },
+  dayRowBlocked: {
+    backgroundColor: '#F3F4F6',
+    opacity: 0.85,
+  },
   dayStatusDot: {
     width: 8,
     height: 8,
@@ -928,6 +1151,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: Colors.primary,
+  },
+  dayHoursMuted: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    opacity: 0.85,
   },
   dayHoursEmpty: {
     fontSize: 15,

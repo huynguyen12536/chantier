@@ -1,7 +1,7 @@
 # IMP10_WAVE_B1_COMPLETION_CHECKLIST.md
 
 **Date:** 2026-07-15  
-**Status:** **COMPLETE** — awaiting Human formal APPROVED closure  
+**Status:** **COMPLETE / CLOSED** — Human APPROVED; phase Imp-10 CLOSED  
 **Code head:** `6d10aaf038`
 
 ---

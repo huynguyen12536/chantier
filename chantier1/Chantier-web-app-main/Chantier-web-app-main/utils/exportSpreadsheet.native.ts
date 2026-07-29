@@ -14,7 +14,7 @@ export function downloadExcelBuffer(): void {
 
 export async function shareExportCsv(
   headers: string[],
-  rows: string[][],
+  rows: (string | number)[][],
   filename: string,
 ): Promise<void> {
   const csv = buildCsvContent(headers, rows);

@@ -320,7 +320,7 @@ DR-IMP10-B-006 = B
 
 ### 1. Can Wave B1 begin?
 
-**Not yet.** Design review recommends the seal above, but Wave B1 coding remains **blocked until Human formally seals DRs and authorizes Wave B1 coding**. After that seal: **Yes — Wave B1 only** (JB-01 + optional Imp-09 failure hook). Wave B2 / Outbox / FE / Wave C remain blocked.
+**Historical answer (at design-review time):** Coding was blocked pending DR seal. **Current:** Human sealed DRs and authorized Wave B1; Imp-10 is **CLOSED**. Wave B2 / Outbox / FE remain out of scope; Wave C is **DEFERRED**.
 
 ### 2. Exactly which production files will be created?
 

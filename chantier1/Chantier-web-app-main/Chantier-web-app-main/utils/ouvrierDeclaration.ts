@@ -1,8 +1,15 @@
 import type { Router } from 'expo-router';
-import { formatDateKey, formatWeekDayLabel, getWeekDateStringsFromDate, parseDateKey } from '@/utils/date';
+import { formatDateKey, formatWeekDayLabel, getWeekDateStringsFromDate, normalizeDateKey, parseDateKey } from '@/utils/date';
 import { declarationLookupKey, resolveLineStatut } from '@/utils/status';
-import { calculateDuration, formatTime, timeRangesOverlap, toDbTimeString } from '@/utils/time';
+import { calculateDuration, formatTime, toDbTimeString } from '@/utils/time';
+import {
+  filterActivePeriodsForShiftOverlap,
+  shiftOverlapsActivePeriods,
+  type ShiftOverlapPeriod,
+} from '@/utils/shiftOverlap';
 import { supabase } from '@/services/supabase';
+import { findAbsenceForDate } from '@/utils/absence';
+import { appAlert } from '@/utils/appAlert';
 
 export interface DeclarationSuggestion {
   chantier_id: string;
@@ -262,21 +269,12 @@ function formatWeekRangeLabel(startKey: string, endKey: string): string {
   return `${start.toLocaleDateString('fr-FR', opts)} - ${end.toLocaleDateString('fr-FR', opts)}`;
 }
 
-const previousWeekHintCache = new Map<string, PreviousWeekHint>();
-
 /** How many past weeks to scan for the nearest week with validated shifts. */
 const MAX_WEEKS_LOOKBACK = 12;
 
-export function clearPreviousWeekHintCache(userId?: string) {
-  if (!userId) {
-    previousWeekHintCache.clear();
-    return;
-  }
-  for (const key of previousWeekHintCache.keys()) {
-    if (key.startsWith(`${userId}:`)) {
-      previousWeekHintCache.delete(key);
-    }
-  }
+/** Kept for callers after week replication; hints are always loaded fresh. */
+export function clearPreviousWeekHintCache(_userId?: string) {
+  // no-op — week hints must reflect the latest validated shifts immediately
 }
 
 function planToSuggestion(plan: WeekDayReplicationPlan): DeclarationSuggestion {
@@ -441,34 +439,25 @@ export async function fetchPreviousWeekHint(
   userId: string,
   currentWeekMondayKey: string,
 ): Promise<PreviousWeekHint> {
-  const cacheKey = `${userId}:${currentWeekMondayKey}`;
-  const cached = previousWeekHintCache.get(cacheKey);
-  if (cached) return cached;
-
   const { prevWeekLabel, dayPlans } = await loadPreviousWeekValidatedPlans(userId, currentWeekMondayKey);
 
-  const empty: PreviousWeekHint = {
-    hasPreviousWeekData: false,
-    workDayCount: 0,
-    prevWeekLabel,
-    suggestion: null,
-    dayPlans: [],
-  };
-
   if (dayPlans.length === 0) {
-    previousWeekHintCache.set(cacheKey, empty);
-    return empty;
+    return {
+      hasPreviousWeekData: false,
+      workDayCount: 0,
+      prevWeekLabel,
+      suggestion: null,
+      dayPlans: [],
+    };
   }
 
-  const result: PreviousWeekHint = {
+  return {
     hasPreviousWeekData: true,
     workDayCount: new Set(dayPlans.map((plan) => plan.targetDate)).size,
     prevWeekLabel,
     suggestion: planToSuggestion(dayPlans[0]),
     dayPlans,
   };
-  previousWeekHintCache.set(cacheKey, result);
-  return result;
 }
 
 export async function computeReplicationOverlapMap(
@@ -508,10 +497,10 @@ export async function computeReplicationOverlapMap(
 
   for (const plan of plans) {
     const dayPeriods = (periodsRes.data || []).filter(
-      (p: { date: string }) => p.date === plan.targetDate,
-    ) as ActivePeriod[];
-    const activePeriods = filterActivePeriodsForOverlap(dayPeriods, plan.targetDate, declByKey);
-    overlapByDate[plan.targetDate] = hasOverlapWithPeriods(
+      (p: { date: string }) => normalizeDateKey(p.date) === plan.targetDate,
+    ) as ShiftOverlapPeriod[];
+    const activePeriods = filterActivePeriodsForShiftOverlap(dayPeriods, plan.targetDate, declByKey);
+    overlapByDate[plan.targetDate] = shiftOverlapsActivePeriods(
       plan.heure_debut,
       plan.heure_fin,
       activePeriods,
@@ -519,37 +508,6 @@ export async function computeReplicationOverlapMap(
   }
 
   return overlapByDate;
-}
-
-type ActivePeriod = {
-  chantier_id: string;
-  heure_debut: string | null;
-  heure_fin: string | null;
-  statut: string;
-};
-
-function filterActivePeriodsForOverlap(
-  periods: ActivePeriod[],
-  dateStr: string,
-  declByKey: Map<string, string>,
-): ActivePeriod[] {
-  return periods.filter((period) => {
-    const declStatut = declByKey.get(declarationLookupKey(period.chantier_id, dateStr));
-    if (declStatut === 'annulee') return false;
-    if (period.statut === 'annulee') return false;
-    return true;
-  });
-}
-
-function hasOverlapWithPeriods(
-  dbDebut: string,
-  dbFin: string,
-  periods: ActivePeriod[],
-): boolean {
-  return periods.some((existing) => {
-    if (!existing.heure_debut || !existing.heure_fin) return false;
-    return timeRangesOverlap(dbDebut, dbFin, existing.heure_debut, existing.heure_fin);
-  });
 }
 
 /** Insère les ca validées de la semaine précédente sur les jours équivalents. */
@@ -629,12 +587,32 @@ export async function navigateToPrefillCurrentWeek(
   router.push({ pathname: '/declare-day', params });
 }
 
+export interface AbsentDayAlertCopy {
+  title: string;
+  message: string;
+}
+
+/** Shows an alert when the day has a registered absence. Returns true if blocked. */
+export async function alertIfAbsentDay(
+  userId: string,
+  date: string,
+  copy: AbsentDayAlertCopy,
+): Promise<boolean> {
+  const absence = await findAbsenceForDate(userId, date);
+  if (!absence) return false;
+  appAlert(copy.title, copy.message);
+  return true;
+}
+
 export async function navigateToDaySuggestion(
   router: Router,
   userId: string,
   date: string,
   dayLabel: string,
+  absentAlert?: AbsentDayAlertCopy,
 ) {
+  if (absentAlert && (await alertIfAbsentDay(userId, date, absentAlert))) return;
+
   const validated = await fetchLatestValidatedPeriod(userId, date);
 
   if (validated) {
@@ -679,13 +657,16 @@ export async function navigateOuvrierWeekDay(
   date: string,
   dayLabel: string,
   lines: { statut: string }[],
+  absentAlert?: AbsentDayAlertCopy,
 ) {
+  if (absentAlert && (await alertIfAbsentDay(userId, date, absentAlert))) return;
+
   if (dayHasViewableDeclaration(lines)) {
     navigateFromChooseDay(router, userId, date, dayLabel);
     return;
   }
 
-  await navigateToDaySuggestion(router, userId, date, dayLabel);
+  await navigateToDaySuggestion(router, userId, date, dayLabel, absentAlert);
 }
 
 /** @deprecated Utiliser navigateToDaySuggestion */

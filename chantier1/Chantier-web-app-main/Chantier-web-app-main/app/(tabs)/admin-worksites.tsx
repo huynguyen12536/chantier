@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,10 @@ import {
   ActivityIndicator,
   RefreshControl,
   FlatList,
+  useWindowDimensions,
 } from 'react-native';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Building2,
   Search,
@@ -25,6 +26,8 @@ import {
   UserPlus,
   Settings,
   Clock,
+  ClipboardCheck,
+  XCircle,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -34,6 +37,11 @@ import { Chantier, Profile } from '@/types';
 import { Colors } from '@/constants/colors';
 import { CHANTIER_ASSIGNABLE_ROLES, isChantierAssignableRole } from '@/constants';
 import { generateWorksiteCode } from '@/utils/worksiteCode';
+import { canReviewChantierDivers } from '@/utils/role';
+import { clearApprovalDeepLinkParams, parseApprovalDeepLink } from '@/utils/approvalDeepLink';
+import { ChantierDiversAdminSection } from '@/components/management/ChantierDiversAdminSection';
+import { ChantierDiversRejectedSection } from '@/components/management/ChantierDiversRejectedSection';
+import { ValidationNotificationBell } from '@/components/common/ValidationNotificationBell';
 
 function getRoleLabel(role: string, t: Translations): string {
   const labels: Record<string, string> = {
@@ -71,6 +79,8 @@ type AssignedUser = {
 const DEFAULT_HEURE_DEBUT = '07:30';
 const DEFAULT_HEURE_FIN = '16:30';
 
+type WorksiteView = 'pending' | 'list' | 'rejected';
+
 function getErrorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
     return error.message;
@@ -81,8 +91,24 @@ function getErrorMessage(error: unknown): string {
 export default function AdminWorksitesScreen() {
   const { profile } = useAuth();
   const { t } = useLanguage();
-  const m = t.management.modals;
+  const mgmt = t.management;
+  const m = mgmt.modals;
   const router = useRouter();
+  const { width: windowWidth } = useWindowDimensions();
+  const compactSubTabs = windowWidth < 400;
+  const routeParams = useLocalSearchParams<{
+    worksiteView?: string;
+    highlightChantierId?: string;
+    _focus?: string;
+  }>();
+  const [worksiteView, setWorksiteView] = useState<WorksiteView>('list');
+  const [pendingDiversCount, setPendingDiversCount] = useState(0);
+  const [rejectedDiversCount, setRejectedDiversCount] = useState(0);
+  const [highlightChantierId, setHighlightChantierId] = useState<string | null>(null);
+  const pendingScrollRef = useRef<ScrollView>(null);
+  const rejectedScrollRef = useRef<ScrollView>(null);
+  const lastHandledFocusRef = useRef<string | null>(null);
+  const highlightClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [worksites, setWorksites] = useState<Chantier[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -123,6 +149,54 @@ export default function AdminWorksitesScreen() {
     }
   }, []);
 
+  const canReviewDivers = profile?.role ? canReviewChantierDivers(profile.role) : false;
+  const showWorksiteSubTabs = canReviewDivers;
+  const showWorksiteList = !canReviewDivers || worksiteView === 'list';
+  const showWorksitePending = canReviewDivers && worksiteView === 'pending';
+  const showWorksiteRejected = canReviewDivers && worksiteView === 'rejected';
+
+  const loadPendingDiversCount = useCallback(async () => {
+    if (!canReviewDivers) {
+      setPendingDiversCount(0);
+      return;
+    }
+    try {
+      const { count, error } = await supabase
+        .from('chantiers')
+        .select('*', { count: 'exact', head: true })
+        .eq('source', 'divers')
+        .eq('divers_statut', 'en_attente');
+      if (error) throw error;
+      setPendingDiversCount(count ?? 0);
+    } catch {
+      setPendingDiversCount(0);
+    }
+  }, [canReviewDivers]);
+
+  const loadRejectedDiversCount = useCallback(async () => {
+    if (!canReviewDivers) {
+      setRejectedDiversCount(0);
+      return;
+    }
+    try {
+      const { count, error } = await supabase
+        .from('chantiers')
+        .select('id', { count: 'exact', head: true })
+        .eq('source', 'divers')
+        .eq('divers_statut', 'rejete');
+      if (error) throw error;
+      setRejectedDiversCount(count ?? 0);
+    } catch {
+      setRejectedDiversCount(0);
+    }
+  }, [canReviewDivers]);
+
+  const switchWorksiteView = (view: WorksiteView) => {
+    setWorksiteView(view);
+    setSearch('');
+    setError(null);
+  };
+
   const loadAssignedUsers = useCallback(async (chantierId: string) => {
     try {
       const { data, error } = await supabase
@@ -157,10 +231,39 @@ export default function AdminWorksitesScreen() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); loadPendingDiversCount(); loadRejectedDiversCount(); }, [load, loadPendingDiversCount, loadRejectedDiversCount]);
   useEffect(() => { loadAllProfiles(); }, [loadAllProfiles]);
 
-  if (profile?.role !== 'admin') return null;
+  const applyDeepLink = useCallback(() => {
+    const parsed = parseApprovalDeepLink(routeParams);
+    if (!parsed.focusKey) return;
+    if (parsed.focusKey === lastHandledFocusRef.current) return;
+
+    setSearch('');
+    setWorksiteView(parsed.worksiteView ?? 'pending');
+
+    if (parsed.highlightChantierId) {
+      setHighlightChantierId(parsed.highlightChantierId);
+      if (highlightClearTimerRef.current) {
+        clearTimeout(highlightClearTimerRef.current);
+      }
+      highlightClearTimerRef.current = setTimeout(() => {
+        setHighlightChantierId(null);
+        highlightClearTimerRef.current = null;
+      }, 6000);
+    }
+
+    lastHandledFocusRef.current = parsed.focusKey;
+    clearApprovalDeepLinkParams(router.setParams);
+  }, [routeParams, router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      applyDeepLink();
+    }, [applyDeepLink]),
+  );
+
+  if (profile?.role !== 'admin' && profile?.role !== 'administratif') return null;
 
   const filtered = worksites.filter(w =>
     `${w.nom} ${w.code} ${w.adresse}`.toLowerCase().includes(search.toLowerCase())
@@ -307,36 +410,189 @@ export default function AdminWorksitesScreen() {
         <View style={[styles.headerIcon, { backgroundColor: Colors.secondary + '18' }]}>
           <Building2 size={20} color={Colors.secondary} />
         </View>
-        <View>
+        <View style={styles.headerCopy}>
           <Text style={styles.headerTitle}>Chantiers</Text>
           <Text style={styles.headerSubtitle}>Gestion des chantiers</Text>
         </View>
+        {canReviewDivers ? <ValidationNotificationBell variant="dark" /> : null}
       </View>
 
-      <View style={styles.searchRow}>
-        <View style={styles.searchBox}>
-          <Search size={16} color={Colors.text.secondary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Rechercher un chantier..."
-            placeholderTextColor={Colors.text.disabled}
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <X size={16} color={Colors.text.secondary} />
+      {showWorksiteSubTabs ? (
+        <View style={styles.worksiteSubHeader}>
+          <View style={styles.subTabBar}>
+            <TouchableOpacity
+              style={[
+                styles.subTab,
+                compactSubTabs && styles.subTabCompact,
+                worksiteView === 'pending' && styles.subTabActive,
+              ]}
+              onPress={() => switchWorksiteView('pending')}
+              activeOpacity={0.8}
+            >
+              <ClipboardCheck
+                size={compactSubTabs ? 14 : 16}
+                color={worksiteView === 'pending' ? Colors.primary : Colors.text.secondary}
+              />
+              <Text
+                style={[
+                  styles.subTabText,
+                  compactSubTabs && styles.subTabTextCompact,
+                  worksiteView === 'pending' && styles.subTabTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                {mgmt.worksiteViews.pending}
+              </Text>
+              {worksiteView === 'pending' && (
+                <View style={styles.tabCount}>
+                  <Text style={styles.tabCountText}>{pendingDiversCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
-          )}
+
+            <TouchableOpacity
+              style={[
+                styles.subTab,
+                compactSubTabs && styles.subTabCompact,
+                worksiteView === 'list' && styles.subTabActive,
+              ]}
+              onPress={() => switchWorksiteView('list')}
+              activeOpacity={0.8}
+            >
+              <Building2
+                size={compactSubTabs ? 14 : 16}
+                color={worksiteView === 'list' ? Colors.primary : Colors.text.secondary}
+              />
+              <Text
+                style={[
+                  styles.subTabText,
+                  compactSubTabs && styles.subTabTextCompact,
+                  worksiteView === 'list' && styles.subTabTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                {mgmt.worksiteViews.list}
+              </Text>
+              {worksiteView === 'list' && (
+                <View style={styles.tabCount}>
+                  <Text style={styles.tabCountText}>{worksites.length}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.subTab,
+                compactSubTabs && styles.subTabCompact,
+                worksiteView === 'rejected' && styles.subTabActive,
+              ]}
+              onPress={() => switchWorksiteView('rejected')}
+              activeOpacity={0.8}
+            >
+              <XCircle
+                size={compactSubTabs ? 14 : 16}
+                color={worksiteView === 'rejected' ? Colors.primary : Colors.text.secondary}
+              />
+              <Text
+                style={[
+                  styles.subTabText,
+                  compactSubTabs && styles.subTabTextCompact,
+                  worksiteView === 'rejected' && styles.subTabTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                {mgmt.worksiteViews.rejected}
+              </Text>
+              {worksiteView === 'rejected' && (
+                <View style={styles.tabCount}>
+                  <Text style={styles.tabCountText}>{rejectedDiversCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {showWorksiteList ? (
+            <View style={styles.searchRowInline}>
+              <View style={styles.searchBox}>
+                <Search size={16} color={Colors.text.secondary} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder={m.searchWorksite}
+                  placeholderTextColor={Colors.text.disabled}
+                  value={search}
+                  onChangeText={setSearch}
+                />
+                {search.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearch('')}>
+                    <X size={16} color={Colors.text.secondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
+                <Plus size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
-          <Plus size={18} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      ) : null}
+
+      {showWorksiteList && !showWorksiteSubTabs ? (
+        <View style={styles.searchRow}>
+          <View style={styles.searchBox}>
+            <Search size={16} color={Colors.text.secondary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={m.searchWorksite}
+              placeholderTextColor={Colors.text.disabled}
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <X size={16} color={Colors.text.secondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
+            <Plus size={18} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {error && <Text style={styles.errorText}>{error}</Text>}
 
-      {loading ? (
+      {showWorksitePending ? (
+        <ScrollView
+          ref={pendingScrollRef}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 24 }}
+        >
+          <ChantierDiversAdminSection
+            compact
+            scrollRef={pendingScrollRef}
+            highlightChantierId={highlightChantierId}
+            onPendingCountChange={setPendingDiversCount}
+            onChanged={() => {
+              load();
+              loadPendingDiversCount();
+              loadRejectedDiversCount();
+            }}
+          />
+        </ScrollView>
+      ) : showWorksiteRejected ? (
+        <ScrollView
+          ref={rejectedScrollRef}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 24 }}
+        >
+          <ChantierDiversRejectedSection
+            compact
+            scrollRef={rejectedScrollRef}
+            highlightChantierId={highlightChantierId}
+            onRejectedCountChange={setRejectedDiversCount}
+          />
+        </ScrollView>
+      ) : loading ? (
         <ActivityIndicator style={styles.centered} color={Colors.primary} />
       ) : (
         <ScrollView
@@ -813,6 +1069,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -822,6 +1082,80 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.text.secondary,
     marginTop: 1,
+  },
+  tabBarWrap: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  worksiteSubHeader: {
+    backgroundColor: '#FFF7F2',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 107, 53, 0.14)',
+  },
+  subTabBar: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  subTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 107, 53, 0.08)',
+    minWidth: 0,
+  },
+  subTabCompact: {
+    gap: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 2,
+  },
+  subTabActive: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.18)',
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  subTabText: {
+    flexShrink: 1,
+    minWidth: 0,
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text.secondary,
+  },
+  subTabTextCompact: {
+    fontSize: 12,
+  },
+  subTabTextActive: {
+    color: Colors.text.primary,
+  },
+  tabCount: {
+    backgroundColor: Colors.primary + '20',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  tabCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  searchRowInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   searchRow: {
     flexDirection: 'row',

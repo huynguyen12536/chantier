@@ -11,14 +11,11 @@ import {
   saveSession,
 } from '@/services/session';
 import { subscribeEvents, SseSubscription } from '@/services/sse';
+import { resolveApiBaseUrl } from '@/utils/apiBaseUrl';
 
 const extra = Constants.expoConfig?.extra ?? {};
 
-export const apiUrl = (
-  process.env.EXPO_PUBLIC_API_URL ||
-  (extra as { EXPO_PUBLIC_API_URL?: string }).EXPO_PUBLIC_API_URL ||
-  'http://localhost:3000'
-).replace(/\/$/, '');
+export const apiUrl = resolveApiBaseUrl();
 
 /** @deprecated Alias — Edge fetch historically used supabaseUrl */
 export const supabaseUrl = apiUrl;
@@ -59,6 +56,32 @@ function okResult<T = any>(data: T) {
 
 function errResult(message: string, code?: string): { data: any; error: { message: string; code?: string } } {
   return { data: null, error: { message, code } };
+}
+
+/** Normalize Unified API / PostgREST-style error bodies to a user-facing string. */
+export function apiErrorMessage(body: unknown, fallback = 'Request failed'): string {
+  if (body == null) return fallback;
+  if (typeof body === 'string' && body.trim()) return body;
+  if (typeof body === 'object') {
+    const err = (body as { error?: unknown; message?: unknown }).error;
+    if (typeof err === 'string' && err.trim()) return err;
+    if (err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string') {
+      return (err as { message: string }).message;
+    }
+    const msg = (body as { message?: unknown }).message;
+    if (typeof msg === 'string' && msg.trim()) return msg;
+  }
+  return fallback;
+}
+
+/** Extract message from thrown Error or supabase `{ message }` error objects. */
+export function thrownErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const msg = (error as { message?: unknown }).message;
+    if (typeof msg === 'string' && msg.trim()) return msg;
+  }
+  return fallback;
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -155,18 +178,36 @@ function applyLocalFilters<T extends Record<string, unknown>>(rows: T[], filters
   let out = [...rows];
   const today = new Date().toISOString().split('T')[0];
 
+  const asComparable = (col: string, value: unknown): string => {
+    if (value == null) return '';
+    const s = String(value);
+    if (
+      col === 'date' ||
+      col === 'date_debut' ||
+      col === 'date_fin' ||
+      col.endsWith('_date')
+    ) {
+      return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : s;
+    }
+    return s;
+  };
+
   for (const f of filters) {
     if (f.kind === 'eq') {
-      out = out.filter((r) => String(r[f.col] ?? '') === String(f.val));
+      out = out.filter((r) => asComparable(f.col, r[f.col]) === asComparable(f.col, f.val));
     } else if (f.kind === 'neq') {
-      out = out.filter((r) => String(r[f.col] ?? '') !== String(f.val));
+      out = out.filter((r) => asComparable(f.col, r[f.col]) !== asComparable(f.col, f.val));
     } else if (f.kind === 'gte') {
-      out = out.filter((r) => r[f.col] != null && String(r[f.col]) >= String(f.val));
+      out = out.filter(
+        (r) => r[f.col] != null && asComparable(f.col, r[f.col]) >= asComparable(f.col, f.val),
+      );
     } else if (f.kind === 'lte') {
-      out = out.filter((r) => r[f.col] != null && String(r[f.col]) <= String(f.val));
+      out = out.filter(
+        (r) => r[f.col] != null && asComparable(f.col, r[f.col]) <= asComparable(f.col, f.val),
+      );
     } else if (f.kind === 'in') {
-      const set = new Set(f.vals.map(String));
-      out = out.filter((r) => set.has(String(r[f.col] ?? '')));
+      const set = new Set(f.vals.map((v) => asComparable(f.col, v)));
+      out = out.filter((r) => set.has(asComparable(f.col, r[f.col])));
     } else if (f.kind === 'is') {
       out = out.filter((r) => r[f.col] == null);
     } else if (f.kind === 'not' && f.op === 'is') {
@@ -174,7 +215,9 @@ function applyLocalFilters<T extends Record<string, unknown>>(rows: T[], filters
     } else if (f.kind === 'or') {
       // date_fin.is.null,date_fin.gte.TODAY
       if (f.expr.includes('date_fin.is.null') && f.expr.includes('date_fin.gte.')) {
-        out = out.filter((r) => r.date_fin == null || String(r.date_fin) >= today);
+        out = out.filter(
+          (r) => r.date_fin == null || asComparable('date_fin', r.date_fin) >= today,
+        );
       } else if (f.expr.includes('ilike')) {
         const m = f.expr.match(/%([^%]+)%/);
         const needle = (m?.[1] || '').toLowerCase();
@@ -349,7 +392,7 @@ class QueryBuilder {
       if (idEq && idEq.kind === 'eq') {
         const { res, body } = await apiFetch(`/rest/v1/profiles/${idEq.val}`);
         if (!res.ok) {
-          return errResult((body as { error?: string })?.error || res.statusText);
+          return errResult(apiErrorMessage(body, res.statusText));
         }
         return this.finalize(body ? [body as Record<string, unknown>] : []);
       }
@@ -359,7 +402,7 @@ class QueryBuilder {
     const path = `/rest/v1/${this.table}?${qs.toString()}`;
     const { res, body } = await apiFetch(path);
     if (!res.ok) {
-      return errResult((body as { error?: string })?.error || res.statusText);
+      return errResult(apiErrorMessage(body, res.statusText));
     }
     const rows = Array.isArray(body) ? body : body ? [body] : [];
     return this.finalize(rows as Record<string, unknown>[]);
@@ -373,7 +416,7 @@ class QueryBuilder {
         body: JSON.stringify(row),
       });
       if (!res.ok) {
-        return errResult((body as { error?: string })?.error || res.statusText);
+        return errResult(apiErrorMessage(body, res.statusText));
       }
       created.push(body);
     }
@@ -405,7 +448,7 @@ class QueryBuilder {
               ...patch,
             }),
           });
-          if (!res.ok) return errResult((body as { error?: string })?.error || res.statusText);
+          if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
           updated.push(body);
           continue;
         }
@@ -421,7 +464,7 @@ class QueryBuilder {
               date_fin: row.date_fin ?? null,
             }),
           });
-          if (!res.ok) return errResult((body as { error?: string })?.error || res.statusText);
+          if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
           updated.push(body);
           continue;
         }
@@ -430,7 +473,7 @@ class QueryBuilder {
             method: 'PATCH',
             body: JSON.stringify(patch),
           });
-          if (!res.ok) return errResult((body as { error?: string })?.error || res.statusText);
+          if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
           updated.push(body);
           continue;
         }
@@ -439,7 +482,7 @@ class QueryBuilder {
           method: 'PATCH',
           body: JSON.stringify(patch),
         });
-        if (!res.ok) return errResult((body as { error?: string })?.error || res.statusText);
+        if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
         updated.push(body);
       }
       if (this.wantSingle || this.wantMaybeSingle) {
@@ -454,7 +497,7 @@ class QueryBuilder {
       body: JSON.stringify({ ...patch, id }),
     });
     if (!res.ok) {
-      return errResult((body as { error?: string })?.error || res.statusText);
+      return errResult(apiErrorMessage(body, res.statusText));
     }
     if (this.wantSingle || this.wantMaybeSingle) {
       return okResult(body);
@@ -473,7 +516,7 @@ class QueryBuilder {
           `/rest/v1/zones_chantiers/${zoneEq.val}/${chantierEq.val}`,
           { method: 'DELETE' },
         );
-        if (!res.ok) return errResult((body as { error?: string })?.error || res.statusText);
+        if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
         return okResult(body);
       }
       if (zoneEq && zoneEq.kind === 'eq' && chantierIn && chantierIn.kind === 'in') {
@@ -482,7 +525,7 @@ class QueryBuilder {
             `/rest/v1/zones_chantiers/${zoneEq.val}/${cid}`,
             { method: 'DELETE' },
           );
-          if (!res.ok) return errResult((body as { error?: string })?.error || res.statusText);
+          if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
         }
         return okResult(null);
       }
@@ -492,7 +535,7 @@ class QueryBuilder {
       const { res, body } = await apiFetch(`/rest/v1/${this.table}/${idEq.val}`, {
         method: 'DELETE',
       });
-      if (!res.ok) return errResult((body as { error?: string })?.error || res.statusText);
+      if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
       return okResult(body);
     }
 
@@ -507,7 +550,7 @@ class QueryBuilder {
       const { res, body } = await apiFetch(`/rest/v1/${this.table}/${row.id}`, {
         method: 'DELETE',
       });
-      if (!res.ok) return errResult((body as { error?: string })?.error || res.statusText);
+      if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
     }
     return okResult(null);
   }
@@ -552,6 +595,12 @@ class RealtimeChannelShim {
     this.sub?.close();
     this.sub = null;
   }
+
+  resubscribe() {
+    if (this.handlers.length === 0) return;
+    this.unsubscribe();
+    this.subscribe();
+  }
 }
 
 const channels = new Map<string, RealtimeChannelShim>();
@@ -581,7 +630,7 @@ const authApi = {
       body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
-      return errResult((body as { error?: string })?.error || 'Invalid login');
+      return errResult(apiErrorMessage(body, 'Invalid login'));
     }
     const session = body as AuthSession;
     await saveSession(session);
@@ -609,7 +658,7 @@ const authApi = {
   async getUser() {
     const { res, body } = await apiFetch(`/auth/v1/user`);
     if (!res.ok) {
-      return errResult((body as { error?: string })?.error || 'Unauthorized');
+      return errResult(apiErrorMessage(body, 'Unauthorized'));
     }
     const user = (body as { user: AuthUser }).user;
     return okResult({ user });
@@ -623,18 +672,81 @@ export const supabase = {
   },
   rpc(fn: string, args: Record<string, unknown> = {}): any {
     return (async () => {
-      if (fn === 'delete_chantier_cascade') {
-        const { res, body } = await apiFetch(`/rest/v1/rpc/delete_chantier_cascade`, {
+      const supported = [
+        'delete_chantier_cascade',
+        'create_chantier_divers',
+        'approve_chantier_divers',
+        'reject_chantier_divers',
+        'get_collaborator_divers_notifications',
+      ];
+      if (supported.includes(fn)) {
+        const { res, body } = await apiFetch(`/rest/v1/rpc/${fn}`, {
           method: 'POST',
           body: JSON.stringify(args),
         });
         if (!res.ok) {
-          return errResult((body as { error?: string })?.error || res.statusText);
+          return errResult(apiErrorMessage(body, res.statusText));
         }
         return okResult(body);
       }
       return errResult(`RPC not supported locally: ${fn}`);
     })();
+  },
+  storage: {
+    from(bucket: string) {
+      return {
+        async upload(
+          path: string,
+          body: ArrayBuffer | Blob | Buffer,
+          opts?: { contentType?: string; upsert?: boolean },
+        ) {
+          const headers = await authHeaders();
+          const contentType = opts?.contentType ?? 'application/octet-stream';
+          delete headers['content-type'];
+          const res = await fetch(`${apiUrl}/api/storage/${bucket}/${path.replace(/^\//, '')}`, {
+            method: 'PUT',
+            headers: {
+              ...headers,
+              'content-type': contentType,
+            },
+            body: body as BodyInit,
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            let parsed: unknown = text;
+            try {
+              parsed = JSON.parse(text);
+            } catch {
+              /* raw */
+            }
+            return errResult(apiErrorMessage(parsed, 'Upload failed'));
+          }
+          const data = await res.json().catch(() => ({ path }));
+          return okResult(data);
+        },
+        async remove(paths: string[]) {
+          for (const p of paths) {
+            const headers = await authHeaders();
+            delete headers['content-type'];
+            const res = await fetch(`${apiUrl}/api/storage/${bucket}/${p.replace(/^\//, '')}`, {
+              method: 'DELETE',
+              headers,
+            });
+            if (!res.ok && res.status !== 404) {
+              const text = await res.text();
+              let parsed: unknown = text;
+              try {
+                parsed = JSON.parse(text);
+              } catch {
+                /* raw */
+              }
+              return errResult(apiErrorMessage(parsed, 'Delete failed'));
+            }
+          }
+          return okResult(null);
+        },
+      };
+    },
   },
   channel(name: string) {
     const existing = channels.get(name);
@@ -650,3 +762,11 @@ export const supabase = {
 };
 
 export type { AuthSession, AuthUser };
+
+/** Reconnect SSE channels when JWT changes (Unified API equivalent of realtime.setAuth). */
+export function bindRealtimeAuth(_accessToken: string | undefined | null) {
+  for (const ch of channels.values()) {
+    ch.unsubscribe();
+    ch.resubscribe();
+  }
+}

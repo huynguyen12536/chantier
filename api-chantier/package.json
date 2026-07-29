@@ -18,8 +18,11 @@
     "migrate:test": "node --env-file=.env.test src/db/cli.js up",
     "seed:local": "node scripts/seed-local.js",
     "seed:production-import": "node --env-file=.env scripts/etl-production-import.js",
+    "seed:snapshot": "node --env-file=.env scripts/seed-from-snapshot.js",
+    "seed:snapshot:build": "node scripts/build-snapshot-sql.js",
     "docker:up": "docker compose -f docker-compose.yml -f docker-compose.phase13.yml up -d --build",
     "docker:up:phase13": "docker compose -f docker-compose.yml -f docker-compose.phase13.yml up -d --build",
+    "docker:bootstrap": "npm run docker:up && npm run migrate && npm run seed:snapshot",
     "docker:down": "docker compose -f docker-compose.yml -f docker-compose.phase13.yml down",
     "docker:test:up": "docker compose -f docker-compose.test.yml up -d",
     "docker:test:down": "docker compose -f docker-compose.test.yml down",
@@ -33,8 +36,13 @@
     "express": "^5.1.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "minio": "^8.0.7",
     "morgan": "^1.10.0",
+    "nodemailer": "^7.0.13",
     "pg": "^8.16.0",
     "zod": "^3.25.28"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.1"
   }
 }
