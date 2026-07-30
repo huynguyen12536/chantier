@@ -1,12 +1,15 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 import type { SvgProps } from 'react-native-svg';
 import Logo from '@/assets/images/logo.svg';
 
-const LOGO_WIDTH = 220;
+const DEFAULT_LOGO_WIDTH = 220;
 const LOGO_VIEWBOX_WIDTH = 607;
 const LOGO_VIEWBOX_HEIGHT = 506;
-const LOGO_HEIGHT = Math.round((LOGO_WIDTH * LOGO_VIEWBOX_HEIGHT) / LOGO_VIEWBOX_WIDTH);
+
+function logoHeightForWidth(width: number) {
+  return Math.round((width * LOGO_VIEWBOX_HEIGHT) / LOGO_VIEWBOX_WIDTH);
+}
 
 function resolveSvgComponent(module: unknown): React.FC<SvgProps> | null {
   if (typeof module === 'function') {
@@ -25,27 +28,16 @@ function resolveSvgComponent(module: unknown): React.FC<SvgProps> | null {
 
 const LogoSvg = resolveSvgComponent(Logo);
 
-export function LoginLogo() {
+export function LoginLogo({ width = DEFAULT_LOGO_WIDTH }: { width?: number }) {
+  const height = logoHeightForWidth(width);
+
   if (!LogoSvg) {
-    return <View style={styles.placeholder} />;
+    return <View style={{ width, height }} />;
   }
 
   return (
-    <View style={styles.wrap}>
-      <LogoSvg width={LOGO_WIDTH} height={LOGO_HEIGHT} accessibilityLabel="Logo" />
+    <View style={{ width, height, alignItems: 'center', justifyContent: 'center' }}>
+      <LogoSvg width={width} height={height} accessibilityLabel="Logo" />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    width: LOGO_WIDTH,
-    height: LOGO_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholder: {
-    width: LOGO_WIDTH,
-    height: LOGO_HEIGHT,
-  },
-});

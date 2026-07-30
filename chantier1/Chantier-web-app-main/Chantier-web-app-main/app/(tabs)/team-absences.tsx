@@ -18,6 +18,8 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
+import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
+import { TeamAbsencesDesktop } from '@/components/layoutDesktop';
 import { supabase } from '@/services/supabase';
 import type { Absence, Profile } from '@/types';
 import {
@@ -50,6 +52,7 @@ export default function TeamAbsencesScreen() {
   const { profile } = useAuth();
   const { t, dateLocale } = useLanguage();
   const { scrollBottomPadding, headerPaddingTop } = useTabBarInset();
+  const isDesktopLayout = useIsDesktopLayout();
   const a = t.absences;
 
   const [tab, setTab] = useState<TeamTab>('today');
@@ -203,6 +206,102 @@ export default function TeamAbsencesScreen() {
       : tab === 'upcoming'
         ? a.sectionUpcoming
         : a.sectionHistory;
+
+  const detailModal = (
+    <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
+      <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setSelected(null)}>
+        <TouchableOpacity style={styles.modalSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+          {selected && (
+            <>
+              <View style={styles.modalHeader}>
+                <UserAvatar
+                  avatarPath={selected.profiles?.avatar_path}
+                  avatarUpdatedAt={selected.profiles?.avatar_updated_at}
+                  prenom={selected.profiles?.prenom}
+                  nom={selected.profiles?.nom}
+                  role="ouvrier"
+                  size={52}
+                />
+                <View style={styles.modalHeaderCopy}>
+                  <Text style={styles.modalName}>{profileName(selected.profiles)}</Text>
+                  <Text style={styles.modalMatricule}>{selected.profiles?.matricule ?? '—'}</Text>
+                </View>
+              </View>
+              <View style={styles.modalCard}>
+                <Calendar size={18} color={Colors.primary} />
+                <View style={styles.modalCardCopy}>
+                  <Text style={styles.modalPeriod}>
+                    {formatAbsencePeriodLabel(selected.date_debut, selected.date_fin, dateLocale)}
+                  </Text>
+                  <Text style={styles.modalMeta}>
+                    {getAbsenceReason(selected.commentaire)} ·{' '}
+                    {formatAbsenceDuration(selected.date_debut, selected.date_fin, t)}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.modalClose} onPress={() => setSelected(null)}>
+                <Text style={styles.modalCloseText}>{a.cancel}</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+
+  if (isDesktopLayout) {
+    return (
+      <>
+        <TeamAbsencesDesktop
+          title={a.teamTitle}
+          subtitle={a.teamSubtitle.replace('{{count}}', String(teamCount))}
+          showNotificationBell={canReceiveApprovalNotifications(profile.role)}
+          todayCount={stats.todayCount}
+          weekCount={stats.weekCount}
+          todayStatLabel={a.statToday}
+          weekStatLabel={a.statWeek}
+          filter={
+            tab === 'upcoming' || tab === 'history' ? tab : periodTab
+          }
+          onFilterChange={(next) => {
+            if (next === 'day' || next === 'week') {
+              setTab('today');
+              setPeriodTab(next);
+              return;
+            }
+            setTab(next);
+          }}
+          filterOptions={[
+            { key: 'day', label: a.tabDay, badge: dayBadge, Icon: Calendar },
+            { key: 'week', label: a.tabWeek, badge: weekBadge, Icon: CalendarRange },
+            { key: 'upcoming', label: a.tabUpcoming, badge: upcomingBadge, Icon: CalendarClock },
+            { key: 'history', label: a.tabHistory, badge: 0, Icon: History },
+          ]}
+          sectionTitle={sectionTitle}
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder={a.searchPlaceholder}
+          loading={loading}
+          emptyText={a.emptyTeam}
+          listTitle={sectionTitle}
+          items={filtered.map((row) => ({
+            id: row.id,
+            name: profileName(row.profiles),
+            periodLabel: formatAbsencePeriodLabel(row.date_debut, row.date_fin, dateLocale),
+            metaLabel: `${getAbsenceReason(row.commentaire)} · ${formatAbsenceDuration(row.date_debut, row.date_fin, t)}`,
+            statusLabel: isAbsenceUpcoming(row, todayKey) ? a.statusAbsent : a.statusCompleted,
+            statusUpcoming: isAbsenceUpcoming(row, todayKey),
+            avatarPath: row.profiles?.avatar_path,
+            avatarUpdatedAt: row.profiles?.avatar_updated_at,
+            prenom: row.profiles?.prenom,
+            nom: row.profiles?.nom,
+            onPress: () => setSelected(row),
+          }))}
+        />
+        {detailModal}
+      </>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -376,44 +475,7 @@ export default function TeamAbsencesScreen() {
         )}
       </ScrollView>
 
-      <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
-        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setSelected(null)}>
-          <TouchableOpacity style={styles.modalSheet} activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-            {selected && (
-              <>
-                <View style={styles.modalHeader}>
-                  <UserAvatar
-                    avatarPath={selected.profiles?.avatar_path}
-                    avatarUpdatedAt={selected.profiles?.avatar_updated_at}
-                    prenom={selected.profiles?.prenom}
-                    nom={selected.profiles?.nom}
-                    role="ouvrier"
-                    size={52}
-                  />
-                  <View style={styles.modalHeaderCopy}>
-                    <Text style={styles.modalName}>{profileName(selected.profiles)}</Text>
-                    <Text style={styles.modalMatricule}>{selected.profiles?.matricule ?? '—'}</Text>
-                  </View>
-                </View>
-                <View style={styles.modalCard}>
-                  <Calendar size={18} color={Colors.primary} />
-                  <View style={styles.modalCardCopy}>
-                    <Text style={styles.modalPeriod}>
-                      {formatAbsencePeriodLabel(selected.date_debut, selected.date_fin, dateLocale)}
-                    </Text>
-                    <Text style={styles.modalMeta}>
-                      {getAbsenceReason(selected.commentaire)} · {formatAbsenceDuration(selected.date_debut, selected.date_fin, t)}
-                    </Text>
-                  </View>
-                </View>
-                <TouchableOpacity style={styles.modalClose} onPress={() => setSelected(null)}>
-                  <Text style={styles.modalCloseText}>{a.cancel}</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+      {detailModal}
     </View>
   );
 }

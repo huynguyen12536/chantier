@@ -9,11 +9,11 @@ import { pickUuid, pickEq } from '../queryAllowList.js';
 
 /** DR-P13-005=H — optional tree compose for zones_equipe. */
 async function composeZoneTree(zones, actor) {
-  const chantiers = mapChantierRows(await chantiersService.listChantiers());
+  const chantiers = mapChantierRows(await chantiersService.listChantiers(actor));
   const chantierById = new Map(chantiers.map((c) => [c.id, c]));
   let profiles = [];
   try {
-    profiles = await usersService.listUsers();
+    profiles = await usersService.listUsers(actor);
   } catch {
     profiles = [];
   }
@@ -92,7 +92,7 @@ export const listZoneChantiers = asyncHandler(async (req, res) => {
       ? await zonesService.listZoneChantiers(zoneId, req.user)
       : await zonesService.listAllZoneChantiers(req.user);
     if (pickEq(req.query, 'embed') === 'chantiers') {
-      const chantiers = mapChantierRows(await chantiersService.listChantiers());
+      const chantiers = mapChantierRows(await chantiersService.listChantiers(req.user));
       const byId = new Map(chantiers.map((c) => [c.id, c]));
       rows = rows.map((r) => ({ ...r, chantiers: byId.get(r.chantier_id) ?? null }));
     }
@@ -124,7 +124,7 @@ export const listZoneOuvriers = asyncHandler(async (req, res) => {
 
     // AuthContext: nest zones_chantiers(chantiers)
     if (pickEq(req.query, 'compose') === 'tree' || String(req.query?.embed || '').includes('zones_chantiers')) {
-      const chantiers = mapChantierRows(await chantiersService.listChantiers());
+      const chantiers = mapChantierRows(await chantiersService.listChantiers(req.user));
       const chantierById = new Map(chantiers.map((c) => [c.id, c]));
       const enriched = [];
       for (const zo of rows) {

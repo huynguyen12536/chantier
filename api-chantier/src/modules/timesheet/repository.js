@@ -5,8 +5,8 @@ export async function insertPeriod(client, row) {
     client,
     `INSERT INTO periodes_travail (
        user_id, chantier_id, date, heure_debut, heure_fin,
-       latitude, longitude, panier, deplacement, from_suggestion, statut, commentaire
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       latitude, longitude, panier, deplacement, from_suggestion, statut, commentaire, company_id
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      RETURNING *`,
     [
       row.user_id,
@@ -21,6 +21,7 @@ export async function insertPeriod(client, row) {
       row.from_suggestion ?? false,
       row.statut ?? (row.heure_fin ? 'terminee' : 'en_cours'),
       row.commentaire ?? null,
+      row.company_id,
     ],
   );
   return rows[0];
@@ -153,8 +154,8 @@ export async function upsertDeclarationSoumise(client, data) {
     client,
     `INSERT INTO declarations_heures (
        user_id, chantier_id, date, heures_normales, heures_supplementaires,
-       nb_paniers, from_suggestion, statut, updated_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,'soumise', NOW())
+       nb_paniers, from_suggestion, statut, updated_at, company_id
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,'soumise', NOW(), $8)
      ON CONFLICT (user_id, chantier_id, date) DO UPDATE SET
        heures_normales = EXCLUDED.heures_normales,
        heures_supplementaires = EXCLUDED.heures_supplementaires,
@@ -175,6 +176,7 @@ export async function upsertDeclarationSoumise(client, data) {
       data.heures_supplementaires,
       data.nb_paniers,
       data.from_suggestion,
+      data.company_id,
     ],
   );
   if (rows[0]) return rows[0];

@@ -54,8 +54,8 @@ jobs:
             ${{ secrets.HARBOR_REGISTRY }}/${{ secrets.HARBOR_PROJECT }}/${{ secrets.IMAGE_NAME }}:${{ steps.set_tag.outputs.tag }}
             ${{ secrets.HARBOR_REGISTRY }}/${{ secrets.HARBOR_PROJECT }}/${{ secrets.IMAGE_NAME }}:latest
           build-args: |
-            EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }}
-            EXPO_PUBLIC_API_ANON_KEY=${{ secrets.EXPO_PUBLIC_API_ANON_KEY }}
+            EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+            EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
 
   deploy:
     name: Stage 3 - Deploy to Server
@@ -102,8 +102,8 @@ jobs:
             HARBOR_REGISTRY=${{ secrets.HARBOR_REGISTRY }} \
             HARBOR_PROJECT=${{ secrets.HARBOR_PROJECT }} \
             IMAGE_NAME=${{ secrets.IMAGE_NAME }} \
-            EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }} \
-            EXPO_PUBLIC_API_ANON_KEY=${{ secrets.EXPO_PUBLIC_API_ANON_KEY }} \
+            EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }} \
+            EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }} \
             WEB_PORT=${{ secrets.WEB_PORT }} \
             docker compose up -d
 

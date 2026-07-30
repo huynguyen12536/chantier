@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import { AppError } from '../../shared/errors/AppError.js';
 import { query } from '../../shared/db/pool.js';
+import { tenantId, assertSameCompany, assertCanAccessProfile } from '../../shared/authz/tenantScope.js';
 
 const assignSchema = z
   .object({
@@ -44,9 +45,10 @@ export async function listAffectations(filters, actor) {
   if (['admin', 'administratif'].includes(actor.role)) {
     const { rows } = await query(
       `SELECT * FROM affectations_chantiers
-       WHERE ($1::uuid IS NULL OR chantier_id = $1)
+       WHERE company_id = $1
+         AND ($2::uuid IS NULL OR chantier_id = $2)
        ORDER BY created_at DESC`,
-      [chantierId],
+      [tenantId(actor), chantierId],
     );
     return rows;
   }
@@ -84,16 +86,23 @@ export async function assignUser(input, actor) {
     });
   }
   const d = parsed.data;
+  const ch = await query(`SELECT company_id FROM chantiers WHERE id = $1`, [d.chantier_id]);
+  if (!ch.rows[0]) throw new AppError('Chantier not found', 404, { code: 'NOT_FOUND' });
+  assertSameCompany(actor, ch.rows[0].company_id);
+
+  const user = await query(`SELECT id, company_id FROM profiles WHERE id = $1`, [d.user_id]);
+  assertCanAccessProfile(actor, user.rows[0]);
+
   try {
     const { rows } = await query(
-      `INSERT INTO affectations_chantiers (user_id, chantier_id, chef_equipe_id, date_debut, date_fin)
-       VALUES ($1,$2,$3, COALESCE($4::date, CURRENT_DATE), $5::date)
+      `INSERT INTO affectations_chantiers (user_id, chantier_id, chef_equipe_id, date_debut, date_fin, company_id)
+       VALUES ($1,$2,$3, COALESCE($4::date, CURRENT_DATE), $5::date, $6)
        ON CONFLICT (user_id, chantier_id) DO UPDATE SET
          chef_equipe_id = EXCLUDED.chef_equipe_id,
          date_debut = EXCLUDED.date_debut,
          date_fin = EXCLUDED.date_fin
        RETURNING *`,
-      [d.user_id, d.chantier_id, d.chef_equipe_id ?? null, d.date_debut ?? null, d.date_fin ?? null],
+      [d.user_id, d.chantier_id, d.chef_equipe_id ?? null, d.date_debut ?? null, d.date_fin ?? null, ch.rows[0].company_id],
     );
     return rows[0];
   } catch (err) {
@@ -109,10 +118,16 @@ export async function assignUser(input, actor) {
 
 export async function softRemoveAffectation(id, actor) {
   assertCanWriteAffectation(actor);
+  const existing = await query(
+    `SELECT id, company_id FROM affectations_chantiers WHERE id = $1`,
+    [id],
+  );
+  if (!existing.rows[0]) throw new AppError('Affectation not found', 404, { code: 'NOT_FOUND' });
+  assertSameCompany(actor, existing.rows[0].company_id);
+
   const { rows } = await query(
     `UPDATE affectations_chantiers SET date_fin = CURRENT_DATE WHERE id = $1 RETURNING *`,
     [id],
   );
-  if (!rows[0]) throw new AppError('Affectation not found', 404, { code: 'NOT_FOUND' });
   return rows[0];
 }

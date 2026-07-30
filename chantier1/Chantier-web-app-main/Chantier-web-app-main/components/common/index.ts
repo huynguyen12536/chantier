@@ -11,3 +11,4 @@ export * from './PrefillWeekButton';
 export * from './UserAvatar';
 export * from './ValidationNotificationBell';
 export * from './CollaboratorNotificationBell';
+export * from './SlideUpSheet';

@@ -18,8 +18,8 @@ import { useApprovalNotifications, type ApprovalNotification } from '@/contexts/
 import { useLanguage } from '@/contexts/LanguageContext';
 
 type Props = {
-  /** White bell on orange header */
-  variant?: 'light' | 'dark';
+  /** light: white bell on translucent (orange header); dark: dark bell on white; accent: white bell on solid orange */
+  variant?: 'light' | 'dark' | 'accent';
 };
 
 export function ValidationNotificationBell({ variant = 'light' }: Props) {
@@ -55,10 +55,11 @@ export function ValidationNotificationBell({ variant = 'light' }: Props) {
 
   if (!enabled) return null;
 
-  const isLight = variant === 'light';
-  const iconColor = isLight ? '#FFF' : Colors.text.primary;
-  const bellBg = isLight ? 'rgba(255,255,255,0.18)' : '#FFF';
-  const bellBorder = isLight ? 'rgba(255,255,255,0.55)' : '#F0E4DC';
+  const iconColor = variant === 'dark' ? Colors.text.primary : '#FFF';
+  const bellBg =
+    variant === 'accent' ? Colors.primary : variant === 'light' ? 'rgba(255,255,255,0.18)' : '#FFF';
+  const bellBorder =
+    variant === 'accent' ? Colors.primary : variant === 'light' ? 'rgba(255,255,255,0.55)' : '#F0E4DC';
 
   const rotate = shakeAnim.interpolate({
     inputRange: [-1, 1],

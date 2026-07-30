@@ -20,9 +20,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConfirmModal } from '@/components/common';
+import { DesktopPageHeader } from '@/components/layoutDesktop';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
 import type { Absence } from '@/types';
 import { deleteAbsence, fetchAbsenceById } from '@/utils/absence';
 import {
@@ -84,6 +86,7 @@ export default function AbsenceDetailScreen() {
   const { t, dateLocale } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isDesktopLayout = useIsDesktopLayout();
   const params = useLocalSearchParams<{ id?: string | string[]; saved?: string | string[] }>();
   const absenceId = resolveParam(params.id);
 
@@ -154,22 +157,33 @@ export default function AbsenceDetailScreen() {
   const showCommentSection = Boolean(absence?.commentaire?.trim());
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={['#FF8A50', '#FF6B35', '#E55A2B']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 8 }]}
-      >
-        <TouchableOpacity onPress={handleBack} style={styles.backBtn} accessibilityRole="button">
-          <ArrowLeft size={22} color="#FFF" />
-        </TouchableOpacity>
-        <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>{a.detailTitle}</Text>
-          <Text style={styles.headerSubtitle}>{a.declareSubtitle}</Text>
+    <View style={[styles.container, isDesktopLayout && styles.containerDesktop]}>
+      {isDesktopLayout ? (
+        <View style={styles.desktopHeaderPad}>
+          <DesktopPageHeader
+            title={a.detailTitle}
+            subtitle={a.declareSubtitle}
+            onBack={handleBack}
+            backLabel={a.cancel}
+          />
         </View>
-        <View style={styles.headerSpacer} />
-      </LinearGradient>
+      ) : (
+        <LinearGradient
+          colors={['#FF8A50', '#FF6B35', '#E55A2B']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.header, { paddingTop: insets.top + 8 }]}
+        >
+          <TouchableOpacity onPress={handleBack} style={styles.backBtn} accessibilityRole="button">
+            <ArrowLeft size={22} color="#FFF" />
+          </TouchableOpacity>
+          <View style={styles.headerCopy}>
+            <Text style={styles.headerTitle}>{a.detailTitle}</Text>
+            <Text style={styles.headerSubtitle}>{a.declareSubtitle}</Text>
+          </View>
+          <View style={styles.headerSpacer} />
+        </LinearGradient>
+      )}
 
       {loading && !absence ? (
         <View style={styles.loaderWrap}>
@@ -274,6 +288,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFF7F2',
+  },
+  containerDesktop: {
+    backgroundColor: 'transparent',
+  },
+  desktopHeaderPad: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   header: {
     flexDirection: 'row',

@@ -16,6 +16,10 @@ import timesheetRoutes from './modules/timesheet/routes.js';
 import validationRoutes from './modules/validation/routes.js';
 import exportRoutes from './modules/export/routes.js';
 import storageRoutes from './modules/storage/routes.js';
+import { platformRouter as platformCompaniesRoutes, tenantRouter as tenantCompaniesRoutes } from './modules/companies/routes.js';
+import platformUsersRoutes from './modules/platform-users/routes.js';
+import platformDashboardRoutes from './modules/platform-dashboard/routes.js';
+import platformAuditRoutes from './modules/platform-audit/routes.js';
 import { realtimeRoutes, initRealtime } from './modules/realtime/index.js';
 import { mountCompat } from './modules/compat/index.js';
 
@@ -70,6 +74,11 @@ export function createApp(options = {}) {
   app.use('/api/validation', validationRoutes);
   app.use('/api/export', exportRoutes);
   app.use('/api/storage', storageRoutes);
+  app.use('/api/platform/companies', platformCompaniesRoutes);
+  app.use('/api/platform/users', platformUsersRoutes);
+  app.use('/api/platform/dashboard', platformDashboardRoutes);
+  app.use('/api/platform/audit-logs', platformAuditRoutes);
+  app.use('/api/companies', tenantCompaniesRoutes);
   app.use('/events', realtimeRoutes);
 
   // Imp-12 Wave A — FE compatibility aliases (no business)

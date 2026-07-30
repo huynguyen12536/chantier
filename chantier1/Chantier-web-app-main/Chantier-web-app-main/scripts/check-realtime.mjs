@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Diagnostic: can this Supabase project accept postgres_changes subscriptions?
  * Usage (from repo root, with .env loaded or env vars set):
  *   node scripts/check-realtime.mjs

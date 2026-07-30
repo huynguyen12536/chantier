@@ -34,13 +34,13 @@ services:
       SMTP_USER: ${SMTP_USER:-${MAIL_USERNAME:-}}
       SMTP_PASS: ${SMTP_PASS:-${MAIL_PASSWORD:-}}
       SMTP_FROM: ${SMTP_FROM:-${MAIL_FROM_EMAIL:-noreply@chantier.local}}
-      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-${MAIL_FROM_NAME:-Tubesca 3D}}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-${MAIL_FROM_NAME:-ATN Chantier}}
       MAIL_HOST: ${MAIL_HOST:-}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-}
-      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Tubesca 3D}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-ATN Chantier}
       OTP_SECRET: ${OTP_SECRET:-${JWT_SECRET:-change-me-in-production-use-long-random-string}}
 
   web:

@@ -4,8 +4,10 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CheckCircle2, Clock, AlertCircle, HelpCircle, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, Check, Clock3, X } from 'lucide-react-native';
 import { PrefillWeekButton, CollaboratorNotificationBell } from '@/components/common';
+import { OuvrierDashboardDesktop } from '@/components/layoutDesktop';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
 import { Colors } from '@/constants/colors';
 import { formatDateKey, formatWeekDayLabel, getMonday, parseDateKey } from '@/utils/date';
@@ -25,6 +27,7 @@ import {
   replicatePreviousValidatedWeek,
   type PreviousWeekHint,
 } from '@/utils/ouvrierDeclaration';
+import { canReceiveApprovalNotifications } from '@/utils/role';
 
 const headerBackground = require('../../assets/images/bg (2).png');
 
@@ -62,11 +65,16 @@ interface DaySummary {
   lines: PeriodLine[];
 }
 
+function formatCount(count: number, one: string, many: string): string {
+  return (count === 1 ? one : many).replace('{{count}}', String(count));
+}
+
 export default function OuvrierDashboardScreen() {
   const { profile } = useAuth();
   const { t, dateLocale } = useLanguage();
   const router = useRouter();
   const params = useLocalSearchParams<{ focusDate?: string }>();
+  const isDesktopLayout = useIsDesktopLayout();
   const { scrollBottomPadding, headerPaddingTop } = useTabBarInset();
   const skipWeekReloadRef = useRef(false);
   const weekEffectReadyRef = useRef(false);
@@ -556,6 +564,83 @@ export default function OuvrierDashboardScreen() {
 
   if (!profile || profile.role !== 'ouvrier') return null;
 
+  const declaredDaysCount = daySummaries.filter((d) => d.hasDeclared || d.lineCount > 0).length;
+  const desktopSubtitle = formatCount(
+    declaredDaysCount,
+    t.ouvrierDashboard?.dayCount ?? '{{count}} declared day',
+    t.ouvrierDashboard?.dayCountPlural ?? '{{count}} declared days',
+  );
+
+  const weekSuggestionModal = (
+    <WeekSuggestionModal
+      visible={weekSuggestionVisible}
+      mode={weekSuggestionMode}
+      hint={previousWeekHint}
+      title={weekSuggestionCopy.title}
+      message={weekSuggestionCopy.message}
+      validateLabel={t.common.validate}
+      cancelLabel={t.common.cancel}
+      onValidate={handleWeekSuggestionValidate}
+      onCancel={dismissWeekSuggestion}
+    />
+  );
+
+  if (isDesktopLayout) {
+    return (
+      <>
+        <OuvrierDashboardDesktop
+          title={t.tabs.dashboard}
+          subtitle={desktopSubtitle}
+          showNotificationBell={canReceiveApprovalNotifications(profile.role)}
+          weekLabel={weekLabel}
+          isCurrentWeek={isCurrentWeek}
+          onPreviousWeek={goToPreviousWeek}
+          onNextWeek={goToNextWeek}
+          onCurrentWeek={goToCurrentWeek}
+          loading={loading}
+          weekHasNoHours={weekHasNoHours}
+          totalWeekHours={totalWeekHours}
+          days={daySummaries.map((day) => ({
+            date: day.date,
+            dayLabel: day.dayLabel,
+            totalHours: day.totalHours,
+            validatedHours: day.validatedHours,
+            pendingHours: day.pendingHours,
+            pendingChantierHours: day.pendingChantierHours,
+            hasChantierBlocked: day.hasChantierBlocked,
+            lineCount: day.lineCount,
+            lines: day.lines.map((line) => ({ statut: line.statut })),
+            onPress: () => handleDayPress(day),
+          }))}
+          labels={{
+            totalWeek: t.ouvrierDashboard?.totalWeek ?? 'Week total',
+            weekDays: t.ouvrierDashboard?.weekDays ?? 'Days of the week',
+            prefillCurrentWeek: t.ouvrierDashboard?.prefillCurrentWeek ?? 'Fill my week',
+            prefillCurrentWeekA11y:
+              t.ouvrierDashboard?.prefillCurrentWeekA11y ?? 'Pre-fill the current week',
+            legendTitle: t.ouvrierDashboard?.legendTitle ?? 'Legend',
+            legendValidated: t.ouvrierDashboard?.legendValidated ?? 'Validated',
+            legendPending: t.ouvrierDashboard?.legendPending ?? 'Pending',
+            legendChantierPending:
+              t.ouvrierDashboard?.legendChantierPending ?? 'Worksite pending',
+            toDeclare: t.ouvrierDashboard?.toDeclare ?? 'TO DECLARE',
+            notDeclared: t.ouvrierDashboard?.notDeclared ?? 'Not declared',
+            declareToday: t.ouvrierDashboard?.declareToday ?? "Declare today",
+            todayLabel: t.ouvrierDashboard?.todayLabel ?? t.home.today,
+          }}
+          onPrefillWeek={handlePrefillCurrentWeek}
+          onDeclareEmptyWeek={() => {
+            router.push({
+              pathname: '/choose-day',
+              params: { initialDate: formatDateKey(weekStart) },
+            });
+          }}
+        />
+        {weekSuggestionModal}
+      </>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ImageBackground
@@ -807,17 +892,7 @@ export default function OuvrierDashboardScreen() {
 
       </ScrollView>
 
-      <WeekSuggestionModal
-        visible={weekSuggestionVisible}
-        mode={weekSuggestionMode}
-        hint={previousWeekHint}
-        title={weekSuggestionCopy.title}
-        message={weekSuggestionCopy.message}
-        validateLabel={t.common.validate}
-        cancelLabel={t.common.cancel}
-        onValidate={handleWeekSuggestionValidate}
-        onCancel={dismissWeekSuggestion}
-      />
+      {weekSuggestionModal}
     </View>
   );
 }

@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { requireAuth, requireRoles } from '../../shared/middleware/auth.js';
+import { forbidSystemAdminOperational, blockDisabledCompany } from '../../shared/middleware/tenant.js';
 import * as controller from './controller.js';
 
 const router = Router();
-/** CVL: admin + chef_equipe only (administratif has no zone admin policies) */
 const zoneWriters = requireRoles('admin', 'chef_equipe');
 
-router.use(requireAuth);
+router.use(requireAuth, blockDisabledCompany, forbidSystemAdminOperational);
 
 router.get('/', controller.list);
 router.post('/', zoneWriters, controller.create);

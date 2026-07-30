@@ -12,6 +12,11 @@ import {
 } from '@/services/session';
 import { subscribeEvents, SseSubscription } from '@/services/sse';
 import { resolveApiBaseUrl } from '@/utils/apiBaseUrl';
+import {
+  extractApiErrorCode,
+  isCompanyDisabledResponse,
+  triggerCompanyDisabled,
+} from '@/utils/companyDisabled';
 
 const extra = Constants.expoConfig?.extra ?? {};
 
@@ -74,6 +79,11 @@ export function apiErrorMessage(body: unknown, fallback = 'Request failed'): str
   return fallback;
 }
 
+function apiErrorResult(body: unknown, fallback: string) {
+  const code = extractApiErrorCode(body);
+  return errResult(apiErrorMessage(body, fallback), code);
+}
+
 /** Extract message from thrown Error or supabase `{ message }` error objects. */
 export function thrownErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) return error.message;
@@ -110,6 +120,9 @@ async function apiFetch(path: string, init: RequestInit = {}) {
     } catch {
       body = text;
     }
+  }
+  if (isCompanyDisabledResponse(res.status, body)) {
+    triggerCompanyDisabled();
   }
   return { res, body };
 }
@@ -392,7 +405,7 @@ class QueryBuilder {
       if (idEq && idEq.kind === 'eq') {
         const { res, body } = await apiFetch(`/rest/v1/profiles/${idEq.val}`);
         if (!res.ok) {
-          return errResult(apiErrorMessage(body, res.statusText));
+          return apiErrorResult(body, res.statusText);
         }
         return this.finalize(body ? [body as Record<string, unknown>] : []);
       }
@@ -402,7 +415,7 @@ class QueryBuilder {
     const path = `/rest/v1/${this.table}?${qs.toString()}`;
     const { res, body } = await apiFetch(path);
     if (!res.ok) {
-      return errResult(apiErrorMessage(body, res.statusText));
+      return apiErrorResult(body, res.statusText);
     }
     const rows = Array.isArray(body) ? body : body ? [body] : [];
     return this.finalize(rows as Record<string, unknown>[]);
@@ -416,7 +429,7 @@ class QueryBuilder {
         body: JSON.stringify(row),
       });
       if (!res.ok) {
-        return errResult(apiErrorMessage(body, res.statusText));
+        return apiErrorResult(body, res.statusText);
       }
       created.push(body);
     }
@@ -448,7 +461,7 @@ class QueryBuilder {
               ...patch,
             }),
           });
-          if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
+          if (!res.ok) return apiErrorResult(body, res.statusText);
           updated.push(body);
           continue;
         }
@@ -464,7 +477,7 @@ class QueryBuilder {
               date_fin: row.date_fin ?? null,
             }),
           });
-          if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
+          if (!res.ok) return apiErrorResult(body, res.statusText);
           updated.push(body);
           continue;
         }
@@ -473,7 +486,7 @@ class QueryBuilder {
             method: 'PATCH',
             body: JSON.stringify(patch),
           });
-          if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
+          if (!res.ok) return apiErrorResult(body, res.statusText);
           updated.push(body);
           continue;
         }
@@ -482,7 +495,7 @@ class QueryBuilder {
           method: 'PATCH',
           body: JSON.stringify(patch),
         });
-        if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
+        if (!res.ok) return apiErrorResult(body, res.statusText);
         updated.push(body);
       }
       if (this.wantSingle || this.wantMaybeSingle) {
@@ -497,7 +510,7 @@ class QueryBuilder {
       body: JSON.stringify({ ...patch, id }),
     });
     if (!res.ok) {
-      return errResult(apiErrorMessage(body, res.statusText));
+      return apiErrorResult(body, res.statusText);
     }
     if (this.wantSingle || this.wantMaybeSingle) {
       return okResult(body);
@@ -516,7 +529,7 @@ class QueryBuilder {
           `/rest/v1/zones_chantiers/${zoneEq.val}/${chantierEq.val}`,
           { method: 'DELETE' },
         );
-        if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
+        if (!res.ok) return apiErrorResult(body, res.statusText);
         return okResult(body);
       }
       if (zoneEq && zoneEq.kind === 'eq' && chantierIn && chantierIn.kind === 'in') {
@@ -525,7 +538,7 @@ class QueryBuilder {
             `/rest/v1/zones_chantiers/${zoneEq.val}/${cid}`,
             { method: 'DELETE' },
           );
-          if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
+          if (!res.ok) return apiErrorResult(body, res.statusText);
         }
         return okResult(null);
       }
@@ -535,7 +548,7 @@ class QueryBuilder {
       const { res, body } = await apiFetch(`/rest/v1/${this.table}/${idEq.val}`, {
         method: 'DELETE',
       });
-      if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
+      if (!res.ok) return apiErrorResult(body, res.statusText);
       return okResult(body);
     }
 
@@ -550,7 +563,7 @@ class QueryBuilder {
       const { res, body } = await apiFetch(`/rest/v1/${this.table}/${row.id}`, {
         method: 'DELETE',
       });
-      if (!res.ok) return errResult(apiErrorMessage(body, res.statusText));
+      if (!res.ok) return apiErrorResult(body, res.statusText);
     }
     return okResult(null);
   }
@@ -685,7 +698,7 @@ export const supabase = {
           body: JSON.stringify(args),
         });
         if (!res.ok) {
-          return errResult(apiErrorMessage(body, res.statusText));
+          return apiErrorResult(body, res.statusText);
         }
         return okResult(body);
       }
@@ -719,7 +732,10 @@ export const supabase = {
             } catch {
               /* raw */
             }
-            return errResult(apiErrorMessage(parsed, 'Upload failed'));
+            if (isCompanyDisabledResponse(res.status, parsed)) {
+              triggerCompanyDisabled();
+            }
+            return apiErrorResult(parsed, 'Upload failed');
           }
           const data = await res.json().catch(() => ({ path }));
           return okResult(data);
@@ -740,7 +756,10 @@ export const supabase = {
               } catch {
                 /* raw */
               }
-              return errResult(apiErrorMessage(parsed, 'Delete failed'));
+              if (isCompanyDisabledResponse(res.status, parsed)) {
+                triggerCompanyDisabled();
+              }
+              return apiErrorResult(parsed, 'Delete failed');
             }
           }
           return okResult(null);

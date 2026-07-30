@@ -21,6 +21,13 @@ import { Colors } from '@/constants/colors';
 import { ConfirmModal } from '@/components/common';
 import { ValidationNotificationBell } from '@/components/common/ValidationNotificationBell';
 import { UserAvatar } from '@/components/common/UserAvatar';
+import {
+  ValidationDesktop,
+  VALIDATION_DESKTOP_PAGE_SIZE,
+  type ValidationDesktopStatus,
+  type ValidationDesktopWorksiteItem,
+} from '@/components/layoutDesktop';
+import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
 import { getChefManagedChantierIds } from '@/utils/team';
 import { calculateDuration, shiftOutsideChantierFrame } from '@/utils/time';
@@ -32,6 +39,7 @@ import {
 } from '@/utils/chantierDivers';
 import { clearApprovalDeepLinkParams, parseApprovalDeepLink } from '@/utils/approvalDeepLink';
 import { scrollViewIntoVisible } from '@/utils/scrollIntoView';
+import { canValidate } from '@/utils/role';
 
 function declarationChantierBlocked(decl: DeclarationWithDetails): boolean {
   return isBlockedByPendingDiversChantier(
@@ -145,6 +153,7 @@ export default function ValidationScreen() {
   const { profile } = useAuth();
   const { t, dateLocale } = useLanguage();
   const router = useRouter();
+  const isDesktopLayout = useIsDesktopLayout();
   const { scrollBottomPadding, headerPaddingTop } = useTabBarInset();
   const routeParams = useLocalSearchParams<{
     filter?: string;
@@ -156,7 +165,7 @@ export default function ValidationScreen() {
   const [weeklyData, setWeeklyData] = useState<UserWeeklySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
-  const [allStatusFilter, setAllStatusFilter] = useState<'validee' | 'annulee'>('validee');
+  const [allStatusFilter, setAllStatusFilter] = useState<'validee' | 'annulee' | 'all'>('validee');
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [selectedWorksiteId, setSelectedWorksiteId] = useState<string | null>(null);
   const [validatingAll, setValidatingAll] = useState(false);
@@ -166,6 +175,7 @@ export default function ValidationScreen() {
   const [validateAllConfirm, setValidateAllConfirm] = useState<ValidateAllConfirmState>(null);
   const [feedbackModal, setFeedbackModal] = useState<FeedbackModalState>(null);
   const [search, setSearch] = useState('');
+  const [wsPage, setWsPage] = useState(1);
   const [highlightDeclId, setHighlightDeclId] = useState<string | null>(null);
   const scrollViewRef = React.useRef<ScrollView>(null);
   const declCardRefs = React.useRef<Record<string, View | null>>({});
@@ -540,12 +550,24 @@ export default function ValidationScreen() {
     [worksiteData],
   );
 
+  const cancelledWorksiteCount = useMemo(
+    () =>
+      worksiteData.filter((worksite) =>
+        worksite.users.some((user) => user.declarations.some((d) => d.statut === 'annulee')),
+      ).length,
+    [worksiteData],
+  );
+
   const allTabFilteredWorksites = useMemo<WorksiteValidationSummary[]>(() => {
     return worksiteData
       .map((worksite) => {
         const users = worksite.users
           .map((user) => {
-            const declarations = user.declarations.filter((d) => d.statut === allStatusFilter);
+            const declarations = user.declarations.filter((d) =>
+              allStatusFilter === 'all'
+                ? d.statut === 'validee' || d.statut === 'annulee'
+                : d.statut === allStatusFilter,
+            );
             if (declarations.length === 0) return null;
             const totalHours = declarations.reduce(
               (sum, d) => sum + d.heures_normales + d.heures_supplementaires,
@@ -567,6 +589,16 @@ export default function ValidationScreen() {
       })
       .filter((worksite) => worksite.users.length > 0);
   }, [allStatusFilter, worksiteData]);
+
+  const allWorksiteCount = useMemo(
+    () =>
+      worksiteData.filter((worksite) =>
+        worksite.users.some((user) =>
+          user.declarations.some((d) => d.statut === 'validee' || d.statut === 'annulee'),
+        ),
+      ).length,
+    [worksiteData],
+  );
 
   const visibleWorksites = useMemo(
     () =>
@@ -612,6 +644,65 @@ export default function ValidationScreen() {
   );
 
   const hasActiveSearch = search.trim().length > 0;
+
+  useEffect(() => {
+    setWsPage(1);
+  }, [filter, allStatusFilter, search]);
+
+  const wsTotalPages = Math.max(1, Math.ceil(searchFilteredWorksites.length / VALIDATION_DESKTOP_PAGE_SIZE));
+  const safeWsPage = Math.min(Math.max(1, wsPage), wsTotalPages);
+  const pagedWorksites = searchFilteredWorksites.slice(
+    (safeWsPage - 1) * VALIDATION_DESKTOP_PAGE_SIZE,
+    safeWsPage * VALIDATION_DESKTOP_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    if (wsPage !== safeWsPage) setWsPage(safeWsPage);
+  }, [wsPage, safeWsPage]);
+
+  /** Desktop: default-select first worksite (user rows stay collapsed). */
+  useEffect(() => {
+    if (!isDesktopLayout || loading) return;
+
+    if (searchFilteredWorksites.length === 0) {
+      if (selectedWorksiteId !== null) setSelectedWorksiteId(null);
+      if (expandedUserId !== null) setExpandedUserId(null);
+      return;
+    }
+
+    const activeWorksite =
+      (selectedWorksiteId &&
+        searchFilteredWorksites.find((w) => w.chantier_id === selectedWorksiteId)) ||
+      null;
+
+    if (!activeWorksite) {
+      const firstWorksite = searchFilteredWorksites[0];
+      if (wsPage !== 1) setWsPage(1);
+      setSelectedWorksiteId(firstWorksite.chantier_id);
+      setExpandedUserId(null);
+      return;
+    }
+
+    // If expanded user no longer belongs to this worksite, collapse.
+    const visibleUsers =
+      filter === 'pending'
+        ? activeWorksite.users.filter((u) => u.declarations.some((d) => d.statut === 'soumise'))
+        : activeWorksite.users;
+    if (
+      expandedUserId != null &&
+      !visibleUsers.some((u) => u.user_id === expandedUserId)
+    ) {
+      setExpandedUserId(null);
+    }
+  }, [
+    isDesktopLayout,
+    loading,
+    searchFilteredWorksites,
+    selectedWorksiteId,
+    expandedUserId,
+    filter,
+    wsPage,
+  ]);
 
   const syncPeriodsForDeclaration = async (
     decl: Pick<DeclarationWithDetails, 'user_id' | 'chantier_id' | 'date'>,
@@ -1198,6 +1289,153 @@ export default function ValidationScreen() {
     );
   };
 
+  const renderWorksiteUsersList = (worksite: WorksiteValidationSummary) => {
+    const worksiteUsers =
+      filter === 'pending'
+        ? worksite.users.filter((u) => u.declarations.some((d) => d.statut === 'soumise'))
+        : worksite.users;
+
+    return (
+      <>
+        {worksite.chantierBlocked ? (
+          <Text style={styles.worksiteBlockedBanner}>
+            {t.chantierDivers.shiftBlockedUntilWorksiteApproved}
+          </Text>
+        ) : null}
+        {worksiteUsers.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>
+              {filter === 'pending' ? t.validation.noDeclarationsPending : t.validation.noDeclarationsAll}
+            </Text>
+          </View>
+        ) : (
+          worksiteUsers.map((user) => {
+            const displayedDeclarations =
+              filter === 'pending'
+                ? user.declarations.filter((d) => d.statut === 'soumise')
+                : user.declarations;
+            const pendingCount = displayedDeclarations.filter((d) => d.statut === 'soumise').length;
+            const hasSoumiseAtWorksite = user.declarations.some((d) => d.statut === 'soumise');
+            const displayedTotalHours = sumDeclarationHours(displayedDeclarations);
+            const isExpanded = expandedUserId === user.user_id;
+
+            return (
+              <View
+                key={user.user_id}
+                style={[
+                  styles.userCardNested,
+                  worksite.chantierBlocked && styles.userCardNestedBlocked,
+                ]}
+              >
+                <View style={styles.userCardHeader}>
+                  <View style={styles.nestedUserHeaderLeft}>
+                    <View style={styles.userRowIconWrap}>
+                      <UserAvatar
+                        avatarPath={user.avatar_path}
+                        avatarUpdatedAt={user.avatar_updated_at}
+                        prenom={user.prenom}
+                        nom={user.nom}
+                        size={32}
+                        variant="initials"
+                      />
+                    </View>
+                    <View style={styles.userMainInfo}>
+                      <View style={styles.userNameRow}>
+                        <Text style={styles.userName} numberOfLines={1}>
+                          {user.prenom} {user.nom}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.userNameHours,
+                            worksite.chantierBlocked && styles.userNameHoursMuted,
+                          ]}
+                        >
+                          {formatHours(displayedTotalHours)}h
+                        </Text>
+                        {pendingCount > 0 && (
+                          <View style={styles.pendingDot}>
+                            <Clock
+                              size={11}
+                              color={worksite.chantierBlocked ? '#9CA3AF' : '#F59E0B'}
+                            />
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+                  <View style={styles.userHeaderRight}>
+                    {pendingCount > 0 && (
+                      <View style={styles.tabCount}>
+                        <Text style={styles.tabCountText}>{pendingCount}</Text>
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      style={[styles.chevronWrap, isExpanded && styles.chevronWrapExpanded]}
+                      onPress={() => setExpandedUserId(isExpanded ? null : user.user_id)}
+                      activeOpacity={0.75}
+                    >
+                      <ChevronDown size={16} color="#FFF" strokeWidth={2.4} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                {isExpanded && (
+                  <View style={styles.userDetailsExpanded}>
+                    {filter === 'pending' &&
+                      renderDeclarationSection(
+                        t.validation.pendingSection,
+                        displayedDeclarations,
+                        user.user_id,
+                      )}
+                    {filter === 'all' &&
+                      renderDeclarationSection(
+                        allStatusFilter === 'validee'
+                          ? t.validation.approvedSection
+                          : allStatusFilter === 'annulee'
+                            ? t.validation.cancelledSection
+                            : t.validation.all,
+                        user.declarations,
+                        user.user_id,
+                        true,
+                      )}
+                  </View>
+                )}
+                {filter === 'pending' &&
+                  (user.hasPending || (worksite.chantierBlocked && hasSoumiseAtWorksite)) && (
+                    <View style={styles.userActions}>
+                      <TouchableOpacity
+                        style={[styles.userActionButton, styles.cancelUserButton]}
+                        onPress={() => handleCancelUser(user.user_id, selectedWorksiteId ?? undefined)}
+                        disabled={cancellingUserId === user.user_id}
+                      >
+                        {cancellingUserId === user.user_id ? (
+                          <ActivityIndicator color="#FFF" size="small" />
+                        ) : (
+                          <X size={15} color="#FFF" strokeWidth={2.5} />
+                        )}
+                        <Text style={styles.userActionButtonText}>{t.validation.cancelAllShifts}</Text>
+                      </TouchableOpacity>
+                      {user.hasPending ? (
+                        <TouchableOpacity
+                          style={[styles.userActionButton, styles.validateUserButton]}
+                          onPress={() => handleValidateUser(user.user_id, selectedWorksiteId ?? undefined)}
+                          disabled={cancellingUserId === user.user_id}
+                        >
+                          <Check size={15} color="#FFF" strokeWidth={2.5} />
+                          <Text style={styles.userActionButtonText}>{t.common.validate}</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  )}
+              </View>
+            );
+          })
+        )}
+      </>
+    );
+  };
+
+  if (!profile?.role || !canValidate(profile.role)) return null;
+
   if (loading) {
     return (
       <View style={[styles.centerContainer, { paddingTop: headerPaddingTop }]}>
@@ -1211,6 +1449,178 @@ export default function ValidationScreen() {
     (sum, u) => sum + u.declarations.filter((d) => isActionablePendingDeclaration(d)).length,
     0
   );
+
+  const renderValidationModals = () => (
+    <>
+      <ConfirmModal
+        visible={cancelPrompt !== null}
+        title={
+          cancelPrompt?.kind === 'single'
+            ? t.validation.cancelConfirm
+            : t.validation.cancelAllConfirm
+        }
+        message={
+          cancelPrompt?.kind === 'single'
+            ? t.validation.cancelConfirmMessage
+            : t.validation.cancelAllConfirmMessage
+        }
+        cancelLabel={t.validation.cancelModalDismiss}
+        confirmLabel={
+          cancelPrompt?.kind === 'single'
+            ? t.validation.cancelModalConfirmSingle
+            : t.validation.cancelAllShifts
+        }
+        onCancel={() => setCancelPrompt(null)}
+        onConfirm={() => void handleConfirmCancelPrompt()}
+        loading={
+          cancelPrompt?.kind === 'bulk'
+            ? cancellingUserId === cancelPrompt.userId
+            : cancelPrompt?.kind === 'single'
+              ? Boolean(processingDeclIds[cancelPrompt.declId])
+              : false
+        }
+        confirmVariant="danger"
+      />
+
+      <ConfirmModal
+        visible={validateAllConfirm !== null}
+        title={t.validation.confirmValidateAll}
+        message={`${t.validation.confirmMessage} ${validateAllConfirm?.workers ?? 0} ${t.validation.confirmWorkers} (${validateAllConfirm?.declarations ?? 0} ${t.validation.confirmDeclarations}) ?`}
+        cancelLabel={t.common.cancel}
+        confirmLabel={t.common.validate}
+        onCancel={() => {
+          if (!validatingAll) setValidateAllConfirm(null);
+        }}
+        onConfirm={() => void executeValidateAll()}
+        loading={validatingAll}
+        iconVariant="warning"
+        confirmVariant="primary"
+      />
+
+      <ConfirmModal
+        visible={feedbackModal !== null}
+        title={feedbackContent?.title ?? ''}
+        message={feedbackContent?.message ?? ''}
+        cancelLabel=""
+        confirmLabel={t.common.ok}
+        onCancel={() => setFeedbackModal(null)}
+        onConfirm={() => setFeedbackModal(null)}
+        iconVariant={feedbackContent?.iconVariant ?? 'danger'}
+        singleButton
+      />
+    </>
+  );
+
+  if (isDesktopLayout) {
+    const desktopWorksites: ValidationDesktopWorksiteItem[] = pagedWorksites.map((worksite) => {
+      const isSelected = selectedWorksiteId === worksite.chantier_id;
+      const badgeCount =
+        filter === 'pending'
+          ? worksite.chantierBlocked
+            ? worksite.soumiseDeclarationCount
+            : worksite.pendingDeclarationCount
+          : worksite.users.length;
+
+      return {
+        id: worksite.chantier_id,
+        name: worksite.chantierNom,
+        code: worksite.chantierCode,
+        blocked: worksite.chantierBlocked,
+        badgeCount:
+          filter === 'pending'
+            ? badgeCount > 0
+              ? badgeCount
+              : undefined
+            : badgeCount,
+        selected: isSelected,
+        onSelect: () => {
+          setSelectedWorksiteId(worksite.chantier_id);
+          setExpandedUserId(null);
+        },
+      };
+    });
+
+    const selectedDesktopWorksite =
+      searchFilteredWorksites.find((w) => w.chantier_id === selectedWorksiteId) ?? null;
+
+    const worksiteCountLabel =
+      searchFilteredWorksites.length === 1
+        ? t.management.worksiteCount.replace('{{count}}', String(searchFilteredWorksites.length))
+        : t.management.worksiteCountPlural.replace(
+            '{{count}}',
+            String(searchFilteredWorksites.length),
+          );
+
+    const desktopStatus: ValidationDesktopStatus =
+      filter === 'pending'
+        ? 'pending'
+        : allStatusFilter === 'all'
+          ? 'all'
+          : allStatusFilter === 'validee'
+            ? 'approved'
+            : 'cancelled';
+
+    const handleDesktopStatusChange = (next: ValidationDesktopStatus) => {
+      if (next === 'pending') {
+        setFilter('pending');
+      } else if (next === 'all') {
+        setFilter('all');
+        setAllStatusFilter('all');
+      } else {
+        setFilter('all');
+        setAllStatusFilter(next === 'approved' ? 'validee' : 'annulee');
+      }
+      setSelectedWorksiteId(null);
+      setExpandedUserId(null);
+    };
+
+    return (
+      <View style={styles.containerDesktop}>
+        <ValidationDesktop
+          title={t.validation.title}
+          subtitle={worksiteCountLabel}
+          status={desktopStatus}
+          onStatusChange={handleDesktopStatusChange}
+          pendingLabel={t.validation.pending}
+          allLabel={t.validation.all}
+          approvedLabel={t.validation.statusApproved}
+          cancelledLabel={t.validation.statusCancelled}
+          pendingCount={pendingDeclarationCount}
+          allCount={allWorksiteCount}
+          approvedCount={validatedWorksiteCount}
+          cancelledCount={cancelledWorksiteCount}
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder={t.validation.searchPlaceholder}
+          selectPlaceholder={t.validation.pending}
+          worksites={desktopWorksites}
+          detailContent={
+            selectedDesktopWorksite
+              ? renderWorksiteUsersList(selectedDesktopWorksite)
+              : undefined
+          }
+          emptyText={
+            hasActiveSearch
+              ? t.validation.noSearchResults
+              : filter === 'pending'
+                ? t.validation.noDeclarationsPending
+                : t.validation.noDeclarationsAll
+          }
+          emptyDetailText={t.selectWorksite.title}
+          page={safeWsPage}
+          totalPages={wsTotalPages}
+          totalCount={searchFilteredWorksites.length}
+          onPageChange={setWsPage}
+          showValidateFooter={filter === 'pending' && usersWithPending.length > 0}
+          validateLabel={`${t.validation.validateTeam} (${pendingDeclarationCount})`}
+          validatingAll={validatingAll}
+          onValidateAll={handleValidateAll}
+          listTitle={t.tabs.worksites}
+        />
+        {renderValidationModals()}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -1253,6 +1663,9 @@ export default function ValidationScreen() {
               style={[styles.tab, filter === 'all' && styles.tabActive]}
               onPress={() => {
                 setFilter('all');
+                if (allStatusFilter === 'all') {
+                  setAllStatusFilter('validee');
+                }
                 setSelectedWorksiteId(null);
                 setExpandedUserId(null);
               }}
@@ -1355,12 +1768,6 @@ export default function ValidationScreen() {
         ) : (
           searchFilteredWorksites.map((worksite) => {
             const isWorksiteExpanded = selectedWorksiteId === worksite.chantier_id;
-            const worksiteUsers =
-              filter === 'pending'
-                ? worksite.users.filter((u) =>
-                    u.declarations.some((d) => d.statut === 'soumise'),
-                  )
-                : worksite.users;
 
             return (
               <View key={worksite.chantier_id} style={[styles.userCard, worksite.chantierBlocked && styles.userCardBlocked]}>
@@ -1408,140 +1815,7 @@ export default function ValidationScreen() {
 
                 {isWorksiteExpanded && (
                   <View style={styles.userDetailsExpanded}>
-                    {worksite.chantierBlocked ? (
-                      <Text style={styles.worksiteBlockedBanner}>
-                        {t.chantierDivers.shiftBlockedUntilWorksiteApproved}
-                      </Text>
-                    ) : null}
-                    {worksiteUsers.length === 0 ? (
-                      <View style={styles.emptyState}>
-                        <Text style={styles.emptyText}>
-                          {filter === 'pending' ? t.validation.noDeclarationsPending : t.validation.noDeclarationsAll}
-                        </Text>
-                      </View>
-                    ) : (
-                      worksiteUsers.map((user) => {
-                        const displayedDeclarations =
-                          filter === 'pending'
-                            ? user.declarations.filter((d) => d.statut === 'soumise')
-                            : user.declarations;
-                        const pendingCount = displayedDeclarations.filter(
-                          (d) => d.statut === 'soumise'
-                        ).length;
-                        const hasSoumiseAtWorksite = user.declarations.some(
-                          (d) => d.statut === 'soumise',
-                        );
-                        const displayedTotalHours = sumDeclarationHours(displayedDeclarations);
-                        const isExpanded = expandedUserId === user.user_id;
-
-                        return (
-                          <View
-                            key={user.user_id}
-                            style={[
-                              styles.userCardNested,
-                              worksite.chantierBlocked && styles.userCardNestedBlocked,
-                            ]}
-                          >
-                            <View style={styles.userCardHeader}>
-                              <View style={styles.nestedUserHeaderLeft}>
-                                <View style={styles.userRowIconWrap}>
-                                  <UserAvatar
-                                    avatarPath={user.avatar_path}
-                                    avatarUpdatedAt={user.avatar_updated_at}
-                                    prenom={user.prenom}
-                                    nom={user.nom}
-                                    size={32}
-                                    variant="initials"
-                                  />
-                                </View>
-                                <View style={styles.userMainInfo}>
-                                  <View style={styles.userNameRow}>
-                                    <Text style={styles.userName} numberOfLines={1}>
-                                      {user.prenom} {user.nom}
-                                    </Text>
-                                    <Text
-                                      style={[
-                                        styles.userNameHours,
-                                        worksite.chantierBlocked && styles.userNameHoursMuted,
-                                      ]}
-                                    >
-                                      {formatHours(displayedTotalHours)}h
-                                    </Text>
-                                    {pendingCount > 0 && (
-                                      <View style={styles.pendingDot}>
-                                        <Clock
-                                          size={11}
-                                          color={worksite.chantierBlocked ? '#9CA3AF' : '#F59E0B'}
-                                        />
-                                      </View>
-                                    )}
-                                  </View>
-                                </View>
-                              </View>
-                              <View style={styles.userHeaderRight}>
-                                {pendingCount > 0 && (
-                                  <View style={styles.tabCount}>
-                                    <Text style={styles.tabCountText}>{pendingCount}</Text>
-                                  </View>
-                                )}
-                                <TouchableOpacity
-                                  style={[styles.chevronWrap, isExpanded && styles.chevronWrapExpanded]}
-                                  onPress={() => setExpandedUserId(isExpanded ? null : user.user_id)}
-                                  activeOpacity={0.75}
-                                >
-                                  <ChevronDown size={16} color="#FFF" strokeWidth={2.4} />
-                                </TouchableOpacity>
-                              </View>
-                            </View>
-                            {isExpanded && (
-                              <View style={styles.userDetailsExpanded}>
-                                {filter === 'pending' &&
-                                  renderDeclarationSection(
-                                    t.validation.pendingSection,
-                                    displayedDeclarations,
-                                    user.user_id,
-                                  )}
-                                {filter === 'all' &&
-                                  renderDeclarationSection(
-                                    allStatusFilter === 'validee'
-                                      ? t.validation.approvedSection
-                                      : t.validation.cancelledSection,
-                                    user.declarations,
-                                    user.user_id,
-                                    true,
-                                  )}
-                              </View>
-                            )}
-                            {filter === 'pending' && (user.hasPending || (worksite.chantierBlocked && hasSoumiseAtWorksite)) && (
-                              <View style={styles.userActions}>
-                                <TouchableOpacity
-                                  style={[styles.userActionButton, styles.cancelUserButton]}
-                                  onPress={() => handleCancelUser(user.user_id, selectedWorksiteId ?? undefined)}
-                                  disabled={cancellingUserId === user.user_id}
-                                >
-                                  {cancellingUserId === user.user_id ? (
-                                    <ActivityIndicator color="#FFF" size="small" />
-                                  ) : (
-                                    <X size={15} color="#FFF" strokeWidth={2.5} />
-                                  )}
-                                  <Text style={styles.userActionButtonText}>{t.validation.cancelAllShifts}</Text>
-                                </TouchableOpacity>
-                                {user.hasPending ? (
-                                  <TouchableOpacity
-                                    style={[styles.userActionButton, styles.validateUserButton]}
-                                    onPress={() => handleValidateUser(user.user_id, selectedWorksiteId ?? undefined)}
-                                    disabled={cancellingUserId === user.user_id}
-                                  >
-                                    <Check size={15} color="#FFF" strokeWidth={2.5} />
-                                    <Text style={styles.userActionButtonText}>{t.common.validate}</Text>
-                                  </TouchableOpacity>
-                                ) : null}
-                              </View>
-                            )}
-                          </View>
-                        );
-                      })
-                    )}
+                    {renderWorksiteUsersList(worksite)}
                   </View>
                 )}
               </View>
@@ -1571,62 +1845,7 @@ export default function ValidationScreen() {
         </View>
       )}
 
-      <ConfirmModal
-        visible={cancelPrompt !== null}
-        title={
-          cancelPrompt?.kind === 'single'
-            ? t.validation.cancelConfirm
-            : t.validation.cancelAllConfirm
-        }
-        message={
-          cancelPrompt?.kind === 'single'
-            ? t.validation.cancelConfirmMessage
-            : t.validation.cancelAllConfirmMessage
-        }
-        cancelLabel={t.validation.cancelModalDismiss}
-        confirmLabel={
-          cancelPrompt?.kind === 'single'
-            ? t.validation.cancelModalConfirmSingle
-            : t.validation.cancelAllShifts
-        }
-        onCancel={() => setCancelPrompt(null)}
-        onConfirm={() => void handleConfirmCancelPrompt()}
-        loading={
-          cancelPrompt?.kind === 'bulk'
-            ? cancellingUserId === cancelPrompt.userId
-            : cancelPrompt?.kind === 'single'
-              ? Boolean(processingDeclIds[cancelPrompt.declId])
-              : false
-        }
-        confirmVariant="danger"
-      />
-
-      <ConfirmModal
-        visible={validateAllConfirm !== null}
-        title={t.validation.confirmValidateAll}
-        message={`${t.validation.confirmMessage} ${validateAllConfirm?.workers ?? 0} ${t.validation.confirmWorkers} (${validateAllConfirm?.declarations ?? 0} ${t.validation.confirmDeclarations}) ?`}
-        cancelLabel={t.common.cancel}
-        confirmLabel={t.common.validate}
-        onCancel={() => {
-          if (!validatingAll) setValidateAllConfirm(null);
-        }}
-        onConfirm={() => void executeValidateAll()}
-        loading={validatingAll}
-        iconVariant="warning"
-        confirmVariant="primary"
-      />
-
-      <ConfirmModal
-        visible={feedbackModal !== null}
-        title={feedbackContent?.title ?? ''}
-        message={feedbackContent?.message ?? ''}
-        cancelLabel=""
-        confirmLabel={t.common.ok}
-        onCancel={() => setFeedbackModal(null)}
-        onConfirm={() => setFeedbackModal(null)}
-        iconVariant={feedbackContent?.iconVariant ?? 'danger'}
-        singleButton
-      />
+      {renderValidationModals()}
     </View>
   );
 }
@@ -1718,6 +1937,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFF7F2',
+  },
+  containerDesktop: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
   centerContainer: {
     flex: 1,

@@ -25,8 +25,10 @@ import {
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DeclareDayEmptyDesktop } from '@/components/layoutDesktop';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
 import { Colors } from '@/constants/colors';
 import { addDaysToDateKey, formatWeekDayLabelWithYear } from '@/utils/date';
 import { declarationLookupKey, isShiftEditable, resolveLineStatut, type LineStatut } from '@/utils/status';
@@ -175,6 +177,7 @@ function ShiftCardPanel({
 export default function DeclareDayEmptyScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isDesktopLayout = useIsDesktopLayout();
   const { profile } = useAuth();
   const { t, dateLocale } = useLanguage();
   const params = useLocalSearchParams<{ date?: string; dayLabel?: string }>();
@@ -426,6 +429,68 @@ export default function DeclareDayEmptyScreen() {
     [date, dateLocale, router],
   );
 
+  if (!profile || profile.role !== 'ouvrier') return null;
+
+  const desktopSubtitle = !hasShifts
+    ? (t.ouvrierDashboard?.notDeclared ?? 'Non déclarée')
+    : shifts.length === 1
+      ? (t.ouvrierDashboard?.shiftCountOne ?? '1 poste')
+      : (t.ouvrierDashboard?.shiftsCount ?? '{{count}} postes').replace(
+          '{{count}}',
+          String(shifts.length),
+        );
+
+  if (isDesktopLayout) {
+    return (
+      <DeclareDayEmptyDesktop
+        title={dayLabel || '—'}
+        subtitle={desktopSubtitle}
+        onBack={handleBack}
+        backLabel={t.common.cancel}
+        onPreviousDay={() => navigateDay(-1)}
+        onNextDay={() => navigateDay(1)}
+        previousDayLabel={t.ouvrierDashboard?.previousDay ?? 'Previous day'}
+        nextDayLabel={t.ouvrierDashboard?.nextDay ?? 'Next day'}
+        canNavigateDay={Boolean(date)}
+        loading={loading}
+        shifts={shifts.map((shift) => ({
+          id: shift.id,
+          chantierLabel:
+            shift.chantierNom && shift.chantierCode && shift.chantierNom !== shift.chantierCode
+              ? `${shift.chantierNom} (${shift.chantierCode})`
+              : shift.chantierNom || shift.chantierCode || '—',
+          heureDebut: shift.heureDebut,
+          heureFin: shift.heureFin,
+          panierRepas: shift.panierRepas,
+          deplacement: shift.deplacement,
+          statut: shift.statut,
+          statutLabel: STATUT_LABELS[shift.statut],
+          chantierPending: shift.chantierPending,
+        }))}
+        mealLabel={t.timesheet.meal}
+        displacementLabel={t.timesheet.displacement}
+        emptyTitle={t.ouvrierDashboard?.noDeclarationTitle ?? 'Aucune déclaration'}
+        emptyDescription={
+          t.ouvrierDashboard?.noDeclarationDescription ??
+          'Déclare tes heures travaillées pour ce jour.'
+        }
+        addCta={
+          hasShifts
+            ? (t.ouvrierDashboard?.addExtraSlotCta ?? 'Ajouter un créneau supplémentaire')
+            : (t.ouvrierDashboard?.declareToday ?? "Déclarer aujourd'hui")
+        }
+        editCta={t.ouvrierDashboard?.editShiftCta ?? 'Modifier ce créneau'}
+        onAddShift={() => {
+          void (hasShifts ? openAddShift() : openFirstShift());
+        }}
+        onEditShift={(shiftId) => {
+          const shift = shifts.find((s) => s.id === shiftId);
+          if (shift) openEditShift(shift);
+        }}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -624,6 +689,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFF',
+  },
+  containerDesktop: {
+    backgroundColor: 'transparent',
+  },
+  desktopHeaderPad: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  desktopNavBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  desktopNavBtnDisabled: {
+    opacity: 0.4,
   },
   header: {
     flexDirection: 'row',

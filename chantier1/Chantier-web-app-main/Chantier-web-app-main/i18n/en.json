@@ -8,23 +8,34 @@
     "loading": "Loading...",
     "hours": "h"
   },
+  "companyDisabled": {
+    "title": "Company disabled",
+    "message": "Your company has been disabled. Please contact the platform administrator."
+  },
   "tabs": {
     "home": "Home",
     "dashboard": "Dashboard",
     "calendar": "Calendar",
     "management": "Management",
+    "users": "Users",
+    "worksites": "Worksites",
     "timesheet": "Hours",
     "team": "Team",
     "validation": "Validation",
     "export": "Statistics",
     "absences": "Absences",
-    "profile": "Profile"
+    "profile": "Profile",
+    "platform": "Platform",
+    "companies": "Companies",
+    "platformAdmins": "Admins",
+    "audit": "Audit"
   },
   "roles": {
     "ouvrier": "Collaborator",
     "chef_equipe": "Team Leader",
     "administratif": "Administrative",
-    "admin": "Admin"
+    "admin": "Admin",
+    "system_admin": "System Administrator"
   },
   "login": {
     "welcome": "Welcome",
@@ -39,6 +50,7 @@
     "connect": "CONNECT",
     "fillAllFields": "Please fill all fields",
     "incorrectCredentials": "Incorrect credentials",
+    "accountNotFound": "Account not found. Contact your administrator.",
     "devicePinOr": "or",
     "devicePinLabel": "Sign in with device PIN",
     "devicePinLabelPrefix": "Sign in with ",
@@ -49,7 +61,24 @@
     "devicePinNoCredentials": "Sign in once with your email and password to enable device PIN",
     "devicePinEnableHint": "After your first sign-in, use your device PIN here",
     "devicePinUnavailable": "Turn on a screen lock PIN or password in your phone settings",
-    "tagline": "Building the future together"
+    "tagline": "Building the future together",
+    "desktop": {
+      "brandName": "Chantier+",
+      "brandTagline": "Simplified construction site management",
+      "brandIntro": "Team tracking, site management, time clocks and real-time reporting.",
+      "welcome": "Welcome!",
+      "subtitle": "Sign in to your Chantier+ account",
+      "features": {
+        "teamsTitle": "Team management",
+        "teamsDesc": "Organize your collaborators and their roles",
+        "sitesTitle": "Site monitoring",
+        "sitesDesc": "Track progress across your projects",
+        "hoursTitle": "Clocking & hours",
+        "hoursDesc": "Track time spent on each site",
+        "reportsTitle": "Reporting & analytics",
+        "reportsDesc": "Visualize your data in real time"
+      }
+    }
   },
   "forgotPassword": {
     "title": "Forgot password",
@@ -62,7 +91,10 @@
   "resetPassword": {
     "title": "New password",
     "subtitleOtp": "Enter the code from your email and choose a new password.",
+    "subtitleVerifyOtp": "Enter the 6-digit code sent to your email.",
+    "subtitleNewPassword": "Choose your new password.",
     "otpCode": "Verification code",
+    "verifyOtp": "VERIFY CODE",
     "otpPlaceholder": "6-digit code",
     "newPassword": "New password",
     "newPasswordPlaceholder": "Enter your new password",
@@ -75,6 +107,7 @@
     "resendOtp": "Resend code",
     "resendingOtp": "Sending...",
     "mailNotConfigured": "Email service is not configured. Contact your administrator.",
+    "passwordUpdateFailed": "Password could not be updated. Please try again or contact support.",
     "genericError": "Unable to reset password. Please try again.",
     "success": "Your password has been updated. You can now sign in.",
     "backToLogin": "Back to login"
@@ -111,7 +144,15 @@
     "title": "Time declaration",
     "selectDate": "Choose a date",
     "backToToday": "Back to today",
-    "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    "days": [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday"
+    ],
     "worksite": "Worksite",
     "select": "Select",
     "start": "Start",
@@ -369,7 +410,15 @@
     "permUserManagement": "User management",
     "changeAvatar": "Tap to change photo",
     "avatarUploadFailed": "Could not save your photo. Please try again.",
-    "avatarPermissionDenied": "Allow photo library access to choose a profile picture."
+    "avatarPermissionDenied": "Allow photo library access to choose a profile picture.",
+    "company": "Company",
+    "companyPlatform": "Platform",
+    "companyNone": "—",
+    "roleDescSystemAdmin": "Platform administration",
+    "permPlatformDashboard": "Platform dashboard",
+    "permCompanyManagement": "Company management",
+    "permCompanyAdminManagement": "Company admin management",
+    "permPlatformAudit": "Platform audit"
   },
   "chefDashboard": {
     "title": "Dashboard",
@@ -406,6 +455,8 @@
   "ouvrierDashboard": {
     "totalWeek": "Week total",
     "declaredDays": "Declared days",
+    "dayCount": "{{count}} declared day",
+    "dayCountPlural": "{{count}} declared days",
     "weekDays": "Days of the week",
     "prefillCurrentWeek": "Fill my week",
     "prefillCurrentWeekA11y": "Pre-fill the current week",
@@ -488,6 +539,11 @@
     "endLabel": "End",
     "noUsersAssigned": "No users assigned",
     "dateUndefined": "Not set",
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page {{page}} / {{total}}"
+    },
     "modals": {
       "delete": "Delete",
       "remove": "Remove",
@@ -776,5 +832,223 @@
     "sectionHistory": "History",
     "emptyTeam": "No absences found",
     "selectEndDate": "Select an end date to preview the period."
+  },
+  "platform": {
+    "common": {
+      "allCompanies": "All",
+      "companyFilter": "Company filter",
+      "companyFilterTitle": "Filter by company",
+      "unknownCompany": "Unknown company",
+      "loadFailed": "Unable to load data"
+    },
+    "hub": {
+      "title": "Platform",
+      "subtitle": "Administration & monitoring",
+      "segments": {
+        "dashboard": "Dashboard",
+        "companies": "Companies",
+        "admins": "Admins"
+      }
+    },
+    "dashboard": {
+      "title": "Platform Dashboard",
+      "subtitle": "Monitoring — identity remains System Admin",
+      "companySwitch": "Company switch",
+      "sections": {
+        "companies": "Companies",
+        "usersByRole": "Users by role",
+        "totals": "Totals",
+        "users": "Users",
+        "activity": "Activity"
+      },
+      "stats": {
+        "total": "Total",
+        "active": "Active",
+        "disabled": "Disabled",
+        "pending": "Pending",
+        "worksites": "Worksites",
+        "declarations": "Declarations",
+        "admins": "Admins",
+        "managers": "Managers",
+        "workers": "Workers"
+      },
+      "emptyUsers": "No users yet",
+      "errors": {
+        "loadFailed": "Unable to load dashboard"
+      }
+    },
+    "admins": {
+      "title": "Company Admins",
+      "subtitle": "Platform admin accounts per company",
+      "subTabs": {
+        "admins": "Admins",
+        "managers": "Management",
+        "collab": "Collab"
+      },
+      "searchPlaceholder": "Search by name, email or company...",
+      "count": "{{count}} admin",
+      "countPlural": "{{count}} admins",
+      "countManagers": "{{count}} manager",
+      "countManagersPlural": "{{count}} managers",
+      "countCollab": "{{count}} worker",
+      "countCollabPlural": "{{count}} workers",
+      "empty": "No company admins found",
+      "emptyManagers": "No managers found",
+      "emptyCollab": "No workers found",
+      "createButton": "Create company admin",
+      "createModal": {
+        "title": "New company admin",
+        "createButton": "Create company admin"
+      },
+      "fields": {
+        "company": "Company",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "email": "Email",
+        "password": "Password"
+      },
+      "placeholders": {
+        "company": "Select company",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "email": "admin@company.test",
+        "password": "Min 6 characters"
+      },
+      "errors": {
+        "selectCompany": "Select a company",
+        "invalidEmail": "Invalid email",
+        "requiredFields": "Fill all required fields (password min 6 chars)",
+        "loadFailed": "Unable to load admins",
+        "createFailed": "Unable to create admin",
+        "updateFailed": "Unable to update user",
+        "deleteFailed": "Unable to delete user",
+        "statusFailed": "Unable to change account status",
+        "passwordMinLength": "Password must be at least 6 characters"
+      },
+      "statusActive": "Active",
+      "statusDisabled": "Disabled",
+      "actions": {
+        "edit": "Edit account",
+        "disable": "Disable account",
+        "activate": "Activate account",
+        "delete": "Delete account"
+      },
+      "editModal": {
+        "title": "Edit account",
+        "saveButton": "Save",
+        "passwordHint": "Leave blank to keep current password"
+      },
+      "disableModal": {
+        "title": "Disable account",
+        "messageBefore": "Disable ",
+        "messageAfter": "? The user will no longer be able to sign in.",
+        "confirm": "Disable"
+      },
+      "activateModal": {
+        "title": "Activate account",
+        "messageBefore": "Reactivate ",
+        "messageAfter": "?",
+        "confirm": "Activate"
+      },
+      "deleteModal": {
+        "title": "Delete account",
+        "messageBefore": "Permanently delete ",
+        "messageAfter": "? This action cannot be undone. Accounts linked to active data cannot be deleted.",
+        "confirm": "Delete"
+      },
+      "monitoringHint": "Read-only view — only company admins can be managed"
+    },
+    "audit": {
+      "title": "Platform Audit",
+      "subtitle": "Activity log across all tenants",
+      "searchPlaceholder": "Search by action, actor or entity...",
+      "count": "{{count}} entry",
+      "countPlural": "{{count}} entries",
+      "empty": "No audit entries found",
+      "fields": {
+        "action": "Action",
+        "actor": "Actor",
+        "entity": "Entity",
+        "company": "Company"
+      },
+      "errors": {
+        "loadFailed": "Unable to load audit logs"
+      }
+    },
+    "companies": {
+      "title": "Companies",
+      "subtitle": "Manage tenant organizations",
+      "searchPlaceholder": "Search by name or slug...",
+      "count": "{{count}} company",
+      "countPlural": "{{count}} companies",
+      "empty": "No companies found",
+      "statusFilter": "Status",
+      "filterTitle": "Filter by status",
+      "statusAll": "All",
+      "statusActive": "Active",
+      "statusDisabled": "Disabled",
+      "statusPending": "Pending",
+      "createModal": {
+        "title": "New company",
+        "createButton": "Create company",
+        "slugHint": "Lowercase letters, numbers and hyphens only"
+      },
+      "fields": {
+        "name": "Name",
+        "slug": "Slug",
+        "address": "Address",
+        "taxId": "Tax ID"
+      },
+      "actions": {
+        "edit": "Edit company",
+        "disable": "Disable company",
+        "activate": "Activate company",
+        "delete": "Delete company"
+      },
+      "editModal": {
+        "title": "Edit company",
+        "saveButton": "Save changes",
+        "slugHint": "Lowercase letters, numbers and hyphens only"
+      },
+      "detailModal": {
+        "title": "Company details",
+        "closeButton": "Close",
+        "viewDetails": "View details for {{name}}",
+        "status": "Status",
+        "createdAt": "Created",
+        "noAddress": "No address provided",
+        "noTaxId": "Not provided"
+      },
+      "disableModal": {
+        "title": "Disable company",
+        "messageBefore": "Disable ",
+        "messageAfter": "? Users will lose access until the company is reactivated.",
+        "confirm": "Disable"
+      },
+      "activateModal": {
+        "title": "Activate company",
+        "messageBefore": "Reactivate ",
+        "messageAfter": "?",
+        "confirm": "Activate"
+      },
+      "deleteModal": {
+        "title": "Delete company",
+        "messageBefore": "Permanently delete ",
+        "messageAfter": "? This cannot be undone. Companies with users or worksites must be disabled instead.",
+        "confirm": "Delete"
+      },
+      "errors": {
+        "nameRequired": "Company name is required",
+        "slugRequired": "Slug is required",
+        "slugInvalid": "Slug must contain only lowercase letters, numbers and hyphens",
+        "taxIdInvalid": "Tax ID may only contain letters, numbers, spaces, dots and hyphens",
+        "loadFailed": "Unable to load companies",
+        "createFailed": "Unable to create company",
+        "updateFailed": "Unable to update company",
+        "deleteFailed": "Unable to delete company",
+        "statusFailed": "Unable to update company status",
+        "detailFailed": "Unable to load company details"
+      }
+    }
   }
 }

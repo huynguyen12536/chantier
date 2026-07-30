@@ -56,6 +56,7 @@ function getRoleLabel(role: UserRole, t: Translations): string {
     chef_equipe: t.roles.chef_equipe,
     administratif: t.roles.administratif,
     admin: t.roles.admin,
+    system_admin: t.roles.system_admin,
   };
   return labels[role] ?? role;
 }

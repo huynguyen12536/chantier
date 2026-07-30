@@ -4,9 +4,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "expo start --tunnel --non-interactive",
-    "dev": "expo start --tunnel --non-interactive",
-    "dev:lan": "expo start --non-interactive",
+    "start": "expo start --non-interactive",
+    "dev": "expo start --non-interactive",
+    "start:lan": "expo start --host lan --non-interactive",
+    "start:tunnel": "expo start --tunnel --non-interactive",
+    "dev:lan": "expo start --host lan --non-interactive",
     "build:web": "expo export --platform web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
@@ -41,6 +43,7 @@
     "expo-system-ui": "~6.0.9",
     "expo-web-browser": "~15.0.11",
     "lucide-react-native": "^0.544.0",
+    "nativewind": "^4.2.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -58,9 +61,11 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.1.10",
+    "babel-preset-expo": "~54.0.10",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~10.0.0",
     "react-native-svg-transformer": "^1.5.3",
+    "tailwindcss": "^3.4.17",
     "typescript": "~5.9.2"
   },
   "overrides": {

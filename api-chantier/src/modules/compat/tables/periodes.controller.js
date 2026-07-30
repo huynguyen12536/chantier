@@ -12,25 +12,43 @@ import { toErrorResponse } from '../http.js';
 import { mapChantierRows } from '../mappers/hoursMapper.js';
 import { pickUuid, pickDate, pickEq, pickUuidList } from '../queryAllowList.js';
 
-async function embedPeriodOrDecl(rows, query, kind) {
+async function embedProfiles(rows, actor) {
+  const list = Array.isArray(rows) ? rows : [rows];
+  let users = [];
+  try {
+    users = await usersService.listUsers(actor);
+  } catch {
+    users = [];
+  }
+  const byId = new Map(users.map((u) => [u.id, u]));
+  const missingIds = [
+    ...new Set(list.map((r) => r.user_id).filter(Boolean)),
+  ].filter((id) => !byId.has(id));
+  await Promise.all(
+    missingIds.map(async (id) => {
+      try {
+        const user = await usersService.getUser(id, actor);
+        byId.set(id, user);
+      } catch {
+        /* skip inaccessible profile */
+      }
+    }),
+  );
+  return list.map((r) => ({ ...r, profiles: byId.get(r.user_id) ?? null }));
+}
+
+async function embedPeriodOrDecl(rows, query, actor) {
   const embed = String(query?.embed || '');
   if (!embed) return rows;
   const list = Array.isArray(rows) ? rows : [rows];
   let out = list;
   if (embed.includes('chantiers')) {
-    const chantiers = mapChantierRows(await chantiersService.listChantiers());
+    const chantiers = mapChantierRows(await chantiersService.listChantiers(actor));
     const byId = new Map(chantiers.map((c) => [c.id, c]));
     out = out.map((r) => ({ ...r, chantiers: byId.get(r.chantier_id) ?? null }));
   }
   if (embed.includes('profiles')) {
-    let users = [];
-    try {
-      users = await usersService.listUsers();
-    } catch {
-      users = [];
-    }
-    const byId = new Map(users.map((u) => [u.id, u]));
-    out = out.map((r) => ({ ...r, profiles: byId.get(r.user_id) ?? null }));
+    out = await embedProfiles(out, actor);
   }
   return Array.isArray(rows) ? out : out[0];
 }
@@ -98,7 +116,7 @@ export const listPeriods = asyncHandler(async (req, res) => {
       req.user,
     );
     rows = applyExtraFilters(rows, req.query);
-    rows = await embedPeriodOrDecl(rows, req.query, 'period');
+    rows = await embedPeriodOrDecl(rows, req.query, req.user);
     res.status(200).json(rows);
   } catch (err) {
     const mapped = toErrorResponse(err);
@@ -149,7 +167,7 @@ export const listDeclarations = asyncHandler(async (req, res) => {
       req.user,
     );
     rows = applyExtraFilters(rows, req.query);
-    rows = await embedPeriodOrDecl(rows, req.query, 'declaration');
+    rows = await embedPeriodOrDecl(rows, req.query, req.user);
     res.status(200).json(rows);
   } catch (err) {
     const mapped = toErrorResponse(err);

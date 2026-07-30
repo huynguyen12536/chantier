@@ -13,6 +13,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
+import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
 import { CONTENT_MAX_WIDTH } from '@/constants/layout';
 import { supabase } from '@/services/supabase';
 import { getChefManagedChantierIds } from '@/utils/team';
@@ -24,8 +25,8 @@ import {
 import { computeChantierHoursBreakdown, formatTime } from '@/utils/time';
 import { Download, Megaphone, BadgeCheck, Hourglass, Timer } from 'lucide-react-native';
 import { ValidationNotificationBell } from '@/components/common/ValidationNotificationBell';
-import { canReceiveApprovalNotifications } from '@/utils/role';
-
+import { ExportDesktop, desktopTheme } from '@/components/layoutDesktop';
+import { canExport, canReceiveApprovalNotifications } from '@/utils/role';
 
 const STATS_GAP = 12;
 const STATS_COLUMNS = 2;
@@ -48,7 +49,9 @@ export default function ExportScreen() {
   const { t, language } = useLanguage();
   const { scrollBottomPadding, headerPaddingTop } = useTabBarInset();
   const { width: windowWidth } = useWindowDimensions();
+  const isDesktopLayout = useIsDesktopLayout();
   const [loading, setLoading] = useState(false);
+  const [loadingPeriod, setLoadingPeriod] = useState<'week' | 'month' | null>(null);
   const isCompact = windowWidth < 400;
   const [stats, setStats] = useState({
     total_declarations: 0,
@@ -126,8 +129,10 @@ export default function ExportScreen() {
     loadStats();
   }, [profile?.id, profile?.role]);
 
-  const fetchExportDeclarations = async (): Promise<PayrollExportSourceRow[]> => {
-    const { start, end } = getDateRange();
+  const fetchExportDeclarations = async (
+    period: 'week' | 'month' = selectedPeriod,
+  ): Promise<PayrollExportSourceRow[]> => {
+    const { start, end } = getDateRange(period);
 
     let query = supabase
       .from('periodes_travail')
@@ -241,8 +246,8 @@ export default function ExportScreen() {
     }
   };
 
-  const getDateRange = (): { start: string; end: string } => {
-    const { start, end } = getPeriodRange(selectedPeriod);
+  const getDateRange = (period: 'week' | 'month' = selectedPeriod): { start: string; end: string } => {
+    const { start, end } = getPeriodRange(period);
     return { start, end };
   };
 
@@ -266,15 +271,18 @@ export default function ExportScreen() {
     );
   };
 
-  const handleExport = async () => {
+  const handleExport = async (period: 'week' | 'month' = selectedPeriod) => {
+    setSelectedPeriod(period);
     setLoading(true);
+    setLoadingPeriod(period);
     try {
-      const { start, end } = getDateRange();
-      const exportData = await fetchExportDeclarations();
+      const { start, end } = getDateRange(period);
+      const exportData = await fetchExportDeclarations(period);
 
       if (exportData.length === 0) {
         Alert.alert('Information', t.export.noData);
         setLoading(false);
+        setLoadingPeriod(null);
         return;
       }
 
@@ -305,6 +313,7 @@ export default function ExportScreen() {
             'Export Excel indisponible — fichier CSV téléchargé (colonnes numériques en texte). Réessayez ou contactez le support.',
           );
           setLoading(false);
+          setLoadingPeriod(null);
           return;
         }
         setTimeout(() => {
@@ -320,8 +329,79 @@ export default function ExportScreen() {
       Alert.alert(t.common.error, error.message);
     } finally {
       setLoading(false);
+      setLoadingPeriod(null);
     }
   };
+
+  if (!profile?.role || !canExport(profile.role)) return null;
+
+  if (isDesktopLayout) {
+    return (
+      <ExportDesktop
+        title={headerTitle}
+        subtitle={headerSubtitle}
+        showNotificationBell={canReceiveApprovalNotifications(profile?.role)}
+        isChef={!!isChef}
+        stats={[
+          {
+            key: 'total',
+            Icon: Megaphone,
+            color: desktopTheme.stats.declarations.color,
+            bg: desktopTheme.stats.declarations.bg,
+            border: desktopTheme.stats.declarations.border,
+            value: formatDisplayNumber(stats.total_declarations),
+            label: t.export.declarations,
+          },
+          {
+            key: 'validees',
+            Icon: BadgeCheck,
+            color: desktopTheme.stats.approved.color,
+            bg: desktopTheme.stats.approved.bg,
+            border: desktopTheme.stats.approved.border,
+            value: formatDisplayNumber(stats.validees),
+            label: t.export.approved,
+          },
+          {
+            key: 'pending',
+            Icon: Hourglass,
+            color: desktopTheme.stats.pending.color,
+            bg: desktopTheme.stats.pending.bg,
+            border: desktopTheme.stats.pending.border,
+            value: formatDisplayNumber(stats.en_attente),
+            label: t.export.pending,
+          },
+          {
+            key: 'hours',
+            Icon: Timer,
+            color: desktopTheme.stats.hours.color,
+            bg: desktopTheme.stats.hours.bg,
+            border: desktopTheme.stats.hours.border,
+            value: formatDisplayNumber(stats.total_heures, 1),
+            label: t.export.totalHours,
+            unit: 'h',
+          },
+        ]}
+        onSelectPeriod={setSelectedPeriod}
+        loading={loading}
+        loadingPeriod={loadingPeriod}
+        onExport={handleExport}
+        periodLabels={{ week: t.export.thisWeek, month: t.export.thisMonth }}
+        exportPeriodTitle={t.export.exportPeriod}
+        exportInfo={t.export.exportInfo}
+        exportFormat={t.export.exportFormat}
+        exportButton={t.export.exportButton}
+        instructionsTitle={t.export.instructions}
+        instructions={[
+          t.export.instruction1,
+          t.export.instruction2,
+          t.export.instruction3,
+          t.export.instruction4,
+        ]}
+        legendTitle={t.export.indicatorsLegend}
+        legendItems={indicatorLegendItems}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -433,7 +513,9 @@ export default function ExportScreen() {
 
               <TouchableOpacity
                 style={[styles.exportButton, loading && styles.exportButtonDisabled]}
-                onPress={handleExport}
+                onPress={() => {
+                  void handleExport();
+                }}
                 disabled={loading}
               >
                 {loading ? (
@@ -714,6 +796,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF6B35',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 2, height: 5 },
+    shadowOpacity: 0.42,
+    shadowRadius: 8,
+    elevation: 5,
+    ...(Platform.OS === 'web'
+      ? {
+          boxShadow:
+            '2px 6px 14px rgba(255, 107, 53, 0.38), 0 2px 4px rgba(255, 107, 53, 0.22)',
+        }
+      : null),
   },
   instructionNumberText: {
     color: '#FFF',

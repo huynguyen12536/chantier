@@ -11,11 +11,13 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Plus } from 'lucide-react-native';
 import { AbsenceListSection } from '@/components/absence/AbsenceListSection';
+import { CalendarDesktop } from '@/components/layoutDesktop';
 import { CollaboratorNotificationBell } from '@/components/common';
 import { ChooseDayCalendar } from '@/components/ouvrier/ChooseDayCalendar';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
 import { supabase } from '@/services/supabase';
 import type { Absence } from '@/types';
@@ -27,6 +29,7 @@ export default function CalendarTabScreen() {
   const { profile } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
+  const isDesktopLayout = useIsDesktopLayout();
   const { scrollBottomPadding, headerPaddingTop } = useTabBarInset();
   const a = t.absences;
 
@@ -90,6 +93,30 @@ export default function CalendarTabScreen() {
   );
 
   if (!profile || profile.role !== 'ouvrier') return null;
+
+  if (isDesktopLayout) {
+    return (
+      <CalendarDesktop
+        title={a.title}
+        subtitle={a.subtitle}
+        calendarTitle={t.tabs.calendar}
+        declareCta={a.declareCta}
+        onDeclareAbsence={() => router.push('/declare-absence')}
+        absenceByDate={absenceByDate}
+        onAbsencePress={(id) => router.push(`/absence-detail?id=${encodeURIComponent(id)}`)}
+        loading={loading}
+        upcomingTitle={a.upcomingSection}
+        upcomingItems={upcoming}
+        upcomingEmpty={a.emptyUpcoming}
+        pastTitle={a.pastSection}
+        pastItems={past}
+        pastEmpty={a.emptyPast}
+        onPressAbsenceItem={(item) =>
+          router.push(`/absence-detail?id=${encodeURIComponent(item.id)}`)
+        }
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>

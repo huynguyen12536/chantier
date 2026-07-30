@@ -1,4 +1,4 @@
-import { apiUrl, supabase } from '@/services/supabase';
+import { supabase, supabaseUrl } from '@/services/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 
@@ -8,8 +8,8 @@ export function getAvatarPublicUrl(
   avatarPath: string | null | undefined,
   avatarUpdatedAt?: string | null,
 ): string | null {
-  if (!avatarPath?.trim() || !apiUrl) return null;
-  const base = `${apiUrl}/api/storage/avatars/${avatarPath.replace(/^\//, '')}`;
+  if (!avatarPath?.trim() || !supabaseUrl) return null;
+  const base = `${supabaseUrl}/storage/v1/object/public/${AVATAR_BUCKET}/${avatarPath.replace(/^\//, '')}`;
   if (avatarUpdatedAt) {
     const t = new Date(avatarUpdatedAt).getTime();
     if (Number.isFinite(t)) {

@@ -1,14 +1,18 @@
 import { query } from '../../shared/db/pool.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { toFeChantierHours } from '../compat/mappers/hoursMapper.js';
+import { tenantId, assertSameCompany } from '../../shared/authz/tenantScope.js';
 import bcrypt from 'bcryptjs';
 
 function isAdminRole(role) {
   return role === 'admin' || role === 'administratif';
 }
 
-async function nextDiversCode() {
-  const { rows } = await query(`SELECT code FROM chantiers WHERE code ~ '^DIV_[0-9]{3}$'`);
+async function nextDiversCode(_companyId) {
+  // codes are globally unique (chantiers_code_key) — scan all DIV_* rows
+  const { rows } = await query(
+    `SELECT code FROM chantiers WHERE code ~ '^DIV_[0-9]{3}$'`,
+  );
   let max = 0;
   for (const row of rows) {
     const n = Number.parseInt(String(row.code).slice(-3), 10);
@@ -21,6 +25,7 @@ export async function createChantierDivers(actor, input) {
   if (actor.role !== 'ouvrier') {
     throw new AppError('Seuls les ouvriers peuvent creer un chantier divers', 403);
   }
+  const companyId = tenantId(actor);
 
   const nom = String(input.p_nom ?? input.nom ?? '').trim();
   const adresse = String(input.p_adresse ?? input.adresse ?? '').trim();
@@ -37,11 +42,12 @@ export async function createChantierDivers(actor, input) {
 
   const { rows: existingRows } = await query(
     `SELECT * FROM chantiers
-     WHERE source = 'divers' AND divers_statut IN ('en_attente', 'approuve')
+     WHERE company_id = $3
+       AND source = 'divers' AND divers_statut IN ('en_attente', 'approuve')
        AND lower(trim(nom)) = lower($1) AND lower(trim(adresse)) = lower($2)
      ORDER BY CASE divers_statut WHEN 'approuve' THEN 0 ELSE 1 END, created_at ASC
      LIMIT 1`,
-    [nom, adresse],
+    [nom, adresse, companyId],
   );
 
   const existing = existingRows[0];
@@ -59,8 +65,9 @@ export async function createChantierDivers(actor, input) {
     );
     if (!aff[0]) {
       await query(
-        `INSERT INTO affectations_chantiers (user_id, chantier_id, date_debut) VALUES ($1, $2, CURRENT_DATE)`,
-        [actor.id, existing.id],
+        `INSERT INTO affectations_chantiers (user_id, chantier_id, date_debut, company_id)
+         VALUES ($1, $2, CURRENT_DATE, $3)`,
+        [actor.id, existing.id, companyId],
       );
     }
     return {
@@ -76,20 +83,21 @@ export async function createChantierDivers(actor, input) {
     throw new AppError('Motif trop long', 400);
   }
 
-  const code = await nextDiversCode();
+  const code = await nextDiversCode(companyId);
   const { rows } = await query(
     `INSERT INTO chantiers (
       nom, code, adresse, actif, date_debut,
       heure_debut_matin, heure_fin_apres_midi,
-      source, divers_statut, created_by, divers_creation_reason
-    ) VALUES ($1,$2,$3,false,CURRENT_DATE,$4,$5,'divers','en_attente',$6,$7)
+      source, divers_statut, created_by, divers_creation_reason, company_id
+    ) VALUES ($1,$2,$3,false,CURRENT_DATE,$4,$5,'divers','en_attente',$6,$7,$8)
     RETURNING *`,
-    [nom, code, adresse, heureDebut, heureFin, actor.id, motif],
+    [nom, code, adresse, heureDebut, heureFin, actor.id, motif, companyId],
   );
 
   await query(
-    `INSERT INTO affectations_chantiers (user_id, chantier_id, date_debut) VALUES ($1, $2, CURRENT_DATE)`,
-    [actor.id, rows[0].id],
+    `INSERT INTO affectations_chantiers (user_id, chantier_id, date_debut, company_id)
+     VALUES ($1, $2, CURRENT_DATE, $3)`,
+    [actor.id, rows[0].id, companyId],
   );
 
   return { ...toFeChantierHours(rows[0]), reused_existing: false };
@@ -113,6 +121,7 @@ export async function approveChantierDivers(actor, input) {
   const { rows } = await query(`SELECT * FROM chantiers WHERE id = $1 FOR UPDATE`, [chantierId]);
   const row = rows[0];
   if (!row) throw new AppError('Chantier introuvable', 404);
+  assertSameCompany(actor, row.company_id);
   if (row.source !== 'divers' || row.divers_statut !== 'en_attente') {
     throw new AppError('Ce chantier divers ne peut pas etre approuve', 400);
   }
@@ -152,6 +161,7 @@ export async function rejectChantierDivers(actor, input) {
   const { rows } = await query(`SELECT * FROM chantiers WHERE id = $1 FOR UPDATE`, [chantierId]);
   const row = rows[0];
   if (!row) throw new AppError('Chantier introuvable', 404);
+  assertSameCompany(actor, row.company_id);
   if (row.source !== 'divers' || row.divers_statut !== 'en_attente') {
     throw new AppError('Ce chantier divers ne peut pas etre refuse', 400);
   }

@@ -1,4 +1,4 @@
-﻿# dependencies
+# dependencies
 node_modules/
 
 # expo
@@ -37,7 +37,7 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# native / preview builds (do not commit ΓÇö GitHub limit 100 MB)
+# native / preview builds (do not commit — GitHub limit 100 MB)
 build/
 *.apk
 android/app/build/

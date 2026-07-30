@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { requireAuth, requireRoles } from '../../shared/middleware/auth.js';
+import { forbidSystemAdminOperational, blockDisabledCompany } from '../../shared/middleware/tenant.js';
 import * as controller from './controller.js';
 
 const router = Router();
 const reviewers = requireRoles('admin', 'administratif', 'chef_equipe');
 
-router.use(requireAuth);
+router.use(requireAuth, blockDisabledCompany, forbidSystemAdminOperational);
 
 // History: reviewers OR ouvrier (own) — authorize inside service
 router.get('/declarations/:id/history', controller.history);

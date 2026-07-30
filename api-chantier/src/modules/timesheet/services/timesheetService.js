@@ -16,6 +16,7 @@ import {
   getChefChantierIds,
   assertCanReviewChantier,
 } from '../../../shared/authz/chefScope.js';
+import { tenantId, assertSameCompany } from '../../../shared/authz/tenantScope.js';
 import { emitAfterPeriodMutation } from './emitTimesheetEvents.js';
 import { isShiftOutsideCadre } from '../domain/calculation.js';
 
@@ -126,7 +127,10 @@ export async function createPeriod(input, actor) {
   let result;
   try {
     result = await withTransaction(async (client) => {
-      const row = { ...data, user_id: userId };
+      const chantier = await repo.getChantier(client, data.chantier_id);
+      if (!chantier) throw new AppError('Chantier not found', 404, { code: 'NOT_FOUND' });
+      assertSameCompany(actor, chantier.company_id);
+      const row = { ...data, user_id: userId, company_id: chantier.company_id };
       await assertOutsideFrameHasReason(client, row);
       const dup = await repo.findDuplicatePeriod(client, row);
       if (dup) {
@@ -280,14 +284,16 @@ export async function listPeriods(filters, actor) {
     return rows.map(mapPeriod);
   }
 
-  // admin / administratif — full business scope
+  // admin / administratif — company scope
+  const companyId = tenantId(actor);
   const { rows } = await query(
     `SELECT * FROM periodes_travail
-     WHERE ($1::uuid IS NULL OR user_id = $1)
-       AND ($2::uuid IS NULL OR chantier_id = $2)
-       AND ($3::date IS NULL OR date = $3::date)
+     WHERE company_id = $1
+       AND ($2::uuid IS NULL OR user_id = $2)
+       AND ($3::uuid IS NULL OR chantier_id = $3)
+       AND ($4::date IS NULL OR date = $4::date)
      ORDER BY date DESC, heure_debut`,
-    [filters.user_id ?? null, filters.chantier_id ?? null, filters.date ?? null],
+    [companyId, filters.user_id ?? null, filters.chantier_id ?? null, filters.date ?? null],
   );
   return rows.map(mapPeriod);
 }
@@ -322,13 +328,15 @@ export async function listDeclarations(filters, actor) {
     return rows.map(mapDeclaration);
   }
 
+  const companyId = tenantId(actor);
   const { rows } = await query(
     `SELECT * FROM declarations_heures
-     WHERE ($1::uuid IS NULL OR user_id = $1)
-       AND ($2::uuid IS NULL OR chantier_id = $2)
-       AND ($3::date IS NULL OR date = $3::date)
+     WHERE company_id = $1
+       AND ($2::uuid IS NULL OR user_id = $2)
+       AND ($3::uuid IS NULL OR chantier_id = $3)
+       AND ($4::date IS NULL OR date = $4::date)
      ORDER BY date DESC`,
-    [filters.user_id ?? null, filters.chantier_id ?? null, filters.date ?? null],
+    [companyId, filters.user_id ?? null, filters.chantier_id ?? null, filters.date ?? null],
   );
   return rows.map(mapDeclaration);
 }

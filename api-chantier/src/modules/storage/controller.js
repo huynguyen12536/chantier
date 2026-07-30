@@ -31,11 +31,26 @@ export const getWorksiteImage = asyncHandler(async (req, res) => {
 
 function avatarRelativePath(req) {
   const raw = req.params.path ?? req.params[0] ?? '';
-  const clean = String(raw).replace(/^\/+/, '');
+  const joined = Array.isArray(raw) ? raw.join('/') : String(raw);
+  const clean = joined.replace(/^\/+/, '');
   if (!clean || clean.includes('..')) {
     throw new AppError('Invalid avatar path', 400);
   }
   return clean;
+}
+
+function avatarContentType(relativePath) {
+  const ext = String(relativePath).split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'png':
+      return 'image/png';
+    case 'webp':
+      return 'image/webp';
+    case 'gif':
+      return 'image/gif';
+    default:
+      return 'image/jpeg';
+  }
 }
 
 export const getAvatar = asyncHandler(async (req, res) => {
@@ -44,6 +59,7 @@ export const getAvatar = asyncHandler(async (req, res) => {
   if (!stream) {
     return res.status(404).json({ error: 'Avatar not found' });
   }
+  res.setHeader('Content-Type', avatarContentType(relativePath));
   res.setHeader('Cache-Control', 'public, max-age=3600');
   stream.pipe(res);
 });

@@ -8,23 +8,34 @@
     "loading": "Chargement...",
     "hours": "h"
   },
+  "companyDisabled": {
+    "title": "Entreprise désactivée",
+    "message": "Votre entreprise a été désactivée. Veuillez contacter l'administrateur de la plateforme."
+  },
   "tabs": {
     "home": "Accueil",
     "dashboard": "Tableau de bord",
     "calendar": "Calendrier",
     "management": "Gestion",
+    "users": "Utilisateurs",
+    "worksites": "Chantiers",
     "timesheet": "Heures",
     "team": "Équipe",
     "validation": "Validation",
     "export": "Statistiques",
     "absences": "Absences",
-    "profile": "Profil"
+    "profile": "Profil",
+    "platform": "Plateforme",
+    "companies": "Entreprises",
+    "platformAdmins": "Admins",
+    "audit": "Audit"
   },
   "roles": {
     "ouvrier": "Collaborateur",
     "chef_equipe": "Chef d'équipe",
     "administratif": "Administratif",
-    "admin": "Admin"
+    "admin": "Admin",
+    "system_admin": "Administrateur système"
   },
   "login": {
     "welcome": "Bienvenue",
@@ -39,6 +50,7 @@
     "connect": "SE CONNECTER",
     "fillAllFields": "Veuillez remplir tous les champs",
     "incorrectCredentials": "Identifiants incorrects",
+    "accountNotFound": "Compte introuvable. Contactez votre administrateur.",
     "devicePinOr": "ou",
     "devicePinLabel": "Connexion par code PIN",
     "devicePinLabelPrefix": "Connexion par ",
@@ -49,7 +61,24 @@
     "devicePinNoCredentials": "Connectez-vous une fois avec votre e-mail et mot de passe pour activer le code PIN",
     "devicePinEnableHint": "Après une première connexion, utilisez le code PIN de l'appareil ici",
     "devicePinUnavailable": "Activez un code PIN ou un mot de passe écran dans les réglages du téléphone",
-    "tagline": "Construisons l'avenir ensemble"
+    "tagline": "Construisons l'avenir ensemble",
+    "desktop": {
+      "brandName": "Chantier+",
+      "brandTagline": "La gestion de chantier simplifiée",
+      "brandIntro": "Suivi des équipes, gestion des chantiers, pointage et reporting en temps réel.",
+      "welcome": "Bienvenue !",
+      "subtitle": "Connectez-vous à votre compte Chantier+",
+      "features": {
+        "teamsTitle": "Gestion des équipes",
+        "teamsDesc": "Organisez vos collaborateurs et leurs rôles",
+        "sitesTitle": "Suivi des chantiers",
+        "sitesDesc": "Pilotez l'avancement de vos projets",
+        "hoursTitle": "Pointage & heures",
+        "hoursDesc": "Suivez le temps passé sur chaque chantier",
+        "reportsTitle": "Reporting & analyses",
+        "reportsDesc": "Visualisez vos données en temps réel"
+      }
+    }
   },
   "forgotPassword": {
     "title": "Mot de passe oublié",
@@ -62,7 +91,10 @@
   "resetPassword": {
     "title": "Nouveau mot de passe",
     "subtitleOtp": "Saisissez le code reçu par e-mail et choisissez un nouveau mot de passe.",
+    "subtitleVerifyOtp": "Saisissez le code à 6 chiffres envoyé par e-mail.",
+    "subtitleNewPassword": "Choisissez votre nouveau mot de passe.",
     "otpCode": "Code de vérification",
+    "verifyOtp": "VÉRIFIER LE CODE",
     "otpPlaceholder": "Code à 6 chiffres",
     "newPassword": "Nouveau mot de passe",
     "newPasswordPlaceholder": "Entrez votre nouveau mot de passe",
@@ -75,6 +107,7 @@
     "resendOtp": "Renvoyer le code",
     "resendingOtp": "Envoi...",
     "mailNotConfigured": "Le service e-mail n'est pas configuré. Contactez votre administrateur.",
+    "passwordUpdateFailed": "Le mot de passe n'a pas pu être mis à jour. Réessayez ou contactez le support.",
     "genericError": "Impossible de réinitialiser le mot de passe. Réessayez.",
     "success": "Votre mot de passe a été mis à jour. Vous pouvez vous connecter.",
     "backToLogin": "Retour à la connexion"
@@ -111,7 +144,15 @@
     "title": "Déclaration heures",
     "selectDate": "Choisir une date",
     "backToToday": "Revenir à aujourd'hui",
-    "days": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"],
+    "days": [
+      "Lundi",
+      "Mardi",
+      "Mercredi",
+      "Jeudi",
+      "Vendredi",
+      "Samedi",
+      "Dimanche"
+    ],
     "worksite": "Chantier",
     "select": "Sélectionner",
     "start": "Début",
@@ -369,7 +410,15 @@
     "permUserManagement": "Gestion des utilisateurs",
     "changeAvatar": "Appuyez pour changer la photo",
     "avatarUploadFailed": "Impossible d'enregistrer la photo. Réessayez.",
-    "avatarPermissionDenied": "Autorisez l'accès à la galerie pour choisir une photo."
+    "avatarPermissionDenied": "Autorisez l'accès à la galerie pour choisir une photo.",
+    "company": "Entreprise",
+    "companyPlatform": "Plateforme",
+    "companyNone": "—",
+    "roleDescSystemAdmin": "Administration de la plateforme",
+    "permPlatformDashboard": "Tableau de bord plateforme",
+    "permCompanyManagement": "Gestion des entreprises",
+    "permCompanyAdminManagement": "Gestion des administrateurs entreprise",
+    "permPlatformAudit": "Audit de la plateforme"
   },
   "chefDashboard": {
     "title": "Tableau de bord",
@@ -406,6 +455,8 @@
   "ouvrierDashboard": {
     "totalWeek": "Total semaine",
     "declaredDays": "Jours déclarés",
+    "dayCount": "{{count}} jour déclaré",
+    "dayCountPlural": "{{count}} jours déclarés",
     "weekDays": "Jours de la semaine",
     "prefillCurrentWeek": "Remplir ma semaine",
     "prefillCurrentWeekA11y": "Préremplir la semaine en cours",
@@ -488,6 +539,11 @@
     "endLabel": "Fin",
     "noUsersAssigned": "Aucun utilisateur",
     "dateUndefined": "Non définie",
+    "pagination": {
+      "previous": "Précédent",
+      "next": "Suivant",
+      "pageOf": "Page {{page}} / {{total}}"
+    },
     "modals": {
       "delete": "Supprimer",
       "remove": "Retirer",
@@ -600,6 +656,7 @@
     },
     "errors": {
       "createUserRequired": "Prénom, nom, email et mot de passe sont requis",
+      "emailInvalid": "L'email doit contenir @",
       "emailComRequired": "L'email doit être au format nom@domaine.com",
       "allFieldsRequired": "Tous les champs sont requis",
       "phoneRequired": "Veuillez entrer un numéro de téléphone valide",
@@ -775,5 +832,223 @@
     "sectionHistory": "Historique",
     "emptyTeam": "Aucune absence trouvée",
     "selectEndDate": "Sélectionnez la date de fin pour voir la période."
+  },
+  "platform": {
+    "common": {
+      "allCompanies": "Toutes",
+      "companyFilter": "Filtre entreprise",
+      "companyFilterTitle": "Filtrer par entreprise",
+      "unknownCompany": "Entreprise inconnue",
+      "loadFailed": "Impossible de charger les données"
+    },
+    "hub": {
+      "title": "Plateforme",
+      "subtitle": "Administration & suivi",
+      "segments": {
+        "dashboard": "Tableau de bord",
+        "companies": "Entreprises",
+        "admins": "Admins"
+      }
+    },
+    "dashboard": {
+      "title": "Tableau de bord plateforme",
+      "subtitle": "Supervision — identité Administrateur système",
+      "companySwitch": "Sélection entreprise",
+      "sections": {
+        "companies": "Entreprises",
+        "usersByRole": "Utilisateurs par rôle",
+        "totals": "Totaux",
+        "users": "Utilisateurs",
+        "activity": "Activité"
+      },
+      "stats": {
+        "total": "Total",
+        "active": "Actives",
+        "disabled": "Désactivées",
+        "pending": "En attente",
+        "worksites": "Chantiers",
+        "declarations": "Déclarations",
+        "admins": "Admins",
+        "managers": "Managers",
+        "workers": "Collaborateurs"
+      },
+      "emptyUsers": "Aucun utilisateur",
+      "errors": {
+        "loadFailed": "Impossible de charger le tableau de bord"
+      }
+    },
+    "admins": {
+      "title": "Admins entreprise",
+      "subtitle": "Comptes admin plateforme par entreprise",
+      "subTabs": {
+        "admins": "Admins",
+        "managers": "Gestion",
+        "collab": "Collab"
+      },
+      "searchPlaceholder": "Rechercher par nom, e-mail ou entreprise...",
+      "count": "{{count}} admin",
+      "countPlural": "{{count}} admins",
+      "countManagers": "{{count}} manager",
+      "countManagersPlural": "{{count}} managers",
+      "countCollab": "{{count}} collaborateur",
+      "countCollabPlural": "{{count}} collaborateurs",
+      "empty": "Aucun admin entreprise trouvé",
+      "emptyManagers": "Aucun manager trouvé",
+      "emptyCollab": "Aucun collaborateur trouvé",
+      "createButton": "Créer un admin entreprise",
+      "createModal": {
+        "title": "Nouvel admin entreprise",
+        "createButton": "Créer l'admin entreprise"
+      },
+      "fields": {
+        "company": "Entreprise",
+        "firstName": "Prénom",
+        "lastName": "Nom",
+        "email": "E-mail",
+        "password": "Mot de passe"
+      },
+      "placeholders": {
+        "company": "Choisir une entreprise",
+        "firstName": "Prénom",
+        "lastName": "Nom",
+        "email": "admin@entreprise.test",
+        "password": "Min. 6 caractères"
+      },
+      "errors": {
+        "selectCompany": "Sélectionnez une entreprise",
+        "invalidEmail": "E-mail invalide",
+        "requiredFields": "Remplissez tous les champs requis (mot de passe min. 6 car.)",
+        "loadFailed": "Impossible de charger les admins",
+        "createFailed": "Impossible de créer l'admin",
+        "updateFailed": "Impossible de modifier l'utilisateur",
+        "deleteFailed": "Impossible de supprimer l'utilisateur",
+        "statusFailed": "Impossible de modifier le statut du compte",
+        "passwordMinLength": "Le mot de passe doit contenir au moins 6 caractères"
+      },
+      "statusActive": "Actif",
+      "statusDisabled": "Désactivé",
+      "actions": {
+        "edit": "Modifier le compte",
+        "disable": "Désactiver le compte",
+        "activate": "Activer le compte",
+        "delete": "Supprimer le compte"
+      },
+      "editModal": {
+        "title": "Modifier le compte",
+        "saveButton": "Enregistrer",
+        "passwordHint": "Laisser vide pour conserver le mot de passe actuel"
+      },
+      "disableModal": {
+        "title": "Désactiver le compte",
+        "messageBefore": "Désactiver ",
+        "messageAfter": " ? L'utilisateur ne pourra plus se connecter.",
+        "confirm": "Désactiver"
+      },
+      "activateModal": {
+        "title": "Activer le compte",
+        "messageBefore": "Réactiver ",
+        "messageAfter": " ?",
+        "confirm": "Activer"
+      },
+      "deleteModal": {
+        "title": "Supprimer le compte",
+        "messageBefore": "Supprimer définitivement ",
+        "messageAfter": " ? Cette action est irréversible. Les comptes liés à des données actives ne peuvent pas être supprimés.",
+        "confirm": "Supprimer"
+      },
+      "monitoringHint": "Consultation seule — seuls les admins entreprise sont gérables"
+    },
+    "audit": {
+      "title": "Audit plateforme",
+      "subtitle": "Journal d'activité sur tous les tenants",
+      "searchPlaceholder": "Rechercher par action, acteur ou entité...",
+      "count": "{{count}} entrée",
+      "countPlural": "{{count}} entrées",
+      "empty": "Aucune entrée d'audit trouvée",
+      "fields": {
+        "action": "Action",
+        "actor": "Acteur",
+        "entity": "Entité",
+        "company": "Entreprise"
+      },
+      "errors": {
+        "loadFailed": "Impossible de charger le journal d'audit"
+      }
+    },
+    "companies": {
+      "title": "Entreprises",
+      "subtitle": "Gérer les organisations clientes",
+      "searchPlaceholder": "Rechercher par nom ou identifiant...",
+      "count": "{{count}} entreprise",
+      "countPlural": "{{count}} entreprises",
+      "empty": "Aucune entreprise trouvée",
+      "statusFilter": "Statut",
+      "filterTitle": "Filtrer par statut",
+      "statusAll": "Toutes",
+      "statusActive": "Active",
+      "statusDisabled": "Désactivée",
+      "statusPending": "En attente",
+      "createModal": {
+        "title": "Nouvelle entreprise",
+        "createButton": "Créer l'entreprise",
+        "slugHint": "Lettres minuscules, chiffres et tirets uniquement"
+      },
+      "fields": {
+        "name": "Nom",
+        "slug": "Identifiant",
+        "address": "Adresse",
+        "taxId": "N° fiscal"
+      },
+      "actions": {
+        "edit": "Modifier l'entreprise",
+        "disable": "Désactiver l'entreprise",
+        "activate": "Activer l'entreprise",
+        "delete": "Supprimer l'entreprise"
+      },
+      "editModal": {
+        "title": "Modifier l'entreprise",
+        "saveButton": "Enregistrer",
+        "slugHint": "Lettres minuscules, chiffres et tirets uniquement"
+      },
+      "detailModal": {
+        "title": "Détails de l'entreprise",
+        "closeButton": "Fermer",
+        "viewDetails": "Voir les détails de {{name}}",
+        "status": "Statut",
+        "createdAt": "Créée le",
+        "noAddress": "Aucune adresse renseignée",
+        "noTaxId": "Non renseigné"
+      },
+      "disableModal": {
+        "title": "Désactiver l'entreprise",
+        "messageBefore": "Désactiver ",
+        "messageAfter": " ? Les utilisateurs perdront l'accès jusqu'à réactivation.",
+        "confirm": "Désactiver"
+      },
+      "activateModal": {
+        "title": "Activer l'entreprise",
+        "messageBefore": "Réactiver ",
+        "messageAfter": " ?",
+        "confirm": "Activer"
+      },
+      "deleteModal": {
+        "title": "Supprimer l'entreprise",
+        "messageBefore": "Supprimer définitivement ",
+        "messageAfter": " ? Cette action est irréversible. Les entreprises avec des utilisateurs ou chantiers doivent être désactivées.",
+        "confirm": "Supprimer"
+      },
+      "errors": {
+        "nameRequired": "Le nom de l'entreprise est requis",
+        "slugRequired": "L'identifiant est requis",
+        "slugInvalid": "L'identifiant ne doit contenir que des lettres minuscules, chiffres et tirets",
+        "taxIdInvalid": "Le numéro fiscal ne peut contenir que des lettres, chiffres, espaces, points et tirets",
+        "loadFailed": "Impossible de charger les entreprises",
+        "createFailed": "Impossible de créer l'entreprise",
+        "updateFailed": "Impossible de modifier l'entreprise",
+        "deleteFailed": "Impossible de supprimer l'entreprise",
+        "statusFailed": "Impossible de modifier le statut de l'entreprise",
+        "detailFailed": "Impossible de charger les détails de l'entreprise"
+      }
+    }
   }
 }

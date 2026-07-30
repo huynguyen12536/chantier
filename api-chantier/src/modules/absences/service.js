@@ -1,5 +1,6 @@
 import { query } from '../../shared/db/pool.js';
 import { AppError } from '../../shared/errors/AppError.js';
+import { tenantSqlFilter, assertSameCompany, tenantId } from '../../shared/authz/tenantScope.js';
 
 function normalizeDateKey(value) {
   if (value == null) return value;
@@ -50,6 +51,10 @@ export async function listAbsences(actor, filters = {}) {
     sql += ` AND a.user_id = $${params.length}`;
   }
 
+  const companyId = tenantId(actor);
+  params.push(companyId);
+  sql += ` AND a.company_id = $${params.length}`;
+
   if (filters.date_debut_gte) {
     params.push(filters.date_debut_gte);
     sql += ` AND a.date_fin >= $${params.length}`;
@@ -79,6 +84,7 @@ export async function getAbsence(actor, id) {
   const row = rows[0];
   if (!row) throw new AppError('Not found', 404);
   if (!canViewAbsences(actor, row.user_id)) throw new AppError('Forbidden', 403);
+  assertSameCompany(actor, row.company_id);
   return mapAbsenceRow(row);
 }
 
@@ -87,10 +93,11 @@ export async function createAbsence(actor, body) {
   if (userId !== actor.id && actor.role !== 'admin' && actor.role !== 'administratif') {
     throw new AppError('Forbidden', 403);
   }
+  const companyId = tenantId(actor);
   const { rows } = await query(
-    `INSERT INTO absences (user_id, date_debut, date_fin, motif, commentaire)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [userId, body.date_debut, body.date_fin, body.motif ?? null, body.commentaire ?? null],
+    `INSERT INTO absences (user_id, date_debut, date_fin, motif, commentaire, company_id)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [userId, body.date_debut, body.date_fin, body.motif ?? null, body.commentaire ?? null, companyId],
   );
   return mapAbsenceRow(rows[0]);
 }

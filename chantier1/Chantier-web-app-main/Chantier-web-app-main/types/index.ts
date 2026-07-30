@@ -1,4 +1,16 @@
-export type UserRole = 'ouvrier' | 'chef_equipe' | 'administratif' | 'admin';
+export type UserRole = 'ouvrier' | 'chef_equipe' | 'administratif' | 'admin' | 'system_admin';
+
+export type Company = {
+  id: string;
+  name: string;
+  slug: string;
+  status: 'pending' | 'active' | 'disabled';
+  address?: string | null;
+  tax_id?: string | null;
+  settings?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+};
 
 export type Profile = {
   id: string;
@@ -8,6 +20,9 @@ export type Profile = {
   matricule: string;
   phone: string;
   role: UserRole;
+  company_id?: string | null;
+  company_name?: string | null;
+  company_slug?: string | null;
   avatar_path?: string | null;
   avatar_updated_at?: string | null;
   created_at: string;
@@ -34,6 +49,7 @@ export type Chantier = {
   divers_reviewed_at?: string | null;
   divers_rejection_reason?: string | null;
   divers_creation_reason?: string | null;
+  company_id?: string | null;
   created_at: string;
 };
 
@@ -102,14 +118,3 @@ export type Absence = {
 };
 
 export type Language = 'fr' | 'en';
-
-export type AuthContextType = {
-  session: any;
-  profile: Profile | null;
-  loading: boolean;
-  assignedWorksites: AffectationChantier[];
-  selectedWorksite: AffectationChantier | null;
-  setSelectedWorksite: (worksite: AffectationChantier | null) => void;
-  signIn: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-};

@@ -38,6 +38,13 @@ export async function sendPasswordResetOtp(email: string, lang: PasswordResetLan
   });
 }
 
+export async function verifyPasswordResetOtp(email: string, otp: string): Promise<void> {
+  await callEdgeFunction('verify-password-reset-otp', {
+    email: email.trim().toLowerCase(),
+    otp: otp.trim(),
+  });
+}
+
 export async function resetPasswordWithOtp(
   email: string,
   otp: string,
@@ -56,6 +63,7 @@ export function mapPasswordResetError(code: string, t: {
     invalidOtp: string;
     passwordTooShort: string;
     mailNotConfigured: string;
+    passwordUpdateFailed: string;
     genericError: string;
   };
 }): string {
@@ -69,6 +77,8 @@ export function mapPasswordResetError(code: string, t: {
       return t.resetPassword.passwordTooShort;
     case 'mail_not_configured':
       return t.resetPassword.mailNotConfigured;
+    case 'password_update_failed':
+      return t.resetPassword.passwordUpdateFailed;
     default:
       return t.resetPassword.genericError;
   }

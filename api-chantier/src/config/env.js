@@ -47,7 +47,7 @@ export const env = {
     || Number(process.env.SMTP_PORT ?? process.env.MAIL_PORT ?? 587) === 465,
   smtpUser: process.env.SMTP_USER ?? process.env.MAIL_USERNAME ?? '',
   smtpPass: process.env.SMTP_PASS ?? process.env.MAIL_PASSWORD ?? '',
-  smtpFromName: process.env.SMTP_FROM_NAME ?? process.env.MAIL_FROM_NAME ?? 'Tubesca 3D',
+  smtpFromName: process.env.SMTP_FROM_NAME ?? process.env.MAIL_FROM_NAME ?? 'ATN Chantier',
   smtpFrom:
     process.env.SMTP_FROM
     ?? process.env.MAIL_FROM_EMAIL

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AppError } from '../../shared/errors/AppError.js';
 import { query } from '../../shared/db/pool.js';
+import { tenantSqlFilter, assertSameCompany, tenantId } from '../../shared/authz/tenantScope.js';
 
 const upsertSchema = z.object({
   code: z.string().min(1).max(64).optional(),
@@ -28,6 +29,7 @@ function mapRow(row) {
     heure_debut_apres_midi: row.heure_debut_apres_midi,
     heure_fin_apres_midi: row.heure_fin_apres_midi,
     actif: row.actif,
+    company_id: row.company_id,
     source: row.source ?? 'standard',
     divers_statut: row.divers_statut ?? null,
     created_by: row.created_by ?? null,
@@ -39,8 +41,11 @@ function mapRow(row) {
   };
 }
 
-async function nextCode() {
-  const { rows } = await query(`SELECT code FROM chantiers ORDER BY code DESC LIMIT 50`);
+async function nextCode(_companyId) {
+  // codes are globally unique (chantiers_code_key)
+  const { rows } = await query(
+    `SELECT code FROM chantiers WHERE code ~ '^C[0-9]+$' ORDER BY code DESC LIMIT 200`,
+  );
   let max = 0;
   for (const r of rows) {
     const m = String(r.code).match(/(\d+)/);
@@ -49,22 +54,37 @@ async function nextCode() {
   return `C${String(max + 1).padStart(4, '0')}`;
 }
 
-export async function listChantiers() {
-  const { rows } = await query(`SELECT * FROM chantiers ORDER BY code`);
+export async function listChantiers(actor) {
+  const filter = tenantSqlFilter(actor, 'company_id', 1);
+  const where = filter.clause ? `WHERE ${filter.clause}` : '';
+  const { rows } = await query(
+    `SELECT * FROM chantiers ${where} ORDER BY code`,
+    filter.params,
+  );
   return rows.map(mapRow);
 }
 
-export async function getChantier(id) {
+export async function getChantier(id, actor) {
   const { rows } = await query(`SELECT * FROM chantiers WHERE id = $1`, [id]);
   if (!rows[0]) throw new AppError('Chantier not found', 404, { code: 'NOT_FOUND' });
+  if (actor) assertSameCompany(actor, rows[0].company_id);
   return mapRow(rows[0]);
 }
 
-/** Create — CVL: admin or administratif */
+function rejectClientCompanyOverride(input, actor) {
+  if (input?.company_id == null) return;
+  const companyId = tenantId(actor);
+  if (input.company_id !== companyId) {
+    throw new AppError('Cross-company access denied', 403, { code: 'FORBIDDEN_TENANT' });
+  }
+}
+
+/** Create — company admin only */
 export async function createChantier(input, actor) {
-  if (!actor || !['admin', 'administratif'].includes(actor.role)) {
+  if (!actor || actor.role !== 'admin') {
     throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
   }
+  rejectClientCompanyOverride(input, actor);
   const parsed = upsertSchema.safeParse(input);
   if (!parsed.success) {
     throw new AppError('Invalid chantier payload', 400, {
@@ -73,13 +93,14 @@ export async function createChantier(input, actor) {
     });
   }
   const data = parsed.data;
-  const code = data.code?.trim() || (await nextCode());
+  const companyId = tenantId(actor);
+  const code = data.code?.trim() || (await nextCode(companyId));
   try {
     const { rows } = await query(
       `INSERT INTO chantiers (
          code, nom, adresse, date_debut, date_fin,
-         heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi, actif
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE($10, TRUE))
+         heure_debut_matin, heure_fin_matin, heure_debut_apres_midi, heure_fin_apres_midi, actif, company_id
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, COALESCE($10, TRUE), $11)
        RETURNING *`,
       [
         code,
@@ -92,6 +113,7 @@ export async function createChantier(input, actor) {
         data.heure_debut_apres_midi ?? null,
         data.heure_fin_apres_midi ?? null,
         data.actif ?? true,
+        companyId,
       ],
     );
     return mapRow(rows[0]);
@@ -102,7 +124,7 @@ export async function createChantier(input, actor) {
 }
 
 export async function updateChantier(id, input, actor) {
-  if (!actor || !['admin', 'administratif'].includes(actor.role)) {
+  if (!actor || actor.role !== 'admin') {
     throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
   }
   const parsed = upsertSchema.partial().safeParse(input);
@@ -116,7 +138,7 @@ export async function updateChantier(id, input, actor) {
   if (data.nom !== undefined && (!data.nom || !String(data.nom).trim())) {
     throw new AppError('Invalid chantier payload', 400, { code: 'VALIDATION_ERROR' });
   }
-  await getChantier(id);
+  await getChantier(id, actor);
   const { rows } = await query(
     `UPDATE chantiers SET
        nom = COALESCE($2, nom),
@@ -148,16 +170,11 @@ export async function updateChantier(id, input, actor) {
   return mapRow(rows[0]);
 }
 
-/**
- * Cascade delete — CVL RPC delete_chantier_cascade (SUMMARY §5 #13).
- * Order: periods → declarations → zones_chantiers → affectations → chantier
- * Child tables may not exist until later Imp modules — delete what exists.
- */
 export async function deleteChantierCascade(id, actor) {
-  if (!actor || !['admin', 'administratif'].includes(actor.role)) {
+  if (!actor || actor.role !== 'admin') {
     throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
   }
-  const exists = await getChantier(id);
+  const exists = await getChantier(id, actor);
   await query('BEGIN');
   try {
     for (const table of [

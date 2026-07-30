@@ -16,6 +16,9 @@ type Props = {
   size?: number;
   variant?: UserAvatarVariant;
   style?: ImageStyle;
+  /** Màu icon khi trống (variant profile). Mặc định trắng (header cam mobile). */
+  emptyIconColor?: string;
+  emptyBackgroundColor?: string;
 };
 
 function roleColor(role: string | null | undefined): string {
@@ -41,6 +44,8 @@ export function UserAvatar({
   size = 40,
   variant = 'initials',
   style,
+  emptyIconColor = '#FFF',
+  emptyBackgroundColor = 'rgba(255,255,255,0.25)',
 }: Props) {
   const uri = useMemo(
     () => getAvatarPublicUrl(avatarPath, avatarUpdatedAt),
@@ -74,11 +79,16 @@ export function UserAvatar({
       <View
         style={[
           styles.profileFallback,
-          { width: size, height: size, borderRadius: radius },
-          style,
+          {
+            width: size,
+            height: size,
+            borderRadius: radius,
+            backgroundColor: emptyBackgroundColor,
+          },
+          style as ViewStyle,
         ]}
       >
-        <User size={Math.round(size * 0.5)} color="#FFF" strokeWidth={2} />
+        <User size={Math.round(size * 0.5)} color={emptyIconColor} strokeWidth={2} />
       </View>
     );
   }
@@ -105,7 +115,6 @@ export function UserAvatar({
 
 const styles = StyleSheet.create({
   profileFallback: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },

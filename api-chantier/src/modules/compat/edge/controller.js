@@ -37,14 +37,32 @@ export const options = (_req, res) => {
   res.status(200).end();
 };
 
+function otpErrorCode(err) {
+  // Edge functions return machine codes in `error` (e.g. invalid_or_expired_otp).
+  // AppError puts that string in `message`, while `code` is VALIDATION_ERROR / etc.
+  if (typeof err?.message === 'string' && err.message && !/\s/.test(err.message)) {
+    return err.message;
+  }
+  return err?.code ?? 'server_error';
+}
+
 export const sendPasswordResetOtp = asyncHandler(async (req, res) => {
   try {
     const result = await mailOtp.sendPasswordResetOtp(req.body?.email, req.body?.lang);
     res.status(200).json(result);
   } catch (err) {
-    const code = err.code ?? err.message;
+    const code = otpErrorCode(err);
     const status = err.statusCode ?? (code === 'rate_limited' ? 429 : 500);
     res.status(status).json({ error: code });
+  }
+});
+
+export const verifyPasswordResetOtp = asyncHandler(async (req, res) => {
+  try {
+    const result = await mailOtp.verifyPasswordResetOtp(req.body?.email, req.body?.otp);
+    res.status(200).json(result);
+  } catch (err) {
+    res.status(err.statusCode ?? 400).json({ error: otpErrorCode(err) });
   }
 });
 
@@ -57,8 +75,7 @@ export const resetPasswordWithOtp = asyncHandler(async (req, res) => {
     );
     res.status(200).json(result);
   } catch (err) {
-    const code = err.code ?? err.message;
-    res.status(err.statusCode ?? 400).json({ error: code });
+    res.status(err.statusCode ?? 400).json({ error: otpErrorCode(err) });
   }
 });
 

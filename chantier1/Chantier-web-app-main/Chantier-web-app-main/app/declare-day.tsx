@@ -21,7 +21,9 @@ import {
   ChantierDiversFormModal,
   type CreatedChantierDivers,
 } from '@/components/declare-day/ChantierDiversFormModal';
+import { DeclareDayDesktop } from '@/components/layoutDesktop';
 import { Colors } from '@/constants/colors';
+import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
 import {
   formatWeekDayLabel,
   getWeekDateStringsFromDate,
@@ -119,6 +121,7 @@ export default function DeclareDayScreen() {
   const { t, dateLocale } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isDesktopLayout = useIsDesktopLayout();
   const params = useLocalSearchParams<{
     date: string;
     dayLabel: string;
@@ -1007,6 +1010,198 @@ export default function DeclareDayScreen() {
     return () => subscription.remove();
   }, [handleBack]);
 
+  if (!profile || profile.role !== 'ouvrier') return null;
+
+  const pageTitle = isEditMode
+    ? (t.ouvrierDashboard?.editLineTitle ?? 'Modifier le créneau')
+    : (t.ouvrierDashboard?.addLineTitle ?? 'Déclarer ma journée');
+
+  const modals = (
+    <>
+      <SelectWorksiteModal
+        visible={showWorksitePicker}
+        title={t.timesheet.selectWorksiteModal}
+        selectedId={currentLine?.chantier_id || null}
+        worksites={worksiteOptions}
+        searchPlaceholder={t.timesheet.searchWorksitePlaceholder}
+        noResultsMessage={t.timesheet.noWorksiteSearchResults}
+        onClose={() => setShowWorksitePicker(false)}
+        onSelect={handleSelectWorksite}
+        chantierDiversLabel={
+          profile && isWorker(profile.role) ? t.chantierDivers.cta : undefined
+        }
+        onPressChantierDivers={
+          profile && isWorker(profile.role)
+            ? () => {
+                setShowWorksitePicker(false);
+                setShowDiversForm(true);
+              }
+            : undefined
+        }
+      />
+
+      <ChantierDiversFormModal
+        visible={showDiversForm}
+        onClose={() => setShowDiversForm(false)}
+        onCreated={handleChantierDiversCreated}
+      />
+
+      {timePicker && (
+        <TimePickerModal
+          key={`${timePicker.field}-${timePicker.value}`}
+          visible={!!timePicker}
+          title={timePicker.field === 'heure_fin' ? t.timesheet.end : t.timesheet.start}
+          value={timePicker.value}
+          minTime={
+            timePicker.field === 'heure_fin' && currentLine?.heure_debut
+              ? getMinEndTime(currentLine.heure_debut)
+              : undefined
+          }
+          confirmLabel={t.common.validate}
+          cancelLabel={t.common.cancel}
+          onClose={() => setTimePicker(null)}
+          onConfirm={handleTimeConfirm}
+        />
+      )}
+
+      <ConfirmModal
+        visible={overlapModalVisible}
+        title={t.timesheet.duplicateSlotTitle}
+        message={t.timesheet.duplicateSlotMessage}
+        cancelLabel={t.common.cancel}
+        confirmLabel={t.common.ok}
+        onCancel={() => setOverlapModalVisible(false)}
+        onConfirm={() => setOverlapModalVisible(false)}
+        singleButton
+      />
+
+      <ConfirmModal
+        visible={invalidDurationModalVisible}
+        title={t.timesheet.invalidShiftDurationTitle}
+        message={t.timesheet.invalidShiftDurationMessage}
+        cancelLabel={t.common.cancel}
+        confirmLabel={t.common.ok}
+        onCancel={() => setInvalidDurationModalVisible(false)}
+        onConfirm={() => setInvalidDurationModalVisible(false)}
+        singleButton
+      />
+    </>
+  );
+
+  if (isDesktopLayout) {
+    return (
+      <>
+        <DeclareDayDesktop
+          title={pageTitle}
+          subtitle={formattedDate}
+          onBack={handleBack}
+          backLabel={t.common.cancel}
+          worksiteLabel={(t.timesheet.worksite as string).toUpperCase()}
+          worksiteValue={
+            worksitesLoading
+              ? (t.common.loading as string)
+              : (currentLine?.chantierNom || t.timesheet.select)
+          }
+          worksiteLoading={worksitesLoading}
+          worksitePendingBadge={
+            selectedWorksite &&
+            isPendingDiversChantier(selectedWorksite.source, selectedWorksite.divers_statut)
+              ? t.chantierDivers.pendingBadge
+              : null
+          }
+          onPressWorksite={() => setShowWorksitePicker(true)}
+          scheduleLabel={t.ouvrierDashboard?.scheduleLabel ?? 'HORAIRES'}
+          startLabel={t.timesheet.start}
+          endLabel={t.timesheet.end}
+          startTime={currentLine?.heure_debut || '07:30'}
+          endTime={currentLine?.heure_fin || ''}
+          endPlaceholder={t.timesheet.selectTime ?? t.timesheet.select ?? '—'}
+          onPressStart={() =>
+            currentLine &&
+            setTimePicker({
+              field: 'heure_debut',
+              value: currentLine.heure_debut,
+            })
+          }
+          onPressEnd={() => {
+            if (!currentLine) return;
+            const endValue =
+              currentLine.heure_fin && isEndAfterStart(currentLine.heure_debut, currentLine.heure_fin)
+                ? currentLine.heure_fin
+                : getMinEndTime(currentLine.heure_debut);
+            setTimePicker({ field: 'heure_fin', value: endValue });
+          }}
+          reasonRequired={reasonRequired}
+          reasonLabel={t.ouvrierDashboard?.reasonLabel ?? 'RAISON'}
+          reasonPlaceholder={
+            t.ouvrierDashboard?.reasonPlaceholder ??
+            'Explique pourquoi le créneau sort du cadre horaire…'
+          }
+          reasonValue={currentLine?.commentaire ?? ''}
+          onReasonChange={(value) => updateLine({ commentaire: value })}
+          optionsLabel={t.ouvrierDashboard?.optionsLabel ?? 'OPTIONS'}
+          mealLabel={t.timesheet.meal}
+          displacementLabel={t.timesheet.displacement}
+          mealActive={Boolean(currentLine?.panier_repas)}
+          displacementActive={Boolean(currentLine?.deplacement)}
+          onToggleMeal={() =>
+            currentLine && updateLine({ panier_repas: !currentLine.panier_repas })
+          }
+          onToggleDisplacement={() =>
+            currentLine && updateLine({ deplacement: !currentLine.deplacement })
+          }
+          showWeekSection={!isEditMode}
+          weekSectionLabel={t.ouvrierDashboard?.weekSectionLabel ?? 'SEMAINE'}
+          applyWeekLoading={applyWeekLoading}
+          showToggleAllSuggested={
+            otherSuggestableDays.length > 0 && Boolean(currentLine?.chantier_id)
+          }
+          allSuggestableSelected={allSuggestableSelected}
+          selectAllLabel={t.ouvrierDashboard?.fillMyWeek ?? 'Fill my week'}
+          deselectAllLabel={t.ouvrierDashboard?.deselectAllSuggested ?? 'Tout désélectionner'}
+          onToggleAllSuggested={toggleAllSuggestedDays}
+          weekDays={visibleWeekDays.map((targetDate) => {
+            const isSourceDay = !prefillWeek && targetDate === dateStr;
+            const isWorkDay = workWeekDates.includes(targetDate);
+            const hasOverlap = Boolean(weekOverlapByDate[targetDate]);
+            const sourceBlocked = isSourceDay && hasOverlap;
+            const isChecked =
+              (!sourceBlocked && isSourceDay) || applySelectedDays.has(targetDate);
+            const canToggle =
+              Boolean(currentLine?.chantier_id) && isWorkDay && !isSourceDay && !hasOverlap;
+            const { letter, shortLabel } = formatWeekDayCellLabel(targetDate, dateLocale);
+            return {
+              date: targetDate,
+              letter,
+              shortLabel,
+              isSourceDay,
+              isChecked,
+              canToggle,
+              hasOverlap,
+              sourceBlocked,
+            };
+          })}
+          onPressWeekDay={(day) => {
+            if (day.sourceBlocked) {
+              setOverlapModalVisible(true);
+              return;
+            }
+            if (day.canToggle) toggleApplyDay(day.date);
+          }}
+          submitLabel={
+            isEditMode
+              ? (t.ouvrierDashboard?.saveEditCta ?? 'Enregistrer les modifications')
+              : (t.ouvrierDashboard?.validateDay ?? 'Valider la journée')
+          }
+          submitting={submitting}
+          canSubmit={canSubmit}
+          onSubmit={() => void handleSubmit()}
+        />
+        {modals}
+      </>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -1023,11 +1218,7 @@ export default function DeclareDayScreen() {
           <ArrowLeft size={22} color="#FFF" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>
-            {isEditMode
-              ? (t.ouvrierDashboard?.editLineTitle ?? 'Modifier le créneau')
-              : (t.ouvrierDashboard?.addLineTitle ?? 'Déclarer ma journée')}
-          </Text>
+          <Text style={styles.headerTitle}>{pageTitle}</Text>
           <Text style={styles.headerDate}>{formattedDate}</Text>
         </View>
         <View style={styles.headerSpacer} />
@@ -1323,77 +1514,7 @@ export default function DeclareDayScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Worksite Picker */}
-      <SelectWorksiteModal
-        visible={showWorksitePicker}
-        title={t.timesheet.selectWorksiteModal}
-        selectedId={currentLine?.chantier_id || null}
-        worksites={worksiteOptions}
-        searchPlaceholder={t.timesheet.searchWorksitePlaceholder}
-        noResultsMessage={t.timesheet.noWorksiteSearchResults}
-        onClose={() => setShowWorksitePicker(false)}
-        onSelect={handleSelectWorksite}
-        chantierDiversLabel={
-          profile && isWorker(profile.role) ? t.chantierDivers.cta : undefined
-        }
-        onPressChantierDivers={
-          profile && isWorker(profile.role)
-            ? () => {
-                setShowWorksitePicker(false);
-                setShowDiversForm(true);
-              }
-            : undefined
-        }
-      />
-
-      <ChantierDiversFormModal
-        visible={showDiversForm}
-        onClose={() => setShowDiversForm(false)}
-        onCreated={handleChantierDiversCreated}
-      />
-
-      {/* Time Picker */}
-      {timePicker && (
-        <TimePickerModal
-          key={`${timePicker.field}-${timePicker.value}`}
-          visible={!!timePicker}
-          title={timePicker.field === 'heure_fin' ? t.timesheet.end : t.timesheet.start}
-          value={timePicker.value}
-          minTime={
-            timePicker.field === 'heure_fin' && currentLine?.heure_debut
-              ? getMinEndTime(currentLine.heure_debut)
-              : undefined
-          }
-          confirmLabel={t.common.validate}
-          cancelLabel={t.common.cancel}
-          onClose={() => setTimePicker(null)}
-          onConfirm={handleTimeConfirm}
-        />
-      )}
-
-      {/* Overlap conflict modal */}
-      <ConfirmModal
-        visible={overlapModalVisible}
-        title={t.timesheet.duplicateSlotTitle}
-        message={t.timesheet.duplicateSlotMessage}
-        cancelLabel={t.common.cancel}
-        confirmLabel={t.common.ok}
-        onCancel={() => setOverlapModalVisible(false)}
-        onConfirm={() => setOverlapModalVisible(false)}
-        singleButton
-      />
-
-      {/* Start/end duration invalid (e.g. same time) */}
-      <ConfirmModal
-        visible={invalidDurationModalVisible}
-        title={t.timesheet.invalidShiftDurationTitle}
-        message={t.timesheet.invalidShiftDurationMessage}
-        cancelLabel={t.common.cancel}
-        confirmLabel={t.common.ok}
-        onCancel={() => setInvalidDurationModalVisible(false)}
-        onConfirm={() => setInvalidDurationModalVisible(false)}
-        singleButton
-      />
+      {modals}
     </View>
   );
 }
@@ -1402,6 +1523,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFF7F2',
+  },
+  containerDesktop: {
+    backgroundColor: 'transparent',
+  },
+  desktopHeaderPad: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   loadingWrap: {
     alignItems: 'center',
@@ -1450,6 +1578,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     gap: 16,
+  },
+  contentDesktop: {
+    paddingTop: 8,
   },
   sectionCard: {
     backgroundColor: '#FFF',

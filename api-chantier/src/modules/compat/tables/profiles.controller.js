@@ -6,12 +6,12 @@ import * as profileMapper from '../mappers/profileMapper.js';
 export const listProfiles = asyncHandler(async (req, res) => {
   try {
     if (req.query?.id) {
-      const user = await usersService.getUser(String(req.query.id));
+      const user = await usersService.getUser(String(req.query.id), req.user);
       const mapped = profileMapper.toListResponse([user]);
       res.status(mapped.status).json(mapped.body);
       return;
     }
-    let users = await usersService.listUsers();
+    let users = await usersService.listUsers(req.user);
     const role = req.query?.role;
     if (role) {
       users = users.filter((u) => u.role === String(role));
@@ -31,7 +31,7 @@ export const listProfiles = asyncHandler(async (req, res) => {
 
 export const getProfile = asyncHandler(async (req, res) => {
   try {
-    const user = await usersService.getUser(req.params.id);
+    const user = await usersService.getUser(req.params.id, req.user);
     const mapped = profileMapper.toOneResponse(user);
     res.status(mapped.status).json(mapped.body);
   } catch (err) {
@@ -49,7 +49,7 @@ export const getProfileSelfOrAdmin = asyncHandler(async (req, res) => {
     if (id !== req.user?.id && !allowedOther) {
       throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
     }
-    const user = await usersService.getUser(id);
+    const user = await usersService.getUser(id, req.user);
     const mapped = profileMapper.toOneResponse(user);
     res.status(mapped.status).json(mapped.body);
   } catch (err) {
@@ -58,13 +58,20 @@ export const getProfileSelfOrAdmin = asyncHandler(async (req, res) => {
   }
 });
 
+function isAvatarSelfPatch(patch) {
+  const keys = Object.keys(patch ?? {});
+  return keys.length > 0 && keys.every((k) => k === 'avatar_path' || k === 'avatar_updated_at');
+}
+
 export const patchProfile = asyncHandler(async (req, res) => {
   try {
     const { id, patch } = profileMapper.fromPatchRequest(req.params, req.body);
     if (!id) {
       throw new AppError('id requis', 400, { code: 'VALIDATION_ERROR' });
     }
-    const user = await usersService.updateUser(id, patch, req.user);
+    const user = isAvatarSelfPatch(patch)
+      ? await usersService.updateOwnAvatar(id, patch, req.user)
+      : await usersService.updateUser(id, patch, req.user);
     const mapped = profileMapper.toPatchResponse(user);
     res.status(mapped.status).json(mapped.body);
   } catch (err) {

@@ -1,0 +1,13 @@
+﻿import { chromium } from 'playwright';
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage();
+await page.goto('http://localhost:16035', { waitUntil: 'networkidle', timeout: 60000 });
+await page.waitForTimeout(2000);
+const text = await page.locator('body').innerText();
+console.log('URL', page.url());
+console.log('TEXT', text.slice(0, 1500));
+const buttons = await page.locator('button, [role=button], a').allTextContents();
+console.log('CLICKABLES', JSON.stringify(buttons.slice(0, 40)));
+const inputs = await page.locator('input').evaluateAll(els => els.map(e => ({type:e.type, placeholder:e.placeholder, name:e.name, id:e.id})));
+console.log('INPUTS', JSON.stringify(inputs));
+await browser.close();

@@ -1,12 +1,19 @@
 /**
  * Users — Imp-03 create/delete/list + Imp-11 Administration PATCH / role lifecycle.
- * Demotion guards READ Imp-05 tables only (no Affectations/Zones business rewrite).
+ * Multi-tenant: company-scoped for admin; system_admin creates company admins only via platform API.
  */
 import { z } from 'zod';
 import { AppError } from '../../shared/errors/AppError.js';
-import { hashPassword, ROLES, publicProfile } from '../auth/service.js';
+import { hashPassword, BUSINESS_ROLES } from '../auth/service.js';
 import { logger } from '../../shared/utils/logger.js';
 import { query } from '../../shared/db/pool.js';
+import {
+  assertCanAccessProfile,
+  isSystemAdmin,
+  assertSameCompany,
+} from '../../shared/authz/tenantScope.js';
+import { resolveCreateRolePolicy } from '../../shared/authz/roleMatrix.js';
+import { normalizeMatricule } from '../../shared/utils/matricule.js';
 import * as repo from './repository.js';
 
 const nonEmptyName = z.string().trim().min(1).max(120);
@@ -14,11 +21,12 @@ const nonEmptyName = z.string().trim().min(1).max(120);
 const createSchema = z.object({
   email: z.string().email().max(320),
   password: z.string().min(6).max(128),
-  role: z.enum(ROLES),
+  role: z.enum(BUSINESS_ROLES),
   nom: nonEmptyName,
   prenom: nonEmptyName,
   matricule: z.string().max(64).optional().nullable(),
   phone: z.string().max(40).optional().nullable(),
+  company_id: z.string().uuid().optional(),
 });
 
 const patchSchema = z
@@ -27,27 +35,82 @@ const patchSchema = z
     nom: nonEmptyName.optional(),
     prenom: nonEmptyName.optional(),
     phone: z.string().max(40).optional(),
-    role: z.enum(ROLES).optional(),
+    role: z.enum(BUSINESS_ROLES).optional(),
     matricule: z.string().max(64).optional().nullable(),
+    actif: z.boolean().optional(),
   })
   .refine((o) => Object.keys(o).length > 0, { message: 'At least one field required' });
 
-export async function listUsers() {
-  const rows = await repo.findAll();
-  return rows.map(publicProfile);
+export async function listUsers(actor, queryParams = {}) {
+  if (!actor || !['admin', 'administratif', 'chef_equipe'].includes(actor.role)) {
+    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
+  }
+  const rows = await repo.findAll(actor, {});
+  return rows.map((r) => ({
+    id: r.id,
+    email: r.email,
+    role: r.role,
+    nom: r.nom,
+    prenom: r.prenom,
+    matricule: r.matricule,
+    phone: r.phone ?? '',
+    actif: r.actif,
+    company_id: r.company_id,
+    company_name: r.company_name ?? null,
+    company_slug: r.company_slug ?? null,
+    avatar_path: r.avatar_path ?? null,
+    avatar_updated_at: r.avatar_updated_at ?? null,
+  }));
 }
 
-export async function getUser(id) {
+export async function getUser(id, actor) {
   const row = await repo.findById(id);
   if (!row) throw new AppError('User not found', 404, { code: 'NOT_FOUND' });
-  return publicProfile(row);
+  if (actor && !isSystemAdmin(actor)) {
+    assertCanAccessProfile(actor, row);
+  }
+  return {
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    nom: row.nom,
+    prenom: row.prenom,
+    matricule: row.matricule,
+    phone: row.phone ?? '',
+    actif: row.actif,
+    company_id: row.company_id,
+    company_name: row.company_name ?? null,
+    company_slug: row.company_slug ?? null,
+    avatar_path: row.avatar_path ?? null,
+    avatar_updated_at: row.avatar_updated_at ?? null,
+  };
+}
+
+/** Self-service avatar update — any authenticated user may update own avatar fields. */
+export async function updateOwnAvatar(id, input, actor) {
+  if (!actor?.id || actor.id !== id) {
+    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
+  }
+  const avatarPath = input?.avatar_path;
+  if (!avatarPath || typeof avatarPath !== 'string' || !avatarPath.trim()) {
+    throw new AppError('avatar_path required', 400, { code: 'VALIDATION_ERROR' });
+  }
+  const cleanPath = avatarPath.replace(/^\//, '').trim();
+  if (!cleanPath.startsWith(`${id}/`) || cleanPath.includes('..')) {
+    throw new AppError('Invalid avatar path', 400, { code: 'VALIDATION_ERROR' });
+  }
+  const avatarUpdatedAt = input?.avatar_updated_at ?? new Date().toISOString();
+  const row = await repo.updateAvatar(id, cleanPath, avatarUpdatedAt);
+  if (!row) throw new AppError('User not found', 404, { code: 'NOT_FOUND' });
+  return getUser(id, actor);
 }
 
 /**
- * Create user — CVL: admin OR administratif (SUMMARY §5 rule 2 / Edge create-user).
+ * Create user — company admin: chef_equipe/ouvrier/administratif within own company.
+ * system_admin must use platform-users API (role forced to admin).
  */
 export async function createUser(input, actor) {
-  if (!actor || !['admin', 'administratif'].includes(actor.role)) {
+  if (!actor || actor.role !== 'admin') {
     throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
   }
   const parsed = createSchema.safeParse(input);
@@ -58,6 +121,10 @@ export async function createUser(input, actor) {
     });
   }
   const data = parsed.data;
+  resolveCreateRolePolicy(actor, data.role);
+
+  let companyId = actor.company_id;
+
   const passwordHash = await hashPassword(data.password);
   try {
     const row = await repo.insertProfile({
@@ -66,15 +133,17 @@ export async function createUser(input, actor) {
       role: data.role,
       nom: data.nom,
       prenom: data.prenom,
-      matricule: data.matricule ?? null,
+      matricule: normalizeMatricule(data.matricule),
       phone: data.phone ?? '',
+      companyId,
     });
     logger.info('admin.user.created', {
       actorId: actor.id,
       userId: row.id,
       role: row.role,
+      companyId,
     });
-    return publicProfile(row);
+    return getUser(row.id, actor);
   } catch (err) {
     if (err.code === '23505') {
       throw new AppError('Email or matricule conflict', 409, { code: 'CONFLICT' });
@@ -83,11 +152,8 @@ export async function createUser(input, actor) {
   }
 }
 
-/**
- * Imp-11 PATCH — profile fields + role lifecycle (admin only for other users).
- */
 export async function updateUser(id, input, actor) {
-  if (!actor || actor.role !== 'admin') {
+  if (!actor || (actor.role !== 'admin' && !isSystemAdmin(actor))) {
     throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
   }
 
@@ -102,6 +168,13 @@ export async function updateUser(id, input, actor) {
 
   const existing = await repo.findById(id);
   if (!existing) throw new AppError('User not found', 404, { code: 'NOT_FOUND' });
+  assertCanAccessProfile(actor, existing);
+
+  if (isSystemAdmin(actor) && existing.role !== 'admin') {
+    throw new AppError('System admin can only manage company admin users', 403, {
+      code: 'FORBIDDEN',
+    });
+  }
 
   if (patch.matricule !== undefined) {
     const next = patch.matricule == null ? '' : String(patch.matricule);
@@ -118,6 +191,9 @@ export async function updateUser(id, input, actor) {
     if (existing.role === 'admin') {
       throw new AppError('Cannot change role of an admin user', 400, { code: 'ROLE_LOCK' });
     }
+    if (patch.role === 'admin' || patch.role === 'system_admin') {
+      throw new AppError('Cannot promote to admin via this endpoint', 403, { code: 'FORBIDDEN' });
+    }
     await assertDemotionAllowed(existing, patch.role);
   }
 
@@ -128,6 +204,7 @@ export async function updateUser(id, input, actor) {
       prenom: patch.prenom,
       phone: patch.phone,
       role: patch.role,
+      actif: patch.actif,
     });
     logger.info('admin.user.updated', {
       actorId: actor.id,
@@ -136,7 +213,7 @@ export async function updateUser(id, input, actor) {
       toRole: row.role,
       fields: Object.keys(patch),
     });
-    return publicProfile(row);
+    return getUser(id, actor);
   } catch (err) {
     if (err.code === '23505') {
       throw new AppError('Email or matricule conflict', 409, { code: 'CONFLICT' });
@@ -145,10 +222,6 @@ export async function updateUser(id, input, actor) {
   }
 }
 
-/**
- * Demotion guards — READ Imp-05 only.
- * Block leaving chef_equipe when still active chef on affectations OR owns a zone.
- */
 async function assertDemotionAllowed(existing, nextRole) {
   if (existing.role !== 'chef_equipe') return;
   if (nextRole === 'chef_equipe') return;
@@ -169,9 +242,6 @@ async function assertDemotionAllowed(existing, nextRole) {
   }
 }
 
-/**
- * Delete user — CVL: admin only; cannot self-delete (SUMMARY §5 rule 2–3).
- */
 async function cleanupUserDiversBlockers(userId, adminId) {
   const { rows: pending } = await query(
     `SELECT id FROM chantiers
@@ -217,11 +287,19 @@ function mapDeleteUserError(err) {
 }
 
 export async function deleteUser(id, actor) {
-  if (!actor || actor.role !== 'admin') {
+  if (!actor || (actor.role !== 'admin' && !isSystemAdmin(actor))) {
     throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
   }
   if (actor.id === id) {
     throw new AppError('Impossible de supprimer votre propre compte', 400, { code: 'SELF_DELETE' });
+  }
+
+  const existing = await repo.findById(id);
+  if (!existing) throw new AppError('User not found', 404, { code: 'NOT_FOUND' });
+  assertCanAccessProfile(actor, existing);
+
+  if (isSystemAdmin(actor) && existing.role !== 'admin') {
+    throw new AppError('System admin can only delete company admin users', 403, { code: 'FORBIDDEN' });
   }
 
   if (await repo.ownsZone(id)) {
@@ -242,4 +320,36 @@ export async function deleteUser(id, actor) {
     if (err instanceof AppError) throw err;
     throw new AppError(mapDeleteUserError(err), 500, { code: 'DELETE_FAILED' });
   }
+}
+
+/** Reset password for company admin (system_admin or self-service elsewhere). */
+export async function resetUserPassword(id, newPassword, actor) {
+  if (!actor || (!isSystemAdmin(actor) && actor.role !== 'admin')) {
+    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
+  }
+  const existing = await repo.findById(id);
+  if (!existing) throw new AppError('User not found', 404, { code: 'NOT_FOUND' });
+  assertCanAccessProfile(actor, existing);
+  if (isSystemAdmin(actor) && existing.role !== 'admin') {
+    throw new AppError('System admin can only reset company admin passwords', 403, { code: 'FORBIDDEN' });
+  }
+  const passwordHash = await hashPassword(newPassword);
+  await query(`UPDATE profiles SET password_hash = $1, updated_at = NOW() WHERE id = $2`, [
+    passwordHash,
+    id,
+  ]);
+  return { ok: true };
+}
+
+export async function lockUser(id, actor, actif = false) {
+  if (!actor || !isSystemAdmin(actor)) {
+    throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
+  }
+  const existing = await repo.findById(id);
+  if (!existing) throw new AppError('User not found', 404, { code: 'NOT_FOUND' });
+  if (existing.role !== 'admin') {
+    throw new AppError('System admin can only lock/unlock company admins', 403, { code: 'FORBIDDEN' });
+  }
+  await repo.updateProfile(id, { actif });
+  return getUser(id, actor);
 }

@@ -72,12 +72,41 @@ export async function sendPasswordResetOtp(email, lang = 'fr') {
       template: 'password_reset_otp',
       subject:
         lang === 'en'
-          ? 'Tubesca 3D — Password reset code'
-          : 'Tubesca 3D — Code de réinitialisation',
+          ? 'ATN Chantier — Password reset code'
+          : 'ATN Chantier — Code de réinitialisation',
       data: { otp, lang },
     },
     idempotencyKey: `mail:otp:${normalized}:${otpHash.slice(0, 12)}`,
   });
+
+  return { success: true };
+}
+
+export async function verifyPasswordResetOtp(email, otp) {
+  const normalized = String(email ?? '')
+    .trim()
+    .toLowerCase();
+  const code = String(otp ?? '').trim();
+
+  if (!normalized.includes('@')) {
+    throw new AppError('invalid_email', 400, { code: 'VALIDATION_ERROR' });
+  }
+  if (!/^\d{6}$/.test(code)) {
+    throw new AppError('invalid_otp', 400, { code: 'VALIDATION_ERROR' });
+  }
+
+  const otpHash = hashOtp(normalized, code);
+  const now = new Date().toISOString();
+  const { rows: otpRows } = await query(
+    `SELECT id FROM password_reset_otps
+     WHERE lower(email) = lower($1) AND otp_hash = $2 AND used_at IS NULL AND expires_at > $3
+     ORDER BY created_at DESC LIMIT 1`,
+    [normalized, otpHash, now],
+  );
+
+  if (!otpRows[0]) {
+    throw new AppError('invalid_or_expired_otp', 400, { code: 'VALIDATION_ERROR' });
+  }
 
   return { success: true };
 }

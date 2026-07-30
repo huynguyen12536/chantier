@@ -1,13 +1,13 @@
 import { asyncHandler } from '../../shared/utils/asyncHandler.js';
 import * as usersService from './service.js';
 
-export const list = asyncHandler(async (_req, res) => {
-  const users = await usersService.listUsers();
+export const list = asyncHandler(async (req, res) => {
+  const users = await usersService.listUsers(req.user, req.query);
   res.json({ users });
 });
 
 export const getById = asyncHandler(async (req, res) => {
-  const user = await usersService.getUser(req.params.id);
+  const user = await usersService.getUser(req.params.id, req.user);
   res.json({ user });
 });
 

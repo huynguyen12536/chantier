@@ -4,8 +4,10 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DesktopPageHeader } from '@/components/layoutDesktop';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
 import { Colors } from '@/constants/colors';
 import { formatDateKey, formatWeekDayLabel, getMonday, parseDateKey, type DateLocale } from '@/utils/date';
 import { declarationLookupKey, resolveLineStatut } from '@/utils/status';
@@ -49,6 +51,7 @@ export function ChooseDayCalendar({
 }: ChooseDayCalendarProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isDesktopLayout = useIsDesktopLayout();
   const { profile } = useAuth();
   const { t, dateLocale } = useLanguage();
   const { width: windowWidth } = useWindowDimensions();
@@ -403,31 +406,45 @@ export function ChooseDayCalendar({
   }
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={['#FF8A50', '#FF6B35', '#E55A2B']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: topInset }]}
-      >
-        {showBackButton ? (
-          <TouchableOpacity
-            onPress={handleBack}
-            style={styles.backBtn}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <ArrowLeft size={22} color="#FFF" />
-          </TouchableOpacity>
-        ) : (
+    <View style={[styles.container, isDesktopLayout && styles.containerDesktop]}>
+      {isDesktopLayout ? (
+        <View style={styles.desktopHeaderPad}>
+          <DesktopPageHeader
+            title={title}
+            onBack={showBackButton ? handleBack : undefined}
+            backLabel={t.common.cancel}
+          />
+        </View>
+      ) : (
+        <LinearGradient
+          colors={['#FF8A50', '#FF6B35', '#E55A2B']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.header, { paddingTop: topInset }]}
+        >
+          {showBackButton ? (
+            <TouchableOpacity
+              onPress={handleBack}
+              style={styles.backBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <ArrowLeft size={22} color="#FFF" />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
+          <Text style={styles.headerTitle}>{title}</Text>
           <View style={styles.headerSpacer} />
-        )}
-        <Text style={styles.headerTitle}>{title}</Text>
-        <View style={styles.headerSpacer} />
-      </LinearGradient>
+        </LinearGradient>
+      )}
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingBottom: bottomInset + 24 }]}
+        contentContainerStyle={[
+          styles.content,
+          isDesktopLayout && styles.contentDesktop,
+          { paddingBottom: bottomInset + 24 },
+        ]}
       >
         {calendarBody}
       </ScrollView>
@@ -439,6 +456,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFF7F2',
+  },
+  containerDesktop: {
+    backgroundColor: 'transparent',
+  },
+  desktopHeaderPad: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   header: {
     flexDirection: 'row',
@@ -473,6 +497,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     gap: 14,
+  },
+  contentDesktop: {
+    paddingTop: 8,
   },
   embeddedWrap: {
     gap: 14,

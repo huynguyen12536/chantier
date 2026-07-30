@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { AppError } from '../../shared/errors/AppError.js';
 import { query } from '../../shared/db/pool.js';
 import { getChefChantierIds } from '../../shared/authz/chefScope.js';
+import { tenantId } from '../../shared/authz/tenantScope.js';
 import { durationHours } from '../timesheet/domain/timeUtility.js';
 import { mapPayrollPeriod, mapDeclarationExport } from './dto.js';
 
@@ -26,7 +27,11 @@ function assertExporter(actor) {
 }
 
 async function resolveChantierScope(actor) {
-  if (['admin', 'administratif'].includes(actor.role)) return null; // all
+  if (['admin', 'administratif'].includes(actor.role)) {
+    const cid = tenantId(actor);
+    const { rows } = await query(`SELECT id FROM chantiers WHERE company_id = $1`, [cid]);
+    return rows.map((r) => r.id);
+  }
   return getChefChantierIds(actor.id);
 }
 
@@ -59,6 +64,7 @@ export async function listPayrollPeriods(queryParams, actor) {
     return { from, to, periods: [] };
   }
 
+  const companyId = tenantId(actor);
   const { rows } = await query(
     `SELECT
        p.id, p.date, p.user_id, p.chantier_id,
@@ -70,9 +76,10 @@ export async function listPayrollPeriods(queryParams, actor) {
      JOIN chantiers c ON c.id = p.chantier_id
      WHERE p.statut = 'validee'
        AND p.date >= $1::date AND p.date <= $2::date
-       AND ($3::uuid[] IS NULL OR p.chantier_id = ANY($3::uuid[]))
+       AND p.chantier_id = ANY($3::uuid[])
+       AND p.company_id = $4
      ORDER BY p.date ASC, pr.nom ASC, p.heure_debut ASC`,
-    [from, to, scope],
+    [from, to, scope, companyId],
   );
 
   return { from, to, periods: rows.map(mapPayrollPeriod) };
@@ -91,12 +98,14 @@ export async function listExportStats(actor) {
     return { total_declarations: 0, validees: 0, en_attente: 0, total_heures: 0 };
   }
 
+  const companyId = tenantId(actor);
   const { rows } = await query(
     `SELECT p.statut, p.heure_debut, p.heure_fin
      FROM periodes_travail p
      WHERE p.heure_fin IS NOT NULL
-       AND ($1::uuid[] IS NULL OR p.chantier_id = ANY($1::uuid[]))`,
-    [scope],
+       AND p.chantier_id = ANY($1::uuid[])
+       AND p.company_id = $2`,
+    [scope, companyId],
   );
 
   let validees = 0;
@@ -146,6 +155,7 @@ export async function listUserDeclarations(queryParams, actor) {
     return { from, to, user_id: userId, declarations: [] };
   }
 
+  const companyId = tenantId(actor);
   const { rows } = await query(
     `SELECT
        d.id, d.date, d.user_id, d.chantier_id,
@@ -156,9 +166,10 @@ export async function listUserDeclarations(queryParams, actor) {
      JOIN chantiers c ON c.id = d.chantier_id
      WHERE d.user_id = $1
        AND d.date >= $2::date AND d.date <= $3::date
-       AND ($4::uuid[] IS NULL OR d.chantier_id = ANY($4::uuid[]))
+       AND d.chantier_id = ANY($4::uuid[])
+       AND d.company_id = $5
      ORDER BY d.date DESC`,
-    [userId, from, to, scope],
+    [userId, from, to, scope, companyId],
   );
 
   return {

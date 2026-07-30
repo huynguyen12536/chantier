@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { requireAuth, requireRoles } from '../../shared/middleware/auth.js';
+import { forbidSystemAdminOperational, blockDisabledCompany } from '../../shared/middleware/tenant.js';
 import * as controller from './controller.js';
 
 const router = Router();
 const exporters = requireRoles('admin', 'administratif', 'chef_equipe');
 
-router.use(requireAuth);
+router.use(requireAuth, blockDisabledCompany, forbidSystemAdminOperational);
 router.use(exporters);
 
 router.get('/payroll', controller.payroll);

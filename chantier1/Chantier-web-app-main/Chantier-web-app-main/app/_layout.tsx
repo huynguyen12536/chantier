@@ -7,8 +7,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AppAlertProvider } from '@/contexts/AppAlertContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { CompanyDisabledProvider } from '@/contexts/CompanyDisabledContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
-import { getHomeRouteForRole } from '@/utils/role';
+import { canAccessAppRoute, getHomeRouteForRole } from '@/utils/role';
+import { isCompanyDisabledPending } from '@/utils/companyDisabled';
+import '../global.css';
 
 function RootNavigator() {
   const { session, loading, profile } = useAuth();
@@ -18,8 +21,9 @@ function RootNavigator() {
   useEffect(() => {
     if (loading) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const authScreen = (segments as string[])[1];
+    const segs = segments as string[];
+    const inAuthGroup = segs[0] === '(auth)';
+    const authScreen = segs[1];
     const publicAuthScreens = ['login', 'forgot-password', 'reset-password'];
     const onPublicAuthScreen =
       inAuthGroup && authScreen != null && publicAuthScreens.includes(authScreen);
@@ -29,7 +33,7 @@ function RootNavigator() {
       return;
     }
 
-    if (session && !profile && !loading) {
+    if (session && !profile && !loading && !isCompanyDisabledPending()) {
       router.replace('/(auth)/login');
       return;
     }
@@ -43,12 +47,13 @@ function RootNavigator() {
       return;
     }
 
-    const inTabs = segments[0] === '(tabs)';
-    const tabRoute = segments[1] as string | undefined;
+    const inTabs = segs[0] === '(tabs)';
+    const tabRoute = segs[1];
     const onLegacyHome = inTabs && (!tabRoute || tabRoute === 'index');
-    const onHiddenTimesheet = inTabs && tabRoute === 'timesheet' && profile.role === 'ouvrier';
-    if (onLegacyHome || onHiddenTimesheet) {
-      router.navigate(homeRoute);
+    const onForbiddenRoute = !canAccessAppRoute(profile.role, segs);
+
+    if (onLegacyHome || onForbiddenRoute) {
+      router.replace(homeRoute);
     }
   }, [session, loading, profile, router, segments]);
 
@@ -91,7 +96,9 @@ export default function RootLayout() {
       <LanguageProvider>
         <AppAlertProvider>
           <AuthProvider>
-            <RootNavigator />
+            <CompanyDisabledProvider>
+              <RootNavigator />
+            </CompanyDisabledProvider>
             <StatusBar style="auto" />
           </AuthProvider>
         </AppAlertProvider>

@@ -6,7 +6,8 @@ import { env } from '../../config/env.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { query } from '../../shared/db/pool.js';
 
-const ROLES = ['ouvrier', 'chef_equipe', 'administratif', 'admin'];
+const ROLES = ['ouvrier', 'chef_equipe', 'administratif', 'admin', 'system_admin'];
+const BUSINESS_ROLES = ['ouvrier', 'chef_equipe', 'administratif', 'admin'];
 
 const loginSchema = z.object({
   email: z.string().email().max(320),
@@ -27,6 +28,9 @@ function publicProfile(row) {
     matricule: row.matricule,
     phone: row.phone ?? '',
     actif: row.actif,
+    company_id: row.company_id ?? null,
+    company_name: row.company_name ?? null,
+    company_slug: row.company_slug ?? null,
   };
 }
 
@@ -36,6 +40,8 @@ export function signAccessToken(profile) {
       sub: profile.id,
       role: profile.role,
       email: profile.email,
+      company_id: profile.company_id ?? null,
+      company_status: profile.company_status ?? null,
     },
     env.jwtSecret,
     { expiresIn: env.jwtExpiresIn },
@@ -65,8 +71,11 @@ export async function login(input) {
 
   const { email, password } = parsed.data;
   const { rows } = await query(
-    `SELECT id, email, password_hash, role, nom, prenom, matricule, phone, actif
-     FROM profiles WHERE lower(email) = lower($1) LIMIT 1`,
+    `SELECT p.id, p.email, p.password_hash, p.role, p.nom, p.prenom, p.matricule, p.phone, p.actif,
+            p.company_id, c.status AS company_status
+     FROM profiles p
+     LEFT JOIN companies c ON c.id = p.company_id
+     WHERE lower(p.email) = lower($1) LIMIT 1`,
     [email],
   );
   const profile = rows[0];
@@ -97,9 +106,11 @@ export async function refresh(refreshToken) {
   const tokenHash = hashToken(refreshToken);
   const { rows } = await query(
     `SELECT rt.id, rt.profile_id, rt.expires_at, rt.revoked_at,
-            p.id AS pid, p.email, p.role, p.nom, p.prenom, p.matricule, p.phone, p.actif
+            p.id AS pid, p.email, p.role, p.nom, p.prenom, p.matricule, p.phone, p.actif,
+            p.company_id, c.status AS company_status
      FROM refresh_tokens rt
      JOIN profiles p ON p.id = rt.profile_id
+     LEFT JOIN companies c ON c.id = p.company_id
      WHERE rt.token_hash = $1
      LIMIT 1`,
     [tokenHash],
@@ -119,6 +130,8 @@ export async function refresh(refreshToken) {
     matricule: row.matricule,
     phone: row.phone,
     actif: row.actif,
+    company_id: row.company_id,
+    company_status: row.company_status,
   };
   const accessToken = signAccessToken(profile);
   const newRefresh = await issueRefreshToken(profile.id);
@@ -144,8 +157,11 @@ export async function logout(refreshToken) {
 
 export async function getProfileById(id) {
   const { rows } = await query(
-    `SELECT id, email, role, nom, prenom, matricule, phone, actif
-     FROM profiles WHERE id = $1 LIMIT 1`,
+    `SELECT p.id, p.email, p.role, p.nom, p.prenom, p.matricule, p.phone, p.actif, p.company_id,
+            c.name AS company_name, c.slug AS company_slug
+     FROM profiles p
+     LEFT JOIN companies c ON c.id = p.company_id
+     WHERE p.id = $1 LIMIT 1`,
     [id],
   );
   if (!rows[0] || !rows[0].actif) {
@@ -161,4 +177,4 @@ export async function hashPassword(password) {
   return bcrypt.hash(password, 10);
 }
 
-export { ROLES, publicProfile, loginSchema };
+export { ROLES, BUSINESS_ROLES, publicProfile, loginSchema };

@@ -1,6 +1,8 @@
-﻿import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { bindRealtimeAuth, supabase, type AuthSession } from '@/services/supabase';
 import { Profile, AffectationChantier } from '@/types';
+import { AccountNotFoundError } from '@/utils/authErrors';
+import { isCompanyDisabledCode } from '@/utils/companyDisabled';
 import { getChefManagedChantierIds } from '@/utils/team';
 
 type AuthContextType = {
@@ -51,6 +53,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const clearLocalSession = async () => {
+    setProfile(null);
+    setAssignedWorksites([]);
+    setSelectedWorksite(null);
+    setSession(null);
+    await supabase.auth.signOut({ scope: 'local' });
+  };
+
   const loadProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -60,22 +70,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
 
       if (error) throw error;
+
+      if (!data) {
+        console.warn('[Auth] Profile missing for authenticated user, signing out');
+        await clearLocalSession();
+        setLoading(false);
+        return;
+      }
+
       setProfile(data);
 
       // Load assigned worksites for workers and team leaders
-      if (data?.role === 'ouvrier' || data?.role === 'chef_equipe') {
+      if (data.role === 'ouvrier' || data.role === 'chef_equipe') {
         await loadAssignedWorksites(userId, data.role);
       } else {
         setLoading(false);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
-      // Expired/invalid token — clear stale session so router can send user to login.
-      await supabase.auth.signOut({ scope: 'local' });
-      setSession(null);
-      setProfile(null);
-      setAssignedWorksites([]);
-      setSelectedWorksite(null);
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        isCompanyDisabledCode((error as { code?: string }).code)
+      ) {
+        setLoading(false);
+        return;
+      }
+      await clearLocalSession();
       setLoading(false);
     }
   };
@@ -141,17 +163,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           worksites.push(aff);
         }
 
-        // 2. Zone-based assignments via zones_ouvriers → zones_chantiers → chantiers
+        // 2. Zone-based assignments via zones_ouvriers → zones_equipe → zones_chantiers → chantiers
+        // (no direct FK between zones_ouvriers and zones_chantiers — both point to zones_equipe)
         const { data: zoData, error: zoError } = await supabase
           .from('zones_ouvriers')
-          .select('zone_id, zones_chantiers(chantier_id, chantiers(id, nom, code, adresse, actif, date_debut, date_fin, created_at))')
+          .select('zone_id, zones_equipe(zones_chantiers(chantier_id, chantiers(id, nom, code, adresse, actif, date_debut, date_fin, created_at)))')
           .eq('user_id', userId)
           .is('date_fin', null);
 
         if (zoError) throw zoError;
 
         for (const zo of zoData || []) {
-          const zoneChantiers = (zo as any).zones_chantiers || [];
+          const zoneChantiers = (zo as any).zones_equipe?.zones_chantiers || [];
           for (const zc of zoneChantiers) {
             const chantier = zc.chantiers;
             if (!chantier || seen.has(chantier.id) || !chantier.actif) continue;
@@ -184,20 +207,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
-      password,
+      password: password.trim(),
     });
     if (error) throw error;
+
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', data.user.id)
+      .maybeSingle();
+
+    if (profileError) throw profileError;
+    if (!profileData) {
+      await clearLocalSession();
+      throw new AccountNotFoundError();
+    }
   };
 
   const signOut = async () => {
-    setProfile(null);
-    setAssignedWorksites([]);
-    setSelectedWorksite(null);
-    setSession(null);
-    // scope: 'local' clears this client only (no revoke HTTP call). More reliable on web.
-    await supabase.auth.signOut({ scope: 'local' });
+    await clearLocalSession();
   };
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,14 +12,17 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
+import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
 import { HeaderLanguageSwitcher } from '@/components/common/HeaderLanguageSwitcher';
 import { UserAvatar } from '@/components/common';
+import { ProfileDesktop } from '@/components/layoutDesktop';
 import { LogOut, HardHat, Mail, Hash } from 'lucide-react-native';
 import { pickAvatarImage, uploadUserAvatar } from '@/utils/avatar';
 
 export default function ProfileScreen() {
   const { profile, signOut, refreshProfile } = useAuth();
   const { t } = useLanguage();
+  const isDesktopLayout = useIsDesktopLayout();
   const { scrollBottomPadding, headerPaddingTop } = useTabBarInset();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -72,6 +75,81 @@ export default function ProfileScreen() {
     return descriptions[role] || '';
   };
 
+  const roleKey = profile?.role || '';
+  const roleLabel = getRoleLabel(roleKey);
+  const roleDescription = getRoleDescription(roleKey);
+
+  const permissions = useMemo(() => {
+    const list = [t.profile.permTimeDeclaration];
+    if (roleKey === 'chef_equipe' || roleKey === 'admin') {
+      list.push(t.profile.permValidation);
+    }
+    if (roleKey === 'administratif' || roleKey === 'admin') {
+      list.push(t.profile.permExport);
+    }
+    if (roleKey === 'admin') {
+      list.push(t.profile.permWorksiteManagement, t.profile.permUserManagement);
+    }
+    return list;
+  }, [roleKey, t.profile]);
+
+  const logoutModal = (
+    <Modal
+      visible={showLogoutModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowLogoutModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>{t.profile.logoutTitle}</Text>
+          <Text style={styles.modalMessage}>{t.profile.logoutMessage}</Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={styles.modalButtonCancel}
+              onPress={() => setShowLogoutModal(false)}
+            >
+              <Text style={styles.modalButtonTextCancel}>{t.common.cancel}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalButtonConfirm} onPress={confirmSignOut}>
+              <Text style={styles.modalButtonTextConfirm}>{t.profile.logoutTitle}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  if (isDesktopLayout) {
+    return (
+      <>
+        <ProfileDesktop
+          title={t.tabs.profile}
+          subtitle={t.profile.personalInfo}
+          fullName={`${profile?.prenom ?? ''} ${profile?.nom ?? ''}`.trim()}
+          roleLabel={roleLabel}
+          roleDescription={roleDescription}
+          email={profile?.email ?? ''}
+          emailLabel={t.profile.email}
+          matricule={profile?.matricule ?? ''}
+          matriculeLabel={t.profile.matricule}
+          roleFieldLabel={t.profile.role}
+          personalInfoTitle={t.profile.personalInfo}
+          permissionsTitle={t.profile.permissions}
+          permissions={permissions}
+          changeAvatarLabel={t.profile.changeAvatar}
+          avatarPath={profile?.avatar_path}
+          avatarUpdatedAt={profile?.avatar_updated_at}
+          prenom={profile?.prenom}
+          nom={profile?.nom}
+          role={profile?.role}
+          avatarUploading={avatarUploading}
+          onChangeAvatar={handleChangeAvatar}
+        />
+      </>
+    );
+  }
+
   return (
     <View style={styles.safeArea}>
       <View style={[styles.header, { paddingTop: headerPaddingTop }]}>
@@ -103,7 +181,7 @@ export default function ProfileScreen() {
         <Text style={styles.name}>
           {profile?.prenom} {profile?.nom}
         </Text>
-        <Text style={styles.roleText}>{getRoleLabel(profile?.role || '')}</Text>
+        <Text style={styles.roleText}>{roleLabel}</Text>
       </View>
 
       <ScrollView
@@ -111,117 +189,67 @@ export default function ProfileScreen() {
         contentContainerStyle={{ paddingBottom: scrollBottomPadding }}
         showsVerticalScrollIndicator={false}
       >
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{t.profile.personalInfo}</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{t.profile.personalInfo}</Text>
 
-        <View style={styles.infoRow}>
-          <View style={styles.iconContainer}>
-            <Mail size={20} color="#FF6B35" />
-          </View>
-          <View style={styles.infoContent}>
-            <Text style={styles.infoLabel}>{t.profile.email}</Text>
-            <Text style={styles.infoValue}>{profile?.email}</Text>
-          </View>
-        </View>
-
-        <View style={styles.infoRow}>
-          <View style={styles.iconContainer}>
-            <Hash size={20} color="#FF6B35" />
-          </View>
-          <View style={styles.infoContent}>
-            <Text style={styles.infoLabel}>{t.profile.matricule}</Text>
-            <Text style={styles.infoValue}>{profile?.matricule}</Text>
-          </View>
-        </View>
-
-        <View style={styles.infoRow}>
-          <View style={styles.iconContainer}>
-            <HardHat size={20} color="#FF6B35" />
-          </View>
-          <View style={styles.infoContent}>
-            <Text style={styles.infoLabel}>{t.profile.role}</Text>
-            <Text style={styles.infoValue}>{getRoleLabel(profile?.role || '')}</Text>
-            <Text style={styles.infoDescription}>
-              {getRoleDescription(profile?.role || '')}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{t.profile.permissions}</Text>
-
-        <View style={styles.permissionsList}>
-          <View style={styles.permissionItem}>
-            <View style={styles.permissionDot} />
-            <Text style={styles.permissionText}>{t.profile.permTimeDeclaration}</Text>
-          </View>
-
-          {(profile?.role === 'chef_equipe' || profile?.role === 'admin') && (
-            <View style={styles.permissionItem}>
-              <View style={styles.permissionDot} />
-              <Text style={styles.permissionText}>{t.profile.permValidation}</Text>
+          <View style={styles.infoRow}>
+            <View style={styles.iconContainer}>
+              <Mail size={20} color="#FF6B35" />
             </View>
-          )}
-
-          {(profile?.role === 'administratif' || profile?.role === 'admin') && (
-            <View style={styles.permissionItem}>
-              <View style={styles.permissionDot} />
-              <Text style={styles.permissionText}>{t.profile.permExport}</Text>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>{t.profile.email}</Text>
+              <Text style={styles.infoValue}>{profile?.email}</Text>
             </View>
-          )}
+          </View>
 
-          {profile?.role === 'admin' && (
-            <>
-              <View style={styles.permissionItem}>
-                <View style={styles.permissionDot} />
-                <Text style={styles.permissionText}>{t.profile.permWorksiteManagement}</Text>
-              </View>
-              <View style={styles.permissionItem}>
-                <View style={styles.permissionDot} />
-                <Text style={styles.permissionText}>{t.profile.permUserManagement}</Text>
-              </View>
-            </>
-          )}
+          <View style={styles.infoRow}>
+            <View style={styles.iconContainer}>
+              <Hash size={20} color="#FF6B35" />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>{t.profile.matricule}</Text>
+              <Text style={styles.infoValue}>{profile?.matricule}</Text>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <View style={styles.iconContainer}>
+              <HardHat size={20} color="#FF6B35" />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>{t.profile.role}</Text>
+              <Text style={styles.infoValue}>{roleLabel}</Text>
+              <Text style={styles.infoDescription}>{roleDescription}</Text>
+            </View>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{t.profile.about}</Text>
-        <Text style={styles.aboutText}>{t.profile.appTitle}</Text>
-        <Text style={styles.versionText}>{t.profile.version}</Text>
-      </View>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{t.profile.permissions}</Text>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleSignOut}>
-        <LogOut size={24} color="#FFF" />
-        <Text style={styles.logoutButtonText}>{t.profile.logout}</Text>
-      </TouchableOpacity>
+          <View style={styles.permissionsList}>
+            {permissions.map((item) => (
+              <View key={item} style={styles.permissionItem}>
+                <View style={styles.permissionDot} />
+                <Text style={styles.permissionText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>{t.profile.about}</Text>
+          <Text style={styles.aboutText}>{t.profile.appTitle}</Text>
+          <Text style={styles.versionText}>{t.profile.version}</Text>
+        </View>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleSignOut}>
+          <LogOut size={24} color="#FFF" />
+          <Text style={styles.logoutButtonText}>{t.profile.logout}</Text>
+        </TouchableOpacity>
       </ScrollView>
 
-      <Modal
-        visible={showLogoutModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLogoutModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{t.profile.logoutTitle}</Text>
-            <Text style={styles.modalMessage}>{t.profile.logoutMessage}</Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalButtonCancel}
-                onPress={() => setShowLogoutModal(false)}>
-                <Text style={styles.modalButtonTextCancel}>{t.common.cancel}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalButtonConfirm}
-                onPress={confirmSignOut}>
-                <Text style={styles.modalButtonTextConfirm}>{t.profile.logoutTitle}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {logoutModal}
     </View>
   );
 }

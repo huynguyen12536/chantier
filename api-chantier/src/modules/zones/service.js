@@ -4,6 +4,7 @@
  * Chef: CRUD only when zone.chef_equipe_id == actor.id (is_zone_owner).
  */
 import { z } from 'zod';
+import { assertSameCompany, tenantId } from '../../shared/authz/tenantScope.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { query } from '../../shared/db/pool.js';
 
@@ -28,6 +29,7 @@ async function assertCanManageZone(actor, zoneId) {
   if (!actor?.id) throw new AppError('Unauthorized', 401, { code: 'UNAUTHORIZED' });
   const zone = await getZone(zoneId);
   if (!zone) throw new AppError('Zone not found', 404, { code: 'NOT_FOUND' });
+  assertSameCompany(actor, zone.company_id);
   if (actor.role === 'admin') return zone;
   if (actor.role !== 'chef_equipe') {
     throw new AppError('Forbidden', 403, { code: 'FORBIDDEN' });
@@ -55,7 +57,10 @@ export async function listZones(actor) {
   if (!actor?.id) throw new AppError('Unauthorized', 401, { code: 'UNAUTHORIZED' });
 
   if (actor.role === 'admin') {
-    const { rows } = await query(`SELECT * FROM zones_equipe ORDER BY created_at DESC`);
+    const { rows } = await query(
+      `SELECT * FROM zones_equipe WHERE company_id = $1 ORDER BY created_at DESC`,
+      [tenantId(actor)],
+    );
     return rows;
   }
 
@@ -92,9 +97,9 @@ export async function createZone(input, actor) {
     throw new AppError('Forbidden', 403, { code: 'FORBIDDEN_OWNERSHIP' });
   }
   const { rows } = await query(
-    `INSERT INTO zones_equipe (nom, description, chef_equipe_id)
-     VALUES ($1,$2,$3) RETURNING *`,
-    [parsed.data.nom, parsed.data.description ?? null, parsed.data.chef_equipe_id],
+    `INSERT INTO zones_equipe (nom, description, chef_equipe_id, company_id)
+     VALUES ($1,$2,$3,$4) RETURNING *`,
+    [parsed.data.nom, parsed.data.description ?? null, parsed.data.chef_equipe_id, tenantId(actor)],
   );
   return rows[0];
 }
@@ -135,10 +140,10 @@ export async function linkZoneChantier(zoneId, chantierId, actor) {
   }
   try {
     const { rows } = await query(
-      `INSERT INTO zones_chantiers (zone_id, chantier_id) VALUES ($1,$2)
+      `INSERT INTO zones_chantiers (zone_id, chantier_id, company_id) VALUES ($1,$2,$3)
        ON CONFLICT (zone_id, chantier_id) DO NOTHING
        RETURNING *`,
-      [zoneId, chantierId],
+      [zoneId, chantierId, tenantId(actor)],
     );
     return rows[0] ?? { zone_id: zoneId, chantier_id: chantierId, linked: true };
   } catch (err) {
@@ -191,8 +196,8 @@ export async function addZoneOuvrier(zoneId, userId, actor) {
 
   try {
     const { rows } = await query(
-      `INSERT INTO zones_ouvriers (zone_id, user_id) VALUES ($1,$2) RETURNING *`,
-      [zoneId, userId],
+      `INSERT INTO zones_ouvriers (zone_id, user_id, company_id) VALUES ($1,$2,$3) RETURNING *`,
+      [zoneId, userId, tenantId(actor)],
     );
     return rows[0];
   } catch (err) {
@@ -255,7 +260,8 @@ export async function listAllZoneChantiers(actor) {
   if (!actor?.id) throw new AppError('Unauthorized', 401, { code: 'UNAUTHORIZED' });
   if (['admin', 'administratif'].includes(actor.role)) {
     const { rows } = await query(
-      `SELECT * FROM zones_chantiers ORDER BY zone_id, chantier_id`,
+      `SELECT * FROM zones_chantiers WHERE company_id = $1 ORDER BY zone_id, chantier_id`,
+      [tenantId(actor)],
     );
     return rows;
   }

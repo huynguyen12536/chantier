@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: Colors.text.secondary,
+    color: Colors.primary,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },

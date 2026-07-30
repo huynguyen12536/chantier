@@ -34,7 +34,7 @@ export function isPendingDiversChantier(
   return source === 'divers' || source == null;
 }
 
-/** Shift validation (chef) and dashboard styling while worksite awaits admin approval. */
+/** Blocks hour validation until admin approves the divers worksite (declare-day registration still allowed). */
 export function isBlockedByPendingDiversChantier(
   source?: ChantierSource | null,
   diversStatut?: ChantierDiversStatut | null,

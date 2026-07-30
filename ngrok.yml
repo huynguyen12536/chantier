@@ -1,0 +1,5 @@
+version: "2"
+tunnels:
+  chantier-web:
+    addr: 16035
+    proto: http

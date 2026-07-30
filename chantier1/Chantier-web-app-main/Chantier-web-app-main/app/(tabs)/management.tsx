@@ -41,12 +41,16 @@ import {
   HardHat,
   Eye,
   EyeOff,
+  ChevronLeft,
+  ChevronRight,
   XCircle,
 } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { Translations } from '@/i18n';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
+import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
+import { desktopHeaderStyles, desktopTableStyles } from '@/components/layoutDesktop';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { parseEdgeFunctionError } from '@/utils/edgeFunctionError';
 import { supabase, supabaseUrl, supabaseAnonKey } from '@/services/supabase';
@@ -119,6 +123,7 @@ function getRoleLabel(role: UserRole, t: Translations): string {
     chef_equipe: t.roles.chef_equipe,
     administratif: t.roles.administratif,
     admin: t.roles.admin,
+    system_admin: t.roles.system_admin,
   };
   return labels[role] ?? role;
 }
@@ -147,6 +152,14 @@ function roleColor(role: UserRole): string {
 
 const DEFAULT_HEURE_DEBUT = '07:30';
 const DEFAULT_HEURE_FIN = '16:30';
+const DESKTOP_TABLE_PAGE_SIZE = 20;
+
+function getVisiblePages(current: number, total: number): number[] {
+  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 3) return [1, 2, 3, 4, 5];
+  if (current >= total - 2) return [total - 4, total - 3, total - 2, total - 1, total];
+  return [current - 2, current - 1, current, current + 1, current + 2];
+}
 
 function formatDateInput(date = new Date()): string {
   const year = date.getFullYear();
@@ -276,6 +289,7 @@ export default function ManagementScreen() {
   const { t, language } = useLanguage();
   const router = useRouter();
   const { scrollBottomPadding, headerPaddingTop } = useTabBarInset();
+  const isDesktopLayout = useIsDesktopLayout();
   const { width: windowWidth } = useWindowDimensions();
   const narrowHeader = windowWidth < 380;
   const routeParams = useLocalSearchParams<{
@@ -294,6 +308,8 @@ export default function ManagementScreen() {
   const [rejectedDiversCount, setRejectedDiversCount] = useState(0);
   const [highlightChantierId, setHighlightChantierId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [usersPage, setUsersPage] = useState(1);
+  const [wsPage, setWsPage] = useState(1);
   const pendingScrollRef = useRef<ScrollView>(null);
   const rejectedScrollRef = useRef<ScrollView>(null);
   const lastHandledFocusRef = useRef<string | null>(null);
@@ -502,7 +518,10 @@ export default function ManagementScreen() {
     }
 
     lastHandledFocusRef.current = parsed.focusKey;
+    const nextTab = parsed.tab ?? 'worksites';
+    const nextView = parsed.worksiteView ?? 'pending';
     clearApprovalDeepLinkParams(router.setParams);
+    router.setParams({ tab: nextTab, worksiteView: nextView });
   }, [routeParams, router]);
 
   useFocusEffect(
@@ -514,13 +533,32 @@ export default function ManagementScreen() {
   useEffect(() => {
     if (profile?.role === 'chef_equipe') {
       setActiveTab('worksites');
+      if (routeParams.tab !== 'worksites') {
+        router.setParams({ tab: 'worksites' });
+      }
+      return;
     }
-  }, [profile?.role]);
+    const tabParam = routeParams.tab;
+    if (tabParam === 'users' || tabParam === 'worksites') {
+      if (tabParam === 'users' && !canManageUsers(profile?.role as UserRole)) return;
+      setActiveTab(tabParam);
+      return;
+    }
+    if (profile?.role && canManageUsers(profile.role)) {
+      setActiveTab('users');
+      router.setParams({ tab: 'users' });
+    }
+  }, [profile?.role, routeParams.tab, router]);
 
   const chantierAssignableUsers = useMemo(
     () => users.filter((u) => isChantierAssignableRole(u.role)),
     [users],
   );
+
+  useEffect(() => {
+    setUsersPage(1);
+    setWsPage(1);
+  }, [search]);
 
   if (!profile?.role || !canAccessManagement(profile.role)) return null;
 
@@ -530,12 +568,16 @@ export default function ManagementScreen() {
     setActiveTab(tab);
     setSearch('');
     setError(null);
+    setUsersPage(1);
+    setWsPage(1);
+    router.setParams({ tab });
   };
 
   const switchWorksiteView = (view: WorksiteView) => {
     setWorksiteView(view);
     setSearch('');
     setError(null);
+    setWsPage(1);
   };
 
   // ─── Users actions ──────────────────────────────────────────────────────────
@@ -769,6 +811,19 @@ export default function ManagementScreen() {
     `${w.nom} ${w.code} ${w.adresse}`.toLowerCase().includes(search.toLowerCase()),
   );
 
+  const usersTotalPages = Math.max(1, Math.ceil(filteredUsers.length / DESKTOP_TABLE_PAGE_SIZE));
+  const wsTotalPages = Math.max(1, Math.ceil(filteredWs.length / DESKTOP_TABLE_PAGE_SIZE));
+  const safeUsersPage = Math.min(usersPage, usersTotalPages);
+  const safeWsPage = Math.min(wsPage, wsTotalPages);
+  const pagedUsers = filteredUsers.slice(
+    (safeUsersPage - 1) * DESKTOP_TABLE_PAGE_SIZE,
+    safeUsersPage * DESKTOP_TABLE_PAGE_SIZE,
+  );
+  const pagedWs = filteredWs.slice(
+    (safeWsPage - 1) * DESKTOP_TABLE_PAGE_SIZE,
+    safeWsPage * DESKTOP_TABLE_PAGE_SIZE,
+  );
+
   const loadWorksiteAssignments = async (chantierId: string) => {
     const { data, error } = await supabase
       .from('affectations_chantiers')
@@ -993,24 +1048,46 @@ export default function ManagementScreen() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
+  const pageTitle = isDesktopLayout
+    ? activeTab === 'users'
+      ? mgmt.tabs.users
+      : mgmt.tabs.worksites
+    : mgmt.title;
+  const pageSubtitle = isDesktopLayout
+    ? activeTab === 'users'
+      ? formatCount(users.length, mgmt.userCount, mgmt.userCountPlural)
+      : formatCount(worksites.length, mgmt.worksiteCount, mgmt.worksiteCountPlural)
+    : mgmt.subtitle;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDesktopLayout && styles.containerDesktop]}>
 
       {/* Header */}
+      {isDesktopLayout ? (
+        <View style={[desktopHeaderStyles.headerRow, styles.desktopHeaderPad]}>
+          <View style={desktopHeaderStyles.headerCopy}>
+            <Text style={desktopHeaderStyles.title}>{pageTitle}</Text>
+            <Text style={desktopHeaderStyles.subtitle}>{pageSubtitle}</Text>
+          </View>
+          <View style={desktopHeaderStyles.headerActions}>
+            <ValidationNotificationBell variant="accent" />
+          </View>
+        </View>
+      ) : (
       <ImageBackground
         source={adminHeaderBackground}
         resizeMode="cover"
         style={styles.header}
         imageStyle={styles.headerImage}
       >
-        <View style={[styles.headerOverlay, { paddingTop: headerPaddingTop }]}>
+          <View style={[styles.headerOverlay, { paddingTop: headerPaddingTop }]}>
           <View style={styles.headerTop}>
             <View style={styles.headerTitleWrap}>
               <Text style={[styles.headerTitle, narrowHeader && styles.headerTitleNarrow]}>
-                {mgmt.title}
+                {pageTitle}
               </Text>
               <Text style={[styles.headerSubtitle, narrowHeader && styles.headerSubtitleNarrow]}>
-                {mgmt.subtitle}
+                {pageSubtitle}
               </Text>
             </View>
             <ValidationNotificationBell variant="light" />
@@ -1064,8 +1141,75 @@ export default function ManagementScreen() {
           )}
         </View>
       </ImageBackground>
+      )}
 
       {showWorksiteSubTabs ? (
+        isDesktopLayout ? (
+          <View style={[desktopHeaderStyles.searchToolbar, styles.desktopSearchPad]}>
+            <View style={desktopHeaderStyles.filterGroup}>
+              <TouchableOpacity
+                style={[
+                  desktopHeaderStyles.filterChip,
+                  worksiteView === 'pending' && desktopHeaderStyles.filterChipActive,
+                ]}
+                onPress={() => switchWorksiteView('pending')}
+                activeOpacity={0.85}
+              >
+                <ClipboardCheck size={16} color="#9A3412" strokeWidth={2.3} />
+                <Text style={desktopHeaderStyles.filterChipText}>{mgmt.worksiteViews.pending}</Text>
+                <View style={desktopHeaderStyles.filterChipBadge}>
+                  <Text style={desktopHeaderStyles.filterChipBadgeText}>{pendingDiversCount}</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  desktopHeaderStyles.filterChip,
+                  worksiteView === 'list' && desktopHeaderStyles.filterChipActive,
+                ]}
+                onPress={() => switchWorksiteView('list')}
+                activeOpacity={0.85}
+              >
+                <Users size={16} color="#9A3412" strokeWidth={2.3} />
+                <Text style={desktopHeaderStyles.filterChipText}>{mgmt.worksiteViews.list}</Text>
+                <View style={desktopHeaderStyles.filterChipBadge}>
+                  <Text style={desktopHeaderStyles.filterChipBadgeText}>{worksites.length}</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {showWorksiteList ? (
+              <View style={desktopHeaderStyles.searchBox}>
+                <Search size={16} color={Colors.text.secondary} />
+                <TextInput
+                  style={desktopHeaderStyles.searchInput}
+                  placeholder={m.searchWorksite}
+                  placeholderTextColor={Colors.text.disabled}
+                  value={search}
+                  onChangeText={setSearch}
+                />
+                {search.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearch('')}>
+                    <X size={16} color={Colors.text.secondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
+
+            {showTabBar && showWorksiteList ? (
+              <TouchableOpacity
+                style={desktopHeaderStyles.addButton}
+                onPress={openAddWs}
+                activeOpacity={0.8}
+              >
+                <Plus size={18} color="#FFF" strokeWidth={2.5} />
+                <Text style={desktopHeaderStyles.addButtonText}>{m.addWorksite.title}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : (
         <View style={styles.worksiteSubHeader}>
           <View style={styles.subTabBar}>
             <TouchableOpacity
@@ -1144,10 +1288,71 @@ export default function ManagementScreen() {
             </View>
           ) : null}
         </View>
+        )
+      ) : null}
+
+      {/* Worksite search (desktop, no sub-tabs) */}
+      {isDesktopLayout && showWorksiteList && !showWorksiteSubTabs ? (
+        <View style={[desktopHeaderStyles.searchToolbar, styles.desktopSearchPad]}>
+          <View style={desktopHeaderStyles.searchBox}>
+            <Search size={16} color={Colors.text.secondary} />
+            <TextInput
+              style={desktopHeaderStyles.searchInput}
+              placeholder={m.searchWorksite}
+              placeholderTextColor={Colors.text.disabled}
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <X size={16} color={Colors.text.secondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          {showTabBar ? (
+            <TouchableOpacity
+              style={desktopHeaderStyles.addButton}
+              onPress={openAddWs}
+              activeOpacity={0.8}
+            >
+              <Plus size={18} color="#FFF" strokeWidth={2.5} />
+              <Text style={desktopHeaderStyles.addButtonText}>{m.addWorksite.title}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
       ) : null}
 
       {/* Search bar */}
       {(showUsersTab && activeTab === 'users') ? (
+        isDesktopLayout ? (
+          <View style={[desktopHeaderStyles.searchToolbar, styles.desktopSearchPad]}>
+            <View style={desktopHeaderStyles.searchBox}>
+              <Search size={16} color={Colors.text.secondary} />
+              <TextInput
+                style={desktopHeaderStyles.searchInput}
+                placeholder={m.searchUser}
+                placeholderTextColor={Colors.text.disabled}
+                value={search}
+                onChangeText={setSearch}
+              />
+              {search.length > 0 && (
+                <TouchableOpacity onPress={() => setSearch('')}>
+                  <X size={16} color={Colors.text.secondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+            {showTabBar ? (
+              <TouchableOpacity
+                style={desktopHeaderStyles.addButton}
+                onPress={openAddUser}
+                activeOpacity={0.8}
+              >
+                <Plus size={18} color="#FFF" strokeWidth={2.5} />
+                <Text style={desktopHeaderStyles.addButtonText}>{m.newUser.title}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : (
         <View style={styles.searchRow}>
           <View style={styles.searchBox}>
             <Search size={16} color={Colors.text.secondary} />
@@ -1165,6 +1370,7 @@ export default function ManagementScreen() {
             )}
           </View>
         </View>
+        )
       ) : null}
 
       {error && (
@@ -1180,6 +1386,123 @@ export default function ManagementScreen() {
       {showUsersTab && activeTab === 'users' ? (
         usersLoading ? (
           <ActivityIndicator style={styles.centered} color={Colors.primary} />
+        ) : isDesktopLayout ? (
+          <View style={desktopTableStyles.panel}>
+            <View style={desktopTableStyles.wrap}>
+              <View style={desktopTableStyles.headerRow}>
+                <Text style={[desktopTableStyles.headCell, styles.colUser]}>{mgmt.tabs.users}</Text>
+                <Text style={[desktopTableStyles.headCell, styles.colEmail]}>{m.fields.email}</Text>
+                <Text style={[desktopTableStyles.headCell, styles.colRole]}>{m.fields.role}</Text>
+                <Text style={[desktopTableStyles.headCell, styles.colMatricule]}>{m.fields.matricule}</Text>
+                <Text style={[desktopTableStyles.headCell, styles.colActions]}>{''}</Text>
+              </View>
+              <ScrollView
+                style={desktopTableStyles.body}
+                contentContainerStyle={desktopTableStyles.bodyContent}
+                showsVerticalScrollIndicator
+                refreshControl={
+                  <RefreshControl refreshing={usersRefreshing} onRefresh={() => loadUsers(true)} tintColor={Colors.primary} />
+                }
+              >
+                {pagedUsers.map((user) => (
+                  <View key={user.id} style={desktopTableStyles.row}>
+                    <View style={[styles.colUser, desktopTableStyles.userCell]}>
+                      <UserAvatar
+                        avatarPath={user.avatar_path}
+                        avatarUpdatedAt={user.avatar_updated_at}
+                        prenom={user.prenom}
+                        nom={user.nom}
+                        role={user.role}
+                        size={36}
+                        variant="initials"
+                      />
+                      <Text style={[desktopTableStyles.primaryText, desktopTableStyles.iconText]} numberOfLines={1}>
+                        {user.prenom} {user.nom}
+                      </Text>
+                    </View>
+                    <View style={[styles.colEmail, desktopTableStyles.iconTextCell]}>
+                      <Mail size={15} color={Colors.primary} strokeWidth={2.3} />
+                      <Text style={[desktopTableStyles.mutedText, desktopTableStyles.iconText]} numberOfLines={1}>
+                        {user.email}
+                      </Text>
+                    </View>
+                    <View style={[styles.colRole, desktopTableStyles.iconTextCell]}>
+                      <ShieldCheck size={15} color={roleColor(user.role)} strokeWidth={2.3} />
+                      <View style={[styles.roleBadge, { backgroundColor: roleColor(user.role) + '15' }]}>
+                        <Text style={[styles.roleText, { color: roleColor(user.role) }]}>
+                          {getRoleLabel(user.role, t)}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[styles.colMatricule, desktopTableStyles.iconTextCell]}>
+                      <Hash size={15} color={Colors.primary} strokeWidth={2.3} />
+                      <Text style={[desktopTableStyles.mutedText, desktopTableStyles.iconText]} numberOfLines={1}>
+                        {user.matricule ? `#${user.matricule}` : '—'}
+                      </Text>
+                    </View>
+                    <View style={[styles.colActions, desktopTableStyles.actions]}>
+                      <TouchableOpacity style={styles.editBtn} onPress={() => openEditUser(user)}>
+                        <Edit2 size={15} color={Colors.primary} />
+                      </TouchableOpacity>
+                      {canDelete && user.id !== profile?.id && (
+                        <TouchableOpacity style={styles.deleteBtn} onPress={() => setDeleteUserConfirm(user)}>
+                          <Trash2 size={15} color={Colors.error} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+              <View style={desktopTableStyles.footer}>
+                <TouchableOpacity
+                  style={[
+                    desktopTableStyles.pageBtn,
+                    safeUsersPage <= 1 && desktopTableStyles.pageBtnDisabled,
+                  ]}
+                  disabled={safeUsersPage <= 1}
+                  onPress={() => setUsersPage((p) => Math.max(1, p - 1))}
+                  accessibilityLabel={mgmt.pagination.previous}
+                >
+                  <ChevronLeft size={18} color={Colors.text.primary} strokeWidth={2.4} />
+                </TouchableOpacity>
+                {getVisiblePages(safeUsersPage, usersTotalPages).map((page) => (
+                  <TouchableOpacity
+                    key={`users-page-${page}`}
+                    style={[
+                      desktopTableStyles.pageBtn,
+                      page === safeUsersPage && desktopTableStyles.pageBtnActive,
+                    ]}
+                    onPress={() => setUsersPage(page)}
+                  >
+                    <Text
+                      style={[
+                        desktopTableStyles.pageBtnText,
+                        page === safeUsersPage && desktopTableStyles.pageBtnTextActive,
+                      ]}
+                    >
+                      {page}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  style={[
+                    desktopTableStyles.pageBtn,
+                    safeUsersPage >= usersTotalPages && desktopTableStyles.pageBtnDisabled,
+                  ]}
+                  disabled={safeUsersPage >= usersTotalPages}
+                  onPress={() => setUsersPage((p) => Math.min(usersTotalPages, p + 1))}
+                  accessibilityLabel={mgmt.pagination.next}
+                >
+                  <ChevronRight size={18} color={Colors.text.primary} strokeWidth={2.4} />
+                </TouchableOpacity>
+                <Text style={desktopTableStyles.pageMeta}>
+                  {mgmt.pagination.pageOf
+                    .replace('{{page}}', String(safeUsersPage))
+                    .replace('{{total}}', String(usersTotalPages))}
+                </Text>
+              </View>
+            </View>
+          </View>
         ) : (
           <ScrollView
             style={styles.scrollView}
@@ -1190,7 +1513,7 @@ export default function ManagementScreen() {
             }
           >
             <Text style={styles.countLabel}>
-            {formatCount(filteredUsers.length, mgmt.userCount, mgmt.userCountPlural)}
+              {formatCount(filteredUsers.length, mgmt.userCount, mgmt.userCountPlural)}
             </Text>
             {filteredUsers.map(user => (
               <View key={user.id} style={styles.userCard}>
@@ -1276,6 +1599,141 @@ export default function ManagementScreen() {
       ) : (
         wsLoading ? (
           <ActivityIndicator style={styles.centered} color={Colors.primary} />
+        ) : isDesktopLayout ? (
+          <View style={desktopTableStyles.panel}>
+            <View style={desktopTableStyles.wrap}>
+              <View style={desktopTableStyles.headerRow}>
+                <Text style={[desktopTableStyles.headCell, styles.colWsName]}>{mgmt.tabs.worksites}</Text>
+                <Text style={[desktopTableStyles.headCell, styles.colWsAddress]}>{m.fields.address}</Text>
+                <Text style={[desktopTableStyles.headCell, styles.colWsDate]}>{mgmt.startLabel}</Text>
+                <Text style={[desktopTableStyles.headCell, styles.colWsDate]}>{mgmt.endLabel}</Text>
+                <Text style={[desktopTableStyles.headCell, styles.colWsTeam]}>{mgmt.tabs.users}</Text>
+                <Text style={[desktopTableStyles.headCell, styles.colActions]}>{''}</Text>
+              </View>
+              <ScrollView
+                style={desktopTableStyles.body}
+                contentContainerStyle={desktopTableStyles.bodyContent}
+                showsVerticalScrollIndicator
+                refreshControl={
+                  <RefreshControl refreshing={wsRefreshing} onRefresh={() => loadWorksites(true)} tintColor={Colors.primary} />
+                }
+              >
+                {pagedWs.map((ws) => {
+                  const assignedUsers = worksiteUsersById[ws.id] || [];
+                  const sortedUsers = [...assignedUsers].sort((a, b) => {
+                    const aChef = a.role === 'chef_equipe';
+                    const bChef = b.role === 'chef_equipe';
+                    if (aChef && !bChef) return -1;
+                    if (!aChef && bChef) return 1;
+                    return 0;
+                  });
+                  const visibleUsers = sortedUsers.slice(0, 3);
+                  const remainingUsers = Math.max(sortedUsers.length - visibleUsers.length, 0);
+
+                  return (
+                    <View key={ws.id} style={desktopTableStyles.row}>
+                      <View style={[styles.colWsName, desktopTableStyles.iconTextCell]}>
+                        <Building2 size={15} color={Colors.primary} strokeWidth={2.3} />
+                        <Text style={[desktopTableStyles.primaryText, desktopTableStyles.iconText]} numberOfLines={1}>
+                          {ws.nom}
+                        </Text>
+                      </View>
+                      <View style={[styles.colWsAddress, desktopTableStyles.iconTextCell]}>
+                        <MapPin size={15} color={Colors.primary} strokeWidth={2.3} />
+                        <Text style={[desktopTableStyles.mutedText, desktopTableStyles.iconText]} numberOfLines={1}>
+                          {ws.adresse || '—'}
+                        </Text>
+                      </View>
+                      <View style={[styles.colWsDate, desktopTableStyles.iconTextCell]}>
+                        <Calendar size={15} color={Colors.primary} strokeWidth={2.3} />
+                        <Text style={[desktopTableStyles.mutedText, desktopTableStyles.iconText]} numberOfLines={1}>
+                          {formatDisplayDate(ws.date_debut, dateLocale, mgmt.dateUndefined)}
+                        </Text>
+                      </View>
+                      <View style={[styles.colWsDate, desktopTableStyles.iconTextCell]}>
+                        <Calendar size={15} color={Colors.primary} strokeWidth={2.3} />
+                        <Text style={[desktopTableStyles.mutedText, desktopTableStyles.iconText]} numberOfLines={1}>
+                          {formatDisplayDate(ws.date_fin, dateLocale, mgmt.dateUndefined)}
+                        </Text>
+                      </View>
+                      <View style={[styles.colWsTeam, desktopTableStyles.iconTextCell]}>
+                        <Users size={15} color={Colors.primary} strokeWidth={2.3} />
+                        <Text style={[desktopTableStyles.mutedText, desktopTableStyles.iconText]} numberOfLines={1}>
+                          {assignedUsers.length === 0
+                            ? mgmt.noUsersAssigned
+                            : `${visibleUsers.map((u) => `${u.prenom} ${u.nom}`).join(', ')}${
+                                remainingUsers > 0 ? ` +${remainingUsers}` : ''
+                              }`}
+                        </Text>
+                      </View>
+                      <View style={[styles.colActions, desktopTableStyles.actions]}>
+                        <TouchableOpacity style={styles.wsActionBtn} onPress={() => openEditWs(ws)}>
+                          {isChefEquipe ? (
+                            <UserPlus size={15} color={Colors.primary} />
+                          ) : (
+                            <Edit2 size={15} color={Colors.primary} />
+                          )}
+                        </TouchableOpacity>
+                        {canDelete && (
+                          <TouchableOpacity style={styles.wsActionBtn} onPress={() => setDeleteWsConfirm(ws)}>
+                            <Trash2 size={15} color={Colors.error} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+              <View style={desktopTableStyles.footer}>
+                <TouchableOpacity
+                  style={[
+                    desktopTableStyles.pageBtn,
+                    safeWsPage <= 1 && desktopTableStyles.pageBtnDisabled,
+                  ]}
+                  disabled={safeWsPage <= 1}
+                  onPress={() => setWsPage((p) => Math.max(1, p - 1))}
+                  accessibilityLabel={mgmt.pagination.previous}
+                >
+                  <ChevronLeft size={18} color={Colors.text.primary} strokeWidth={2.4} />
+                </TouchableOpacity>
+                {getVisiblePages(safeWsPage, wsTotalPages).map((page) => (
+                  <TouchableOpacity
+                    key={`ws-page-${page}`}
+                    style={[
+                      desktopTableStyles.pageBtn,
+                      page === safeWsPage && desktopTableStyles.pageBtnActive,
+                    ]}
+                    onPress={() => setWsPage(page)}
+                  >
+                    <Text
+                      style={[
+                        desktopTableStyles.pageBtnText,
+                        page === safeWsPage && desktopTableStyles.pageBtnTextActive,
+                      ]}
+                    >
+                      {page}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  style={[
+                    desktopTableStyles.pageBtn,
+                    safeWsPage >= wsTotalPages && desktopTableStyles.pageBtnDisabled,
+                  ]}
+                  disabled={safeWsPage >= wsTotalPages}
+                  onPress={() => setWsPage((p) => Math.min(wsTotalPages, p + 1))}
+                  accessibilityLabel={mgmt.pagination.next}
+                >
+                  <ChevronRight size={18} color={Colors.text.primary} strokeWidth={2.4} />
+                </TouchableOpacity>
+                <Text style={desktopTableStyles.pageMeta}>
+                  {mgmt.pagination.pageOf
+                    .replace('{{page}}', String(safeWsPage))
+                    .replace('{{total}}', String(wsTotalPages))}
+                </Text>
+              </View>
+            </View>
+          </View>
         ) : (
           <ScrollView
             style={styles.scrollView}
@@ -1286,7 +1744,7 @@ export default function ManagementScreen() {
             }
           >
             <Text style={styles.countLabel}>
-            {formatCount(filteredWs.length, mgmt.worksiteCount, mgmt.worksiteCountPlural)}
+              {formatCount(filteredWs.length, mgmt.worksiteCount, mgmt.worksiteCountPlural)}
             </Text>
             {filteredWs.map((ws) => {
               const assignedUsers = worksiteUsersById[ws.id] || [];
@@ -1321,72 +1779,80 @@ export default function ManagementScreen() {
                       <Building2 size={20} color={Colors.primary} strokeWidth={2.2} />
                     </View>
                     <View style={styles.wsCardBody}>
-                        <View style={styles.wsTitleRow}>
-                          <Text style={styles.wsTitle} numberOfLines={1}>{ws.nom}</Text>
-                          <Text style={styles.wsHours}>
-                            {formatTime(ws.heure_debut || '')} – {formatTime(ws.heure_fin || '')}
-                          </Text>
-                          <View style={styles.wsCardActions}>
-                            <TouchableOpacity style={styles.wsActionBtn} onPress={() => openEditWs(ws)}>
-                              {isChefEquipe ? (
-                                <UserPlus size={15} color={Colors.primary} />
-                              ) : (
-                                <Edit2 size={15} color={Colors.primary} />
-                              )}
-                            </TouchableOpacity>
-                            {canDelete && (
-                              <TouchableOpacity style={styles.wsActionBtn} onPress={() => setDeleteWsConfirm(ws)}>
-                                <Trash2 size={15} color={Colors.error} />
-                              </TouchableOpacity>
-                            )}
-                          </View>
-                        </View>
-                        {!!ws.adresse && (
-                          <View style={styles.wsAddressRow}>
-                            <MapPin size={13} color={Colors.primary} strokeWidth={2.3} />
-                            <Text style={styles.wsAddress} numberOfLines={1}>
-                              {ws.adresse}
-                            </Text>
-                          </View>
-                        )}
-                        <Text style={styles.wsMetaLine} numberOfLines={1}>
-                          <Text style={styles.wsMetaLabel}>{mgmt.startLabel} </Text>
-                          {formatDisplayDate(ws.date_debut, dateLocale, mgmt.dateUndefined)}
-                          <Text style={styles.wsMetaDot}> · </Text>
-                          <Text style={styles.wsMetaLabel}>{mgmt.endLabel} </Text>
-                          {formatDisplayDate(ws.date_fin, dateLocale, mgmt.dateUndefined)}
+                      <View style={styles.wsTitleRow}>
+                        <Text style={styles.wsTitle} numberOfLines={1}>
+                          {ws.nom}
                         </Text>
-                        <View style={styles.wsUsersLine}>
-                          <Users size={13} color={Colors.primary} strokeWidth={2.3} />
-                          <Text style={styles.wsUserNames} numberOfLines={1}>
-                            {assignedUsers.length === 0 ? (
-                                mgmt.noUsersAssigned
+                        <Text style={styles.wsHours}>
+                          {formatTime(ws.heure_debut || '')} – {formatTime(ws.heure_fin || '')}
+                        </Text>
+                        <View style={styles.wsCardActions}>
+                          <TouchableOpacity style={styles.wsActionBtn} onPress={() => openEditWs(ws)}>
+                            {isChefEquipe ? (
+                              <UserPlus size={15} color={Colors.primary} />
                             ) : (
-                              <>
-                                {visibleUsers.map((user, index) => (
-                                  <Text key={user.id}>
-                                    {index > 0 ? ', ' : ''}
-                                    <Text style={user.role === 'chef_equipe' ? styles.wsUserNameLeader : undefined}>
-                                      {user.prenom} {user.nom}
-                                    </Text>
-                                  </Text>
-                                ))}
-                                {remainingUsers > 0 ? ` +${remainingUsers}` : ''}
-                              </>
+                              <Edit2 size={15} color={Colors.primary} />
                             )}
+                          </TouchableOpacity>
+                          {canDelete && (
+                            <TouchableOpacity style={styles.wsActionBtn} onPress={() => setDeleteWsConfirm(ws)}>
+                              <Trash2 size={15} color={Colors.error} />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+
+                      {!!ws.adresse && (
+                        <View style={styles.wsAddressRow}>
+                          <MapPin size={13} color={Colors.primary} strokeWidth={2.3} />
+                          <Text style={styles.wsAddress} numberOfLines={1}>
+                            {ws.adresse}
                           </Text>
                         </View>
-                        {(zonesByChantier[ws.id] || []).length > 0 && (
-                          <View style={styles.wsZoneBadges}>
-                            {(zonesByChantier[ws.id] || []).map((zone) => (
-                              <View key={zone.id} style={styles.wsZoneBadge}>
-                                <Text style={styles.wsZoneBadgeText} numberOfLines={1}>{zone.nom}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        )}
+                      )}
+
+                      <Text style={styles.wsMetaLine} numberOfLines={1}>
+                        <Text style={styles.wsMetaLabel}>{mgmt.startLabel} </Text>
+                        {formatDisplayDate(ws.date_debut, dateLocale, mgmt.dateUndefined)}
+                        <Text style={styles.wsMetaDot}> · </Text>
+                        <Text style={styles.wsMetaLabel}>{mgmt.endLabel} </Text>
+                        {formatDisplayDate(ws.date_fin, dateLocale, mgmt.dateUndefined)}
+                      </Text>
+
+                      <View style={styles.wsUsersLine}>
+                        <Users size={13} color={Colors.primary} strokeWidth={2.3} />
+                        <Text style={styles.wsUserNames} numberOfLines={1}>
+                          {assignedUsers.length === 0 ? (
+                            mgmt.noUsersAssigned
+                          ) : (
+                            <>
+                              {visibleUsers.map((user, index) => (
+                                <Text key={user.id}>
+                                  {index > 0 ? ', ' : ''}
+                                  <Text style={user.role === 'chef_equipe' ? styles.wsUserNameLeader : undefined}>
+                                    {user.prenom} {user.nom}
+                                  </Text>
+                                </Text>
+                              ))}
+                              {remainingUsers > 0 ? ` +${remainingUsers}` : ''}
+                            </>
+                          )}
+                        </Text>
                       </View>
+
+                      {(zonesByChantier[ws.id] || []).length > 0 && (
+                        <View style={styles.wsZoneBadges}>
+                          {(zonesByChantier[ws.id] || []).map((zone) => (
+                            <View key={zone.id} style={styles.wsZoneBadge}>
+                              <Text style={styles.wsZoneBadgeText} numberOfLines={1}>
+                                {zone.nom}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
                     </View>
+                  </View>
                 </View>
               );
             })}
@@ -2405,7 +2871,27 @@ function WorksiteFormModal({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF7F2' },
+  containerDesktop: { backgroundColor: 'transparent' },
   scrollView: { flex: 1 },
+
+  desktopHeaderPad: {
+    paddingHorizontal: 24,
+    paddingTop: 18,
+    marginBottom: 16,
+  },
+  desktopSearchPad: {
+    paddingHorizontal: 24,
+  },
+
+  colUser: { flex: 1.4, minWidth: 0 },
+  colEmail: { flex: 1.5, minWidth: 0 },
+  colRole: { flex: 0.9, minWidth: 0 },
+  colMatricule: { flex: 0.8, minWidth: 0 },
+  colWsName: { flex: 1.2, minWidth: 0 },
+  colWsAddress: { flex: 1.4, minWidth: 0 },
+  colWsDate: { flex: 0.8, minWidth: 0 },
+  colWsTeam: { flex: 1.3, minWidth: 0 },
+  colActions: { width: 88, flexShrink: 0 },
 
   // Header
   header: {

@@ -5,6 +5,7 @@
 /** Map inbound FE body → Imp-04 chantier fields. */
 export function fromFeChantierHours(body = {}) {
   const out = { ...body };
+  delete out.company_id;
   if (Object.prototype.hasOwnProperty.call(out, 'heure_debut')) {
     if (out.heure_debut_matin == null) out.heure_debut_matin = out.heure_debut;
     delete out.heure_debut;

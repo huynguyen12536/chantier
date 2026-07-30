@@ -16,7 +16,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ConfirmModal } from '@/components/common';
+import { DesktopPageHeader } from '@/components/layoutDesktop';
 import { Colors } from '@/constants/colors';
+import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
 import { formatWeekDayLabelWithYear } from '@/utils/date';
 import { fetchLatestValidatedPeriod } from '@/utils/ouvrierDeclaration';
 import { checkShiftOverlapForDate } from '@/utils/shiftOverlap';
@@ -54,6 +56,7 @@ export default function DeclareDaySuggestionScreen() {
   const { t, dateLocale } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isDesktopLayout = useIsDesktopLayout();
   const params = useLocalSearchParams<{
     date: string;
     dayLabel: string;
@@ -280,6 +283,7 @@ export default function DeclareDaySuggestionScreen() {
         heure_fin: dbFin,
         panier_repas: habit.panierRepas,
         deplacement: habit.deplacement,
+        from_suggestion: true,
         statut: 'terminee',
         latitude_debut: 0,
         longitude_debut: 0,
@@ -297,6 +301,8 @@ export default function DeclareDaySuggestionScreen() {
     }
   };
 
+  if (!profile || profile.role !== 'ouvrier') return null;
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -308,28 +314,42 @@ export default function DeclareDaySuggestionScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={['#FF8A50', '#FF6B35', '#E55A2B']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: insets.top + 10 }]}
-      >
-        <TouchableOpacity
-          onPress={() => {
-            if (router.canGoBack()) router.back();
-            else router.replace({ pathname: '/(tabs)/ouvrier-dashboard' });
-          }}
-          style={styles.backBtn}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <ArrowLeft size={22} color="#FFF" />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{t.ouvrierDashboard.addLineTitle}</Text>
+    <View style={[styles.container, isDesktopLayout && styles.containerDesktop]}>
+      {isDesktopLayout ? (
+        <View style={styles.desktopHeaderPad}>
+          <DesktopPageHeader
+            title={t.ouvrierDashboard.addLineTitle}
+            subtitle={cardDateLabel}
+            onBack={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace({ pathname: '/(tabs)/ouvrier-dashboard' });
+            }}
+            backLabel={t.common.cancel}
+          />
         </View>
-        <View style={styles.headerSpacer} />
-      </LinearGradient>
+      ) : (
+        <LinearGradient
+          colors={['#FF8A50', '#FF6B35', '#E55A2B']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.header, { paddingTop: insets.top + 10 }]}
+        >
+          <TouchableOpacity
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace({ pathname: '/(tabs)/ouvrier-dashboard' });
+            }}
+            style={styles.backBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ArrowLeft size={22} color="#FFF" />
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>{t.ouvrierDashboard.addLineTitle}</Text>
+          </View>
+          <View style={styles.headerSpacer} />
+        </LinearGradient>
+      )}
 
       <ScrollView
         style={styles.scrollView}
@@ -458,6 +478,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFF',
+  },
+  containerDesktop: {
+    backgroundColor: 'transparent',
+  },
+  desktopHeaderPad: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   centered: {
     flex: 1,

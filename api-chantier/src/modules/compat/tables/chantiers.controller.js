@@ -7,11 +7,11 @@ import { pickEq, pickUuidList } from '../queryAllowList.js';
 export const list = asyncHandler(async (req, res) => {
   try {
     if (req.query?.id) {
-      const row = await chantiersService.getChantier(String(req.query.id));
+      const row = await chantiersService.getChantier(String(req.query.id), req.user);
       res.status(200).json(mapChantierRows(row));
       return;
     }
-    let rows = await chantiersService.listChantiers();
+    let rows = await chantiersService.listChantiers(req.user);
     const ids = pickUuidList(req.query, 'id_in');
     if (ids) {
       const set = new Set(ids);
@@ -39,7 +39,7 @@ export const list = asyncHandler(async (req, res) => {
 
 export const getById = asyncHandler(async (req, res) => {
   try {
-    const row = await chantiersService.getChantier(req.params.id);
+    const row = await chantiersService.getChantier(req.params.id, req.user);
     res.status(200).json(mapChantierRows(row));
   } catch (err) {
     const mapped = toErrorResponse(err);

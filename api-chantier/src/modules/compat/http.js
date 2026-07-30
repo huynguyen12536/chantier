@@ -3,9 +3,13 @@
  */
 export function toErrorResponse(err) {
   const status = err?.statusCode && Number.isInteger(err.statusCode) ? err.statusCode : 500;
+  const code = err?.code ?? (status === 500 ? 'INTERNAL_ERROR' : 'APP_ERROR');
   return {
     status,
-    body: { error: err?.message || 'Internal server error' },
+    body: {
+      error: err?.message || 'Internal server error',
+      code,
+    },
   };
 }
 

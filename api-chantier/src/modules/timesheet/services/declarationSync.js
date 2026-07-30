@@ -37,6 +37,7 @@ export async function syncDeclarationsFromPeriods(client, userId, chantierId, da
     user_id: userId,
     chantier_id: chantierId,
     date,
+    company_id: chantier.company_id,
     ...synth,
   });
 }

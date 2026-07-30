@@ -7,14 +7,11 @@ import zonesTableRoutes from './tables/zones.routes.js';
 import periodesTableRoutes from './tables/periodes.routes.js';
 import absencesTableRoutes from './tables/absences.routes.js';
 import authCompatRoutes from './auth/routes.js';
+import { blockDisabledCompany, forbidSystemAdminOperational } from '../../shared/middleware/tenant.js';
 
-/**
- * Imp-12+ Phase 13 compatibility mounts.
- * Wave A/B preserved. Phase 13: declarations PATCH→Imp-07, composers, hour mapper, zone GETs.
- */
 function mountTableRouters(app, router) {
-  app.use('/tables', router);
-  app.use('/rest/v1', router);
+  app.use('/tables', blockDisabledCompany, forbidSystemAdminOperational, router);
+  app.use('/rest/v1', blockDisabledCompany, forbidSystemAdminOperational, router);
 }
 
 export function mountCompat(app) {
