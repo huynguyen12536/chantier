@@ -8,6 +8,10 @@ export async function buildExportWorkbookBuffer(): Promise<ArrayBuffer> {
   throw new Error('buildExportWorkbookBuffer is only available on web');
 }
 
+export async function buildGenericExportWorkbookBuffer(): Promise<ArrayBuffer> {
+  throw new Error('buildGenericExportWorkbookBuffer is only available on web');
+}
+
 export function downloadExcelBuffer(): void {
   throw new Error('downloadExcelBuffer is only available on web');
 }

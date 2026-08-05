@@ -15,6 +15,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTabBarInset } from '@/hooks/useTabBarInset';
 import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
 import { CONTENT_MAX_WIDTH } from '@/constants/layout';
+import { DatePickerModal, ValidationNotificationBell } from '@/components/common';
 import { supabase } from '@/services/supabase';
 import { getChefManagedChantierIds } from '@/utils/team';
 import { getPeriodRange } from '@/utils/payroll';
@@ -22,15 +23,24 @@ import {
   buildPayrollExportTable,
   type PayrollExportSourceRow,
 } from '@/utils/exportPayrollFormat';
+import {
+  buildAbsenceExportTable,
+  formatAbsenceExportPeriodLabel,
+  getNextMonthRange,
+} from '@/utils/exportAbsenceFormat';
+import { fetchTeamAbsences } from '@/utils/absence';
+import { formatDateFieldLabel } from '@/utils/absenceFormat';
+import { formatDateKey } from '@/utils/date';
 import { computeChantierHoursBreakdown, formatTime } from '@/utils/time';
-import { Download, Megaphone, BadgeCheck, Hourglass, Timer } from 'lucide-react-native';
-import { ValidationNotificationBell } from '@/components/common/ValidationNotificationBell';
+import { Calendar, Download, Megaphone, BadgeCheck, Hourglass, Timer } from 'lucide-react-native';
 import { ExportDesktop, desktopTheme } from '@/components/layoutDesktop';
 import { canExport, canReceiveApprovalNotifications } from '@/utils/role';
 
 const STATS_GAP = 12;
 const STATS_COLUMNS = 2;
 const PAGE_PADDING = 16;
+type ExportPeriod = 'week' | 'month' | 'custom' | 'absence';
+type PayrollExportPeriod = 'week' | 'month' | 'custom';
 
 function formatDisplayNumber(value: number, decimals = 0): string {
   const factor = 10 ** decimals;
@@ -51,7 +61,7 @@ export default function ExportScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const isDesktopLayout = useIsDesktopLayout();
   const [loading, setLoading] = useState(false);
-  const [loadingPeriod, setLoadingPeriod] = useState<'week' | 'month' | null>(null);
+  const [loadingPeriod, setLoadingPeriod] = useState<ExportPeriod | null>(null);
   const isCompact = windowWidth < 400;
   const [stats, setStats] = useState({
     total_declarations: 0,
@@ -59,11 +69,22 @@ export default function ExportScreen() {
     en_attente: 0,
     total_heures: 0,
   });
-  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month'>('week');
+  const today = useMemo(() => formatDateKey(new Date()), []);
+  const [selectedPeriod, setSelectedPeriod] = useState<ExportPeriod>('week');
+  const [customFrom, setCustomFrom] = useState(today);
+  const [customTo, setCustomTo] = useState(today);
+  const [activeDateField, setActiveDateField] = useState<'from' | 'to' | null>(null);
   const isChef = profile?.role === 'chef_equipe';
   const isAdmin = profile?.role === 'admin';
   const headerTitle = isAdmin ? t.export.titleAdmin : t.export.title;
   const headerSubtitle = isAdmin ? t.export.subtitleAdmin : t.export.subtitle;
+  const canUseCustomRange = !isChef;
+  const canUseAbsenceExport = !isChef;
+  const nextMonthRange = useMemo(() => getNextMonthRange(), []);
+  const nextMonthLabel = useMemo(
+    () => formatAbsenceExportPeriodLabel(nextMonthRange.start, nextMonthRange.end, language),
+    [nextMonthRange.start, nextMonthRange.end, language],
+  );
 
   const statItems = useMemo(
     () => [
@@ -130,7 +151,7 @@ export default function ExportScreen() {
   }, [profile?.id, profile?.role]);
 
   const fetchExportDeclarations = async (
-    period: 'week' | 'month' = selectedPeriod,
+    period: PayrollExportPeriod,
   ): Promise<PayrollExportSourceRow[]> => {
     const { start, end } = getDateRange(period);
 
@@ -237,8 +258,8 @@ export default function ExportScreen() {
 
       setStats({
         total_declarations: data?.length || 0,
-        validees: data?.filter((d) => d.statut === 'validee').length || 0,
-        en_attente: data?.filter((d) => d.statut === 'terminee').length || 0,
+        validees: data?.filter((d: any) => d.statut === 'validee').length || 0,
+        en_attente: data?.filter((d: any) => d.statut === 'terminee').length || 0,
         total_heures: Math.round(totalHeures * 100) / 100,
       });
     } catch (error) {
@@ -246,7 +267,10 @@ export default function ExportScreen() {
     }
   };
 
-  const getDateRange = (period: 'week' | 'month' = selectedPeriod): { start: string; end: string } => {
+  const getDateRange = (period: PayrollExportPeriod): { start: string; end: string } => {
+    if (period === 'custom') {
+      return { start: customFrom, end: customTo };
+    }
     const { start, end } = getPeriodRange(period);
     return { start, end };
   };
@@ -271,8 +295,112 @@ export default function ExportScreen() {
     );
   };
 
-  const handleExport = async (period: 'week' | 'month' = selectedPeriod) => {
+  const deliverExportFile = async (
+    periodLabel: string,
+    headers: string[],
+    rows: { cells: (string | number)[]; isSubtotal?: boolean; isGrandTotal?: boolean }[],
+    filenameBase: string,
+    sheetTitle: string,
+    successMessage: string,
+    useGenericWorkbook: boolean,
+  ) => {
+    if (Platform.OS === 'web') {
+      const {
+        buildExportWorkbookBuffer,
+        buildGenericExportWorkbookBuffer,
+        downloadExcelBuffer,
+        downloadCsvFallback,
+      } = await import('@/utils/exportSpreadsheet.web');
+      try {
+        const build = useGenericWorkbook
+          ? buildGenericExportWorkbookBuffer
+          : buildExportWorkbookBuffer;
+        const buffer = await build(periodLabel, headers, rows as any, sheetTitle);
+        downloadExcelBuffer(buffer, `${filenameBase}.xlsx`);
+      } catch (excelError) {
+        console.error('Excel export failed, falling back to CSV', excelError);
+        downloadCsvFallback(periodLabel, headers, rows as any, `${filenameBase}.csv`);
+        Alert.alert(
+          t.common.error,
+          'Export Excel indisponible — fichier CSV téléchargé (colonnes numériques en texte). Réessayez ou contactez le support.',
+        );
+        return;
+      }
+      setTimeout(() => {
+        Alert.alert(t.common.success, successMessage);
+      }, 500);
+      return;
+    }
+
+    const { shareExportCsv } = await import('@/utils/exportSpreadsheet.native');
+    const flatRows = rows.map((row) => row.cells);
+    await shareExportCsv(headers, flatRows, `${filenameBase}.csv`);
+    Alert.alert(t.common.success, successMessage);
+  };
+
+  const handleAbsenceExport = async () => {
+    if (!profile) return;
+    setSelectedPeriod('absence');
+    setLoading(true);
+    setLoadingPeriod('absence');
+    try {
+      const range = nextMonthRange;
+      const absences = await fetchTeamAbsences({
+        viewerId: profile.id,
+        viewerRole: profile.role,
+        startDate: range.start,
+        endDate: range.end,
+      });
+
+      if (absences.length === 0) {
+        Alert.alert('Information', t.export.noAbsenceData);
+        return;
+      }
+
+      const cols = t.export.csvColumnsAbsence;
+      const table = buildAbsenceExportTable(
+        absences,
+        range,
+        {
+          collaborateur: cols.collaborateur,
+          dateDebut: cols.dateDebut,
+          dateFin: cols.dateFin,
+          duration: cols.duration,
+          motif: cols.motif,
+          reason: cols.reason,
+        },
+        t,
+        language,
+      );
+
+      await deliverExportFile(
+        table.periodLabel,
+        table.headers,
+        table.rows,
+        `export_absences_${range.start}_${range.end}`,
+        t.export.absenceTab,
+        `${absences.length} ${t.export.absenceExportSuccess}`,
+        true,
+      );
+    } catch (error: any) {
+      Alert.alert(t.common.error, error.message);
+    } finally {
+      setLoading(false);
+      setLoadingPeriod(null);
+    }
+  };
+
+  const handleExport = async (period: ExportPeriod = selectedPeriod) => {
+    if (period === 'absence') {
+      await handleAbsenceExport();
+      return;
+    }
+
     setSelectedPeriod(period);
+    if (period === 'custom' && customFrom > customTo) {
+      Alert.alert(t.common.error, t.export.invalidCustomRange);
+      return;
+    }
     setLoading(true);
     setLoadingPeriod(period);
     try {
@@ -281,50 +409,19 @@ export default function ExportScreen() {
 
       if (exportData.length === 0) {
         Alert.alert('Information', t.export.noData);
-        setLoading(false);
-        setLoadingPeriod(null);
         return;
       }
 
       const table = getExportTable(exportData, end);
-
-      if (Platform.OS === 'web') {
-        const { buildExportWorkbookBuffer, downloadExcelBuffer, downloadCsvFallback } = await import(
-          '@/utils/exportSpreadsheet.web'
-        );
-        try {
-          const buffer = await buildExportWorkbookBuffer(
-            table.periodLabel,
-            table.headers,
-            table.rows,
-            headerTitle,
-          );
-          downloadExcelBuffer(buffer, `export_heures_${start}_${end}.xlsx`);
-        } catch (excelError) {
-          console.error('Excel export failed, falling back to CSV', excelError);
-          downloadCsvFallback(
-            table.periodLabel,
-            table.headers,
-            table.rows,
-            `export_heures_${start}_${end}.csv`,
-          );
-          Alert.alert(
-            t.common.error,
-            'Export Excel indisponible — fichier CSV téléchargé (colonnes numériques en texte). Réessayez ou contactez le support.',
-          );
-          setLoading(false);
-          setLoadingPeriod(null);
-          return;
-        }
-        setTimeout(() => {
-          Alert.alert(t.common.success, `${exportData.length} ${t.export.exportSuccess}`);
-        }, 500);
-      } else {
-        const { shareExportCsv } = await import('@/utils/exportSpreadsheet.native');
-        const flatRows = table.rows.map((row) => row.cells);
-        await shareExportCsv(table.headers, flatRows, `export_heures_${start}_${end}.csv`);
-        Alert.alert(t.common.success, `${exportData.length} ${t.export.exportSuccess}`);
-      }
+      await deliverExportFile(
+        table.periodLabel,
+        table.headers,
+        table.rows,
+        `export_heures_${start}_${end}`,
+        headerTitle,
+        `${exportData.length} ${t.export.exportSuccess}`,
+        false,
+      );
     } catch (error: any) {
       Alert.alert(t.common.error, error.message);
     } finally {
@@ -335,71 +432,128 @@ export default function ExportScreen() {
 
   if (!profile?.role || !canExport(profile.role)) return null;
 
+  const datePickers = (
+    <>
+      <DatePickerModal
+        visible={activeDateField === 'from'}
+        value={customFrom}
+        onSelect={(value) => {
+          setCustomFrom(value);
+          if (value > customTo) setCustomTo(value);
+        }}
+        onClose={() => setActiveDateField(null)}
+        closeLabel={t.common.cancel}
+        showReset
+        onReset={() => {
+          setCustomFrom(today);
+          if (today > customTo) setCustomTo(today);
+        }}
+        resetLabel={t.export.resetToToday}
+      />
+      <DatePickerModal
+        visible={activeDateField === 'to'}
+        value={customTo}
+        onSelect={setCustomTo}
+        onClose={() => setActiveDateField(null)}
+        closeLabel={t.common.cancel}
+        showReset
+        onReset={() => setCustomTo(customFrom)}
+        resetLabel={t.export.resetToStart}
+        minDate={customFrom}
+        rangeStart={customFrom}
+        rangeEnd={customTo}
+        highlightRange
+      />
+    </>
+  );
+
   if (isDesktopLayout) {
     return (
-      <ExportDesktop
-        title={headerTitle}
-        subtitle={headerSubtitle}
-        showNotificationBell={canReceiveApprovalNotifications(profile?.role)}
-        isChef={!!isChef}
-        stats={[
-          {
-            key: 'total',
-            Icon: Megaphone,
-            color: desktopTheme.stats.declarations.color,
-            bg: desktopTheme.stats.declarations.bg,
-            border: desktopTheme.stats.declarations.border,
-            value: formatDisplayNumber(stats.total_declarations),
-            label: t.export.declarations,
-          },
-          {
-            key: 'validees',
-            Icon: BadgeCheck,
-            color: desktopTheme.stats.approved.color,
-            bg: desktopTheme.stats.approved.bg,
-            border: desktopTheme.stats.approved.border,
-            value: formatDisplayNumber(stats.validees),
-            label: t.export.approved,
-          },
-          {
-            key: 'pending',
-            Icon: Hourglass,
-            color: desktopTheme.stats.pending.color,
-            bg: desktopTheme.stats.pending.bg,
-            border: desktopTheme.stats.pending.border,
-            value: formatDisplayNumber(stats.en_attente),
-            label: t.export.pending,
-          },
-          {
-            key: 'hours',
-            Icon: Timer,
-            color: desktopTheme.stats.hours.color,
-            bg: desktopTheme.stats.hours.bg,
-            border: desktopTheme.stats.hours.border,
-            value: formatDisplayNumber(stats.total_heures, 1),
-            label: t.export.totalHours,
-            unit: 'h',
-          },
-        ]}
-        onSelectPeriod={setSelectedPeriod}
-        loading={loading}
-        loadingPeriod={loadingPeriod}
-        onExport={handleExport}
-        periodLabels={{ week: t.export.thisWeek, month: t.export.thisMonth }}
-        exportPeriodTitle={t.export.exportPeriod}
-        exportInfo={t.export.exportInfo}
-        exportFormat={t.export.exportFormat}
-        exportButton={t.export.exportButton}
-        instructionsTitle={t.export.instructions}
-        instructions={[
-          t.export.instruction1,
-          t.export.instruction2,
-          t.export.instruction3,
-          t.export.instruction4,
-        ]}
-        legendTitle={t.export.indicatorsLegend}
-        legendItems={indicatorLegendItems}
-      />
+      <>
+        <ExportDesktop
+          title={headerTitle}
+          subtitle={headerSubtitle}
+          showNotificationBell={canReceiveApprovalNotifications(profile?.role)}
+          isChef={!!isChef}
+          stats={[
+            {
+              key: 'total',
+              Icon: Megaphone,
+              color: desktopTheme.stats.declarations.color,
+              bg: desktopTheme.stats.declarations.bg,
+              border: desktopTheme.stats.declarations.border,
+              value: formatDisplayNumber(stats.total_declarations),
+              label: t.export.declarations,
+            },
+            {
+              key: 'validees',
+              Icon: BadgeCheck,
+              color: desktopTheme.stats.approved.color,
+              bg: desktopTheme.stats.approved.bg,
+              border: desktopTheme.stats.approved.border,
+              value: formatDisplayNumber(stats.validees),
+              label: t.export.approved,
+            },
+            {
+              key: 'pending',
+              Icon: Hourglass,
+              color: desktopTheme.stats.pending.color,
+              bg: desktopTheme.stats.pending.bg,
+              border: desktopTheme.stats.pending.border,
+              value: formatDisplayNumber(stats.en_attente),
+              label: t.export.pending,
+            },
+            {
+              key: 'hours',
+              Icon: Timer,
+              color: desktopTheme.stats.hours.color,
+              bg: desktopTheme.stats.hours.bg,
+              border: desktopTheme.stats.hours.border,
+              value: formatDisplayNumber(stats.total_heures, 1),
+              label: t.export.totalHours,
+              unit: 'h',
+            },
+          ]}
+          onSelectPeriod={setSelectedPeriod}
+          loading={loading}
+          loadingPeriod={loadingPeriod}
+          onExport={handleExport}
+          periodLabels={{
+            week: t.export.thisWeek,
+            month: t.export.thisMonth,
+            custom: t.export.customRange,
+            absence: t.export.absenceTab,
+          }}
+          exportPeriodTitle={t.export.exportPeriod}
+          exportInfo={
+            selectedPeriod === 'absence' ? t.export.absenceExportInfo : t.export.exportInfo
+          }
+          exportFormat={
+            selectedPeriod === 'absence' ? t.export.absenceExportFormat : t.export.exportFormat
+          }
+          exportButton={t.export.exportButton}
+          customRangeEnabled={canUseCustomRange}
+          absenceExportEnabled={canUseAbsenceExport}
+          absencePeriodLabel={nextMonthLabel}
+          absenceHint={t.export.absenceNextMonthHint}
+          customFromLabel={t.export.fromLabel}
+          customToLabel={t.export.toLabel}
+          customFromValue={formatDateFieldLabel(customFrom, language)}
+          customToValue={formatDateFieldLabel(customTo, language)}
+          onSelectCustomFrom={() => setActiveDateField('from')}
+          onSelectCustomTo={() => setActiveDateField('to')}
+          instructionsTitle={t.export.instructions}
+          instructions={[
+            t.export.instruction1,
+            t.export.instruction2,
+            t.export.instruction3,
+            t.export.instruction4,
+          ]}
+          legendTitle={t.export.indicatorsLegend}
+          legendItems={indicatorLegendItems}
+        />
+        {datePickers}
+      </>
     );
   }
 
@@ -504,11 +658,75 @@ export default function ExportScreen() {
                     {t.export.thisMonth}
                   </Text>
                 </TouchableOpacity>
+                {canUseCustomRange ? (
+                  <TouchableOpacity
+                    style={[styles.periodButton, selectedPeriod === 'custom' && styles.periodButtonActive]}
+                    onPress={() => setSelectedPeriod('custom')}
+                  >
+                    <Text style={[styles.periodText, selectedPeriod === 'custom' && styles.periodTextActive]}>
+                      {t.export.customRange}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+                {canUseAbsenceExport ? (
+                  <TouchableOpacity
+                    style={[styles.periodButton, selectedPeriod === 'absence' && styles.periodButtonActive]}
+                    onPress={() => setSelectedPeriod('absence')}
+                  >
+                    <Text style={[styles.periodText, selectedPeriod === 'absence' && styles.periodTextActive]}>
+                      {t.export.absenceTab}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
 
+              {canUseCustomRange && selectedPeriod === 'custom' ? (
+                <View style={styles.customRangeBox}>
+                  <View style={styles.customDateRow}>
+                    <TouchableOpacity
+                      style={styles.customDateField}
+                      onPress={() => setActiveDateField('from')}
+                      activeOpacity={0.82}
+                    >
+                      <Text style={styles.customDateLabel}>{t.export.fromLabel}</Text>
+                      <View style={styles.customDateValueRow}>
+                        <Calendar size={16} color="#FF6B35" />
+                        <Text style={styles.customDateValue}>{formatDateFieldLabel(customFrom, language)}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.customDateField}
+                      onPress={() => setActiveDateField('to')}
+                      activeOpacity={0.82}
+                    >
+                      <Text style={styles.customDateLabel}>{t.export.toLabel}</Text>
+                      <View style={styles.customDateValueRow}>
+                        <Calendar size={16} color="#FF6B35" />
+                        <Text style={styles.customDateValue}>{formatDateFieldLabel(customTo, language)}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.customDateHint}>{t.export.customRangeHint}</Text>
+                </View>
+              ) : null}
+
+              {canUseAbsenceExport && selectedPeriod === 'absence' ? (
+                <View style={styles.customRangeBox}>
+                  <View style={styles.absencePeriodBox}>
+                    <Calendar size={18} color="#FF6B35" />
+                    <Text style={styles.absencePeriodText}>{nextMonthLabel}</Text>
+                  </View>
+                  <Text style={styles.customDateHint}>{t.export.absenceNextMonthHint}</Text>
+                </View>
+              ) : null}
+
               <View style={styles.infoBox}>
-                <Text style={styles.infoText}>{t.export.exportInfo}</Text>
-                <Text style={styles.infoText}>{t.export.exportFormat}</Text>
+                <Text style={styles.infoText}>
+                  {selectedPeriod === 'absence' ? t.export.absenceExportInfo : t.export.exportInfo}
+                </Text>
+                <Text style={styles.infoText}>
+                  {selectedPeriod === 'absence' ? t.export.absenceExportFormat : t.export.exportFormat}
+                </Text>
               </View>
 
               <TouchableOpacity
@@ -563,6 +781,7 @@ export default function ExportScreen() {
           )}
         </View>
       </ScrollView>
+      {datePickers}
     </View>
   );
 }
@@ -729,12 +948,15 @@ const styles = StyleSheet.create({
   },
   periodButtons: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
   periodButton: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '40%',
+    minWidth: 120,
     backgroundColor: '#F5F5F5',
-    padding: 16,
+    padding: 14,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 2,
@@ -745,13 +967,66 @@ const styles = StyleSheet.create({
     borderColor: '#FF6B35',
   },
   periodText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#666',
     textAlign: 'center',
   },
   periodTextActive: {
     color: '#FF6B35',
+  },
+  customRangeBox: {
+    gap: 10,
+  },
+  absencePeriodBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFF7F2',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFD5C7',
+    padding: 14,
+  },
+  absencePeriodText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    flex: 1,
+  },
+  customDateRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  customDateField: {
+    flex: 1,
+    backgroundColor: '#FFF7F2',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFD5C7',
+    padding: 14,
+    gap: 8,
+  },
+  customDateLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B84512',
+  },
+  customDateValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  customDateValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    flex: 1,
+  },
+  customDateHint: {
+    fontSize: 12,
+    color: '#666',
+    lineHeight: 18,
   },
   infoBox: {
     backgroundColor: '#E3F2FD',

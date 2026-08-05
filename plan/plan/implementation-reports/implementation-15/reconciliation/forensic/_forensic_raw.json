@@ -1,0 +1,574 @@
+{
+  "reportAt": "2026-07-16T01:21:43.040Z",
+  "verdict": "BUSINESS DATA LOSS",
+  "verdictReason": "CRITICAL: LOST AUTHENTICATION (9 users); CRITICAL: email-collision discarded differing fields (created_at, id, matricule, nom, phone, updated_at); HIGH: additional CAPABILITY LOSS (GPS model / commentaire column / hours model)",
+  "recovery": [
+    "Export Supabase auth.users (both projects) or force password reset with user communication",
+    "Restore discarded hzppst profile attributes for joseph.ad (nom/matricule/phone) from B dump",
+    "ALTER schema for commentaire + GPS fin columns if product requires parity, then re-import",
+    "Document or redesign hours 1-window→2-slot mapping with FE contract"
+  ],
+  "authParity": {
+    "auth_schema_exists": false,
+    "auth_users_exists": false,
+    "auth_users_count": null,
+    "refresh_tokens_count": 4,
+    "supabase_auth_in_dumps": false,
+    "evidence_dumps": "afgveikz.json / hzppst.json / merged.json contain public tables only — no auth.users, no identities, no provider metadata",
+    "etl_temp_password": "Phase15-TempPass!",
+    "original_login_possible": "NO",
+    "users": [
+      {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "email": "system.auto-approve@platform.local",
+        "role": "admin",
+        "actif": true,
+        "in_merged": false,
+        "system": true,
+        "status": "GENERATED",
+        "evidence": "system actor — not from Supabase",
+        "severity": "LOW"
+      },
+      {
+        "id": "47c68c11-eff5-4ba3-9368-252c38d30825",
+        "email": "nguyenthikieunghi.ltp202@gmail.com",
+        "role": "admin",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST_AUTHENTICATION",
+        "evidence": "auth.users not in source dumps; password_hash synthetic; provider metadata absent",
+        "severity": "CRITICAL"
+      },
+      {
+        "id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+        "email": "joseph.ad@arson-concept.ch",
+        "role": "admin",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST_AUTHENTICATION",
+        "evidence": "auth.users not in source dumps; password_hash synthetic; provider metadata absent",
+        "severity": "CRITICAL"
+      },
+      {
+        "id": "aef70554-b535-4408-9407-946db41f772d",
+        "email": "jasmine.tl@gmail.com",
+        "role": "chef_equipe",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST_AUTHENTICATION",
+        "evidence": "auth.users not in source dumps; password_hash synthetic; provider metadata absent",
+        "severity": "CRITICAL"
+      },
+      {
+        "id": "f7c50816-459c-4a6d-a782-fe498d1988e4",
+        "email": "jasmine.collab@gmail.com",
+        "role": "ouvrier",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST_AUTHENTICATION",
+        "evidence": "auth.users not in source dumps; password_hash synthetic; provider metadata absent",
+        "severity": "CRITICAL"
+      },
+      {
+        "id": "abcca969-52ff-40fc-902d-82de4743462f",
+        "email": "jasmine.n@gmail.com",
+        "role": "admin",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST_AUTHENTICATION",
+        "evidence": "auth.users not in source dumps; password_hash synthetic; provider metadata absent",
+        "severity": "CRITICAL"
+      },
+      {
+        "id": "5609a530-0e12-4e78-8104-d810cae90075",
+        "email": "joseph.collab@arson-concept.ch",
+        "role": "ouvrier",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST_AUTHENTICATION",
+        "evidence": "auth.users not in source dumps; password_hash synthetic; provider metadata absent",
+        "severity": "CRITICAL"
+      },
+      {
+        "id": "05fae8ca-461d-480a-9ee0-8ee80cc0e85f",
+        "email": "la@yahoo.fr",
+        "role": "ouvrier",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST_AUTHENTICATION",
+        "evidence": "auth.users not in source dumps; password_hash synthetic; provider metadata absent",
+        "severity": "CRITICAL"
+      },
+      {
+        "id": "eb5d70b5-0e89-49df-8254-01eaaf25ad3e",
+        "email": "ap@gmail.com",
+        "role": "ouvrier",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST_AUTHENTICATION",
+        "evidence": "auth.users not in source dumps; password_hash synthetic; provider metadata absent",
+        "severity": "CRITICAL"
+      },
+      {
+        "id": "1d5ac48f-9eae-452a-a998-1b480f87ce18",
+        "email": "joseph.tl@arson-concept.ch",
+        "role": "chef_equipe",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST_AUTHENTICATION",
+        "evidence": "auth.users not in source dumps; password_hash synthetic; provider metadata absent",
+        "severity": "CRITICAL"
+      }
+    ],
+    "lost_authentication_count": 9
+  },
+  "semantic": [
+    {
+      "question": "Can the same chantier be reconstructed?",
+      "answer": "PARTIAL",
+      "evidence": "All 6 chantier UUIDs present; code/nom/adresse/dates MATCH. Hours model CAPABILITY_LOSS (single window→2-slot).",
+      "affected_rows": 6,
+      "affected_fields": [
+        "heure_debut",
+        "heure_fin",
+        "__hours_model__"
+      ]
+    },
+    {
+      "question": "Can the same work period be reconstructed?",
+      "answer": "PARTIAL",
+      "evidence": "All 59 period UUIDs present; date/times/statut/user/chantier MATCH (via ::text). GPS fin CAPABILITY_LOSS; commentaire CAPABILITY_LOSS.",
+      "affected_rows": 59,
+      "affected_fields": [
+        "latitude_fin",
+        "longitude_fin",
+        "commentaire"
+      ]
+    },
+    {
+      "question": "Can the same declaration be reconstructed?",
+      "answer": "PARTIAL",
+      "evidence": "All 57 declaration UUIDs present; numeric hours/statuts MATCH. commentaire CAPABILITY_LOSS.",
+      "affected_rows": 57,
+      "affected_fields": [
+        "commentaire"
+      ]
+    },
+    {
+      "question": "Can the same GPS history be reconstructed?",
+      "answer": "NO",
+      "evidence": "All fin coords equal debut (zeros) in this dump, but schema stores only 1 point — CAPABILITY LOSS; full GPS history (start+end) cannot be reconstructed",
+      "affected_rows": 59,
+      "affected_fields": [
+        "latitude_fin",
+        "longitude_fin"
+      ]
+    },
+    {
+      "question": "Can comments be reconstructed?",
+      "answer": "NO",
+      "evidence": "commentaire column absent from DDL — CAPABILITY LOSS (0 non-empty in dump)",
+      "affected_rows": 116,
+      "affected_fields": [
+        "commentaire"
+      ]
+    },
+    {
+      "question": "Can every original user log in?",
+      "answer": "NO",
+      "evidence": "LOST AUTHENTICATION for 9 business users; auth.users not reconstructible from dumps; local auth.users=absent",
+      "affected_rows": 9,
+      "affected_fields": [
+        "password_hash",
+        "auth.users",
+        "provider"
+      ]
+    },
+    {
+      "question": "Can every business action still be reproduced?",
+      "answer": "PARTIAL",
+      "evidence": "Core timesheet/affectation/chantier rows present with matching business scalars, but auth login, GPS end points, comments, and email-collision profile attributes are not fully reproducible.",
+      "affected_rows": null,
+      "affected_fields": [
+        "auth",
+        "GPS fin",
+        "commentaire",
+        "merge-discarded profile fields"
+      ]
+    }
+  ],
+  "sourceStats": {
+    "profiles": {
+      "COPIED": 9,
+      "MERGED": 0,
+      "OVERWRITTEN": 0,
+      "DISCARDED": 1,
+      "GENERATED": 0,
+      "UNKNOWN": 0
+    },
+    "chantiers": {
+      "COPIED": 6,
+      "MERGED": 0,
+      "OVERWRITTEN": 0,
+      "DISCARDED": 0,
+      "GENERATED": 0,
+      "UNKNOWN": 0
+    },
+    "affectations_chantiers": {
+      "COPIED": 12,
+      "MERGED": 0,
+      "OVERWRITTEN": 0,
+      "DISCARDED": 0,
+      "GENERATED": 0,
+      "UNKNOWN": 0
+    },
+    "zones_equipe": {
+      "COPIED": 0,
+      "MERGED": 0,
+      "OVERWRITTEN": 0,
+      "DISCARDED": 0,
+      "GENERATED": 0,
+      "UNKNOWN": 0
+    },
+    "zones_chantiers": {
+      "COPIED": 0,
+      "MERGED": 0,
+      "OVERWRITTEN": 0,
+      "DISCARDED": 0,
+      "GENERATED": 0,
+      "UNKNOWN": 0
+    },
+    "zones_ouvriers": {
+      "COPIED": 0,
+      "MERGED": 0,
+      "OVERWRITTEN": 0,
+      "DISCARDED": 0,
+      "GENERATED": 0,
+      "UNKNOWN": 0
+    },
+    "periodes_travail": {
+      "COPIED": 45,
+      "MERGED": 14,
+      "OVERWRITTEN": 0,
+      "DISCARDED": 0,
+      "GENERATED": 0,
+      "UNKNOWN": 0
+    },
+    "declarations_heures": {
+      "COPIED": 43,
+      "MERGED": 14,
+      "OVERWRITTEN": 0,
+      "DISCARDED": 0,
+      "GENERATED": 0,
+      "UNKNOWN": 0
+    }
+  },
+  "localStats": {
+    "profiles": {
+      "missing": 0,
+      "extra": 1,
+      "statusCounts": {
+        "MATCH": 71,
+        "TRANSFORMED": 1,
+        "DEFAULTED": 9,
+        "GENERATED": 0,
+        "MERGED": 0,
+        "MODIFIED": 9,
+        "LOST": 0,
+        "CAPABILITY_LOSS": 0,
+        "LOST_AUTHENTICATION": 9,
+        "UNKNOWN": 0
+      }
+    },
+    "chantiers": {
+      "missing": 0,
+      "extra": 0,
+      "statusCounts": {
+        "MATCH": 48,
+        "TRANSFORMED": 12,
+        "DEFAULTED": 6,
+        "GENERATED": 0,
+        "MERGED": 0,
+        "MODIFIED": 0,
+        "LOST": 0,
+        "CAPABILITY_LOSS": 6,
+        "LOST_AUTHENTICATION": 0,
+        "UNKNOWN": 0
+      }
+    },
+    "affectations_chantiers": {
+      "missing": 0,
+      "extra": 0,
+      "statusCounts": {
+        "MATCH": 84,
+        "TRANSFORMED": 0,
+        "DEFAULTED": 0,
+        "GENERATED": 0,
+        "MERGED": 0,
+        "MODIFIED": 0,
+        "LOST": 0,
+        "CAPABILITY_LOSS": 0,
+        "LOST_AUTHENTICATION": 0,
+        "UNKNOWN": 0
+      }
+    },
+    "zones_equipe": {
+      "missing": 0,
+      "extra": 0,
+      "statusCounts": {
+        "MATCH": 0,
+        "TRANSFORMED": 0,
+        "DEFAULTED": 0,
+        "GENERATED": 0,
+        "MERGED": 0,
+        "MODIFIED": 0,
+        "LOST": 0,
+        "CAPABILITY_LOSS": 0,
+        "LOST_AUTHENTICATION": 0,
+        "UNKNOWN": 0
+      }
+    },
+    "zones_chantiers": {
+      "missing": 0,
+      "extra": 0,
+      "statusCounts": {
+        "MATCH": 0,
+        "TRANSFORMED": 0,
+        "DEFAULTED": 0,
+        "GENERATED": 0,
+        "MERGED": 0,
+        "MODIFIED": 0,
+        "LOST": 0,
+        "CAPABILITY_LOSS": 0,
+        "LOST_AUTHENTICATION": 0,
+        "UNKNOWN": 0
+      }
+    },
+    "zones_ouvriers": {
+      "missing": 0,
+      "extra": 0,
+      "statusCounts": {
+        "MATCH": 0,
+        "TRANSFORMED": 0,
+        "DEFAULTED": 0,
+        "GENERATED": 0,
+        "MERGED": 0,
+        "MODIFIED": 0,
+        "LOST": 0,
+        "CAPABILITY_LOSS": 0,
+        "LOST_AUTHENTICATION": 0,
+        "UNKNOWN": 0
+      }
+    },
+    "periodes_travail": {
+      "missing": 0,
+      "extra": 0,
+      "statusCounts": {
+        "MATCH": 767,
+        "TRANSFORMED": 177,
+        "DEFAULTED": 0,
+        "GENERATED": 0,
+        "MERGED": 0,
+        "MODIFIED": 0,
+        "LOST": 0,
+        "CAPABILITY_LOSS": 236,
+        "LOST_AUTHENTICATION": 0,
+        "UNKNOWN": 0
+      }
+    },
+    "declarations_heures": {
+      "missing": 0,
+      "extra": 0,
+      "statusCounts": {
+        "MATCH": 798,
+        "TRANSFORMED": 0,
+        "DEFAULTED": 0,
+        "GENERATED": 0,
+        "MERGED": 0,
+        "MODIFIED": 0,
+        "LOST": 0,
+        "CAPABILITY_LOSS": 57,
+        "LOST_AUTHENTICATION": 0,
+        "UNKNOWN": 0
+      }
+    }
+  },
+  "discardedFieldDetails": [
+    {
+      "table": "profiles",
+      "source": "B",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "field": "created_at",
+      "source_value": "2026-06-25T06:25:50.653Z",
+      "source_kind": "ts",
+      "kept_source_value": "2026-06-18T08:38:27.151Z",
+      "kept_kind": "ts",
+      "merged_value": "2026-06-18T08:38:27.151Z",
+      "values_equal": false,
+      "why_kept": "first-wins merge kept source A (1200f3b8-b1d0-44ea-a75d-60f10993477b) value; discarded source B value",
+      "why_discarded": "email collision policy: keep afgveikz profile, discard hzppst profile row",
+      "information_lost": true,
+      "classification": "DISCARDED",
+      "severity": "MEDIUM"
+    },
+    {
+      "table": "profiles",
+      "source": "B",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "field": "email",
+      "source_value": "joseph.ad@arson-concept.ch",
+      "source_kind": "text",
+      "kept_source_value": "joseph.ad@arson-concept.ch",
+      "kept_kind": "text",
+      "merged_value": "joseph.ad@arson-concept.ch",
+      "values_equal": true,
+      "why_kept": "identical on both sources; kept A (first-wins) value",
+      "why_discarded": "duplicate equal value collapsed",
+      "information_lost": false,
+      "classification": "MERGED",
+      "severity": "LOW"
+    },
+    {
+      "table": "profiles",
+      "source": "B",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "field": "id",
+      "source_value": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "source_kind": "text",
+      "kept_source_value": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "kept_kind": "text",
+      "merged_value": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "values_equal": false,
+      "why_kept": "first-wins merge kept source A (1200f3b8-b1d0-44ea-a75d-60f10993477b) value; discarded source B value",
+      "why_discarded": "email collision policy: keep afgveikz profile, discard hzppst profile row",
+      "information_lost": true,
+      "classification": "DISCARDED",
+      "severity": "MEDIUM"
+    },
+    {
+      "table": "profiles",
+      "source": "B",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "field": "matricule",
+      "source_value": "USR750160",
+      "source_kind": "text",
+      "kept_source_value": "",
+      "kept_kind": "empty",
+      "merged_value": "",
+      "values_equal": false,
+      "why_kept": "first-wins merge kept source A (1200f3b8-b1d0-44ea-a75d-60f10993477b) value; discarded source B value",
+      "why_discarded": "email collision policy: keep afgveikz profile, discard hzppst profile row",
+      "information_lost": true,
+      "classification": "DISCARDED",
+      "severity": "CRITICAL"
+    },
+    {
+      "table": "profiles",
+      "source": "B",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "field": "nom",
+      "source_value": "Arson",
+      "source_kind": "text",
+      "kept_source_value": "Asron",
+      "kept_kind": "text",
+      "merged_value": "Asron",
+      "values_equal": false,
+      "why_kept": "first-wins merge kept source A (1200f3b8-b1d0-44ea-a75d-60f10993477b) value; discarded source B value",
+      "why_discarded": "email collision policy: keep afgveikz profile, discard hzppst profile row",
+      "information_lost": true,
+      "classification": "DISCARDED",
+      "severity": "CRITICAL"
+    },
+    {
+      "table": "profiles",
+      "source": "B",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "field": "phone",
+      "source_value": "+33234234234",
+      "source_kind": "text",
+      "kept_source_value": "+33342342354",
+      "kept_kind": "text",
+      "merged_value": "+33342342354",
+      "values_equal": false,
+      "why_kept": "first-wins merge kept source A (1200f3b8-b1d0-44ea-a75d-60f10993477b) value; discarded source B value",
+      "why_discarded": "email collision policy: keep afgveikz profile, discard hzppst profile row",
+      "information_lost": true,
+      "classification": "DISCARDED",
+      "severity": "CRITICAL"
+    },
+    {
+      "table": "profiles",
+      "source": "B",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "field": "prenom",
+      "source_value": "Joseph",
+      "source_kind": "text",
+      "kept_source_value": "Joseph",
+      "kept_kind": "text",
+      "merged_value": "Joseph",
+      "values_equal": true,
+      "why_kept": "identical on both sources; kept A (first-wins) value",
+      "why_discarded": "duplicate equal value collapsed",
+      "information_lost": false,
+      "classification": "MERGED",
+      "severity": "LOW"
+    },
+    {
+      "table": "profiles",
+      "source": "B",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "field": "role",
+      "source_value": "admin",
+      "source_kind": "text",
+      "kept_source_value": "admin",
+      "kept_kind": "text",
+      "merged_value": "admin",
+      "values_equal": true,
+      "why_kept": "identical on both sources; kept A (first-wins) value",
+      "why_discarded": "duplicate equal value collapsed",
+      "information_lost": false,
+      "classification": "MERGED",
+      "severity": "LOW"
+    },
+    {
+      "table": "profiles",
+      "source": "B",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "field": "updated_at",
+      "source_value": "2026-06-25T06:25:50.653Z",
+      "source_kind": "ts",
+      "kept_source_value": "2026-06-18T08:38:27.151Z",
+      "kept_kind": "ts",
+      "merged_value": "2026-06-18T08:38:27.151Z",
+      "values_equal": false,
+      "why_kept": "first-wins merge kept source A (1200f3b8-b1d0-44ea-a75d-60f10993477b) value; discarded source B value",
+      "why_discarded": "email collision policy: keep afgveikz profile, discard hzppst profile row",
+      "information_lost": true,
+      "classification": "DISCARDED",
+      "severity": "MEDIUM"
+    }
+  ],
+  "criticalLossCount": 6,
+  "capabilityLossCount": 181,
+  "generatedCount": 34,
+  "hiddenCorruptionCount": 0,
+  "mergeLossFieldCount": 6
+}

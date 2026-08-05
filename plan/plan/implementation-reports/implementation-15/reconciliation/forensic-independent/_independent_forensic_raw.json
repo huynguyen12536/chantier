@@ -1,0 +1,50 @@
+{
+  "reportAt": "2026-07-16T01:32:38.937Z",
+  "verdict": "BUSINESS DATA LOSS",
+  "verdictReason": "CRITICAL LOST AUTHENTICATION (9 users); CRITICAL identity fields discarded in email collision (matricule, nom, phone); HIGH business facts classified LOST; HIGH CAPABILITY LOSS also present",
+  "BPS": 71.36352295409182,
+  "totalWeight": 8016,
+  "totalPoints": 5720.5,
+  "byStatus": {
+    "LOST_AUTHENTICATION": {
+      "n": 18,
+      "weight": 180,
+      "points": 0
+    },
+    "DEFAULTED": {
+      "n": 9,
+      "weight": 9,
+      "points": 0
+    },
+    "MATCH": {
+      "n": 1357,
+      "weight": 4445,
+      "points": 4445
+    },
+    "GENERATED": {
+      "n": 15,
+      "weight": 15,
+      "points": 0
+    },
+    "TRANSFORMED": {
+      "n": 190,
+      "weight": 587,
+      "points": 587
+    },
+    "CAPABILITY_LOSS": {
+      "n": 299,
+      "weight": 2754,
+      "points": 688.5
+    },
+    "LOST": {
+      "n": 5,
+      "weight": 26,
+      "points": 0
+    }
+  },
+  "authLost": 9,
+  "mergeLostCount": 6,
+  "capabilityCount": 303,
+  "criticalCount": 15,
+  "formula": "BPS=100*sum(points)/sum(weights); MATCH/TRANSFORMED=W; CAPABILITY_LOSS=0.25W; else 0; structural=0"
+}

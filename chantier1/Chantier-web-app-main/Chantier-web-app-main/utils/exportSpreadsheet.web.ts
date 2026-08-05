@@ -296,6 +296,66 @@ export function downloadExcelBuffer(buffer: ArrayBuffer, filename: string): void
   triggerBlobDownload(blob, filename);
 }
 
+/** Simple workbook without payroll-specific column formatting / date merges. */
+export async function buildGenericExportWorkbookBuffer(
+  periodLabel: string,
+  headers: string[],
+  rows: PayrollExportSheetRow[],
+  sheetName = 'Export',
+): Promise<ArrayBuffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Chantier App';
+  workbook.created = new Date();
+
+  const flatRows = rows.map((row) => row.cells);
+  const sheet = workbook.addWorksheet(sheetName, {
+    views: [{ state: 'frozen', ySplit: 2, activeCell: 'A3' }],
+  });
+
+  computeColumnWidthsExcel(headers, flatRows).forEach((width, index) => {
+    sheet.getColumn(index + 1).width = width;
+  });
+
+  const periodRow = sheet.addRow([periodLabel]);
+  periodRow.height = 24;
+  sheet.mergeCells(1, 1, 1, headers.length);
+  const periodCell = periodRow.getCell(1);
+  periodCell.font = { bold: true, size: 12, name: 'Calibri', color: { argb: COLORS.white } };
+  periodCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  applySolidFill(periodCell, COLORS.darkBlue);
+  applyCellBorder(periodCell);
+
+  const headerRow = sheet.addRow(headers);
+  headerRow.height = 24;
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: COLORS.headerText }, size: 11, name: 'Calibri' };
+    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    applySolidFill(cell, COLORS.lightBlue);
+    applyCellBorder(cell);
+  });
+
+  rows.forEach((row) => {
+    const dataRow = sheet.addRow(row.cells);
+    dataRow.height = 22;
+    dataRow.eachCell((cell) => {
+      cell.font = { size: 11, name: 'Calibri', color: { argb: COLORS.bodyText } };
+      cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+      applyCellBorder(cell);
+    });
+  });
+
+  const lastRow = sheet.rowCount;
+  if (lastRow >= 2) {
+    sheet.autoFilter = {
+      from: { row: 2, column: 1 },
+      to: { row: lastRow, column: headers.length },
+    };
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return buffer as ArrayBuffer;
+}
+
 export function downloadCsvFallback(
   periodLabel: string,
   headers: string[],

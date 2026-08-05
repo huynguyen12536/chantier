@@ -1,0 +1,499 @@
+{
+  "computed_at": "2026-07-16T01:55:38.861Z",
+  "score": {
+    "formula": "score = 100 * Σ(weight_i * score_i) / Σ(weight_i); structural checks weight=0",
+    "total_weight": 115,
+    "weighted_sum": 59.8,
+    "score": 52,
+    "classification": "MATERIALLY_DEGRADED",
+    "dimensions": [
+      {
+        "id": "identity",
+        "label": "Person identity (nom, prenom, matricule, phone, role)",
+        "weight": 15,
+        "score": 0.25,
+        "rationale": "Email-collision discarded profile field diffs=5. Kept profile wins; conflicting identity attributes from hzppst are not reconstructible from local."
+      },
+      {
+        "id": "chantier_core",
+        "label": "Chantier core (code, nom, adresse, dates, actif)",
+        "weight": 10,
+        "score": 1,
+        "rationale": "Observed MATCH on core chantier business columns for all 6 merged sites."
+      },
+      {
+        "id": "schedule",
+        "label": "Schedule / work-window semantics",
+        "weight": 10,
+        "score": 0.35,
+        "rationale": "CAPABILITY_LOSS: single window forced into matin/apres_midi. Clock times numerically present but afternoon start invented as NULL and fin duplicated — model not faithful."
+      },
+      {
+        "id": "affectations",
+        "label": "Affectations (who works where)",
+        "weight": 10,
+        "score": 1,
+        "rationale": "Affectation links preserved."
+      },
+      {
+        "id": "periodes_core",
+        "label": "Work period core (user, chantier, date, hours, statut, flags)",
+        "weight": 15,
+        "score": 0.95,
+        "rationale": "Core period fields MATCH after panier_repas→panier rename (TRANSFORMED). Minor risk from GPS/comment capability elsewhere."
+      },
+      {
+        "id": "gps",
+        "label": "GPS history (start AND end)",
+        "weight": 10,
+        "score": 0.4,
+        "rationale": "Start preserved as TRANSFORMED (59/59). End distinct losses=0. End==start rows=59 still CAPABILITY_LOSS."
+      },
+      {
+        "id": "comments",
+        "label": "Comments (periodes + declarations)",
+        "weight": 8,
+        "score": 0.25,
+        "rationale": "Non-empty lost: periodes=0 decls=0. Schema has no commentaire columns → CAPABILITY_LOSS."
+      },
+      {
+        "id": "declarations",
+        "label": "Declaration hours & counts",
+        "weight": 12,
+        "score": 0.9,
+        "rationale": "Numeric hour fields and statut observed MATCH; commentaire capability lost separately."
+      },
+      {
+        "id": "authentication",
+        "label": "Authentication (original credentials)",
+        "weight": 20,
+        "score": 0,
+        "rationale": "LOST_AUTHENTICATION: auth.users never dumped; all business users received GENERATED bcrypt hashes for a temporary password. No user can authenticate with original Supabase credentials."
+      },
+      {
+        "id": "audit_replay",
+        "label": "Historical auth sessions & action replay fidelity",
+        "weight": 5,
+        "score": 0.3,
+        "rationale": "Business rows largely present for replay of timesheet numbers; auth sessions, original passwords, discarded identity attributes, GPS end, and comments model prevent full action replay."
+      }
+    ]
+  },
+  "s2m": {
+    "countCheck": {
+      "profiles": {
+        "replay": 9,
+        "artifact": 9,
+        "match": true
+      },
+      "chantiers": {
+        "replay": 6,
+        "artifact": 6,
+        "match": true
+      },
+      "affectations_chantiers": {
+        "replay": 12,
+        "artifact": 12,
+        "match": true
+      },
+      "zones_equipe": {
+        "replay": 0,
+        "artifact": 0,
+        "match": true
+      },
+      "zones_chantiers": {
+        "replay": 0,
+        "artifact": 0,
+        "match": true
+      },
+      "zones_ouvriers": {
+        "replay": 0,
+        "artifact": 0,
+        "match": true
+      },
+      "periodes_travail": {
+        "replay": 59,
+        "artifact": 59,
+        "match": true
+      },
+      "declarations_heures": {
+        "replay": 57,
+        "artifact": 57,
+        "match": true
+      }
+    },
+    "discardedProfiles": [
+      {
+        "email": "joseph.ad@arson-concept.ch",
+        "discarded": {
+          "id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+          "email": "joseph.ad@arson-concept.ch",
+          "nom": "Arson",
+          "prenom": "Joseph",
+          "matricule": "USR750160",
+          "role": "admin",
+          "created_at": "2026-06-25T06:25:50.653741+00:00",
+          "updated_at": "2026-06-25T06:25:50.653741+00:00",
+          "phone": "+33234234234"
+        },
+        "kept": {
+          "id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+          "email": "joseph.ad@arson-concept.ch",
+          "nom": "Asron",
+          "prenom": "Joseph",
+          "matricule": "",
+          "role": "admin",
+          "created_at": "2026-06-18T08:38:27.151274+00:00",
+          "updated_at": "2026-06-18T08:38:27.151274+00:00",
+          "phone": "+33342342354",
+          "_source_project": "afgveikz",
+          "_source_ref": "afgveikzneaablcuzwdb"
+        },
+        "discarded_source": "hzppst",
+        "field_diffs": [
+          {
+            "field": "nom",
+            "discarded_value": "Arson",
+            "kept_value": "Asron"
+          },
+          {
+            "field": "matricule",
+            "discarded_value": "USR750160",
+            "kept_value": ""
+          },
+          {
+            "field": "phone",
+            "discarded_value": "+33234234234",
+            "kept_value": "+33342342354"
+          },
+          {
+            "field": "created_at",
+            "discarded_value": "2026-06-25T06:25:50.653741+00:00",
+            "kept_value": "2026-06-18T08:38:27.151274+00:00"
+          },
+          {
+            "field": "updated_at",
+            "discarded_value": "2026-06-25T06:25:50.653741+00:00",
+            "kept_value": "2026-06-18T08:38:27.151274+00:00"
+          }
+        ]
+      }
+    ],
+    "findings": [
+      {
+        "stage": "source_to_merged",
+        "table": "profiles",
+        "id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+        "class": "LOST",
+        "field": "_row",
+        "detail": "Profile discarded on email collision (joseph.ad@arson-concept.ch)",
+        "source": "hzppst"
+      },
+      {
+        "stage": "source_to_merged",
+        "table": "profiles",
+        "id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+        "class": "LOST",
+        "field": "nom",
+        "detail": "email collision: discarded=\"Arson\" kept=\"Asron\"",
+        "source": "hzppst",
+        "recovery": "possible only if discarded profile archived; not in merged.json"
+      },
+      {
+        "stage": "source_to_merged",
+        "table": "profiles",
+        "id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+        "class": "LOST",
+        "field": "matricule",
+        "detail": "email collision: discarded=\"USR750160\" kept=\"\"",
+        "source": "hzppst",
+        "recovery": "possible only if discarded profile archived; not in merged.json"
+      },
+      {
+        "stage": "source_to_merged",
+        "table": "profiles",
+        "id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+        "class": "LOST",
+        "field": "phone",
+        "detail": "email collision: discarded=\"+33234234234\" kept=\"+33342342354\"",
+        "source": "hzppst",
+        "recovery": "possible only if discarded profile archived; not in merged.json"
+      },
+      {
+        "stage": "source_to_merged",
+        "table": "profiles",
+        "id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+        "class": "LOST",
+        "field": "created_at",
+        "detail": "email collision: discarded=\"2026-06-25T06:25:50.653741+00:00\" kept=\"2026-06-18T08:38:27.151274+00:00\"",
+        "source": "hzppst",
+        "recovery": "possible only if discarded profile archived; not in merged.json"
+      },
+      {
+        "stage": "source_to_merged",
+        "table": "profiles",
+        "id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+        "class": "LOST",
+        "field": "updated_at",
+        "detail": "email collision: discarded=\"2026-06-25T06:25:50.653741+00:00\" kept=\"2026-06-18T08:38:27.151274+00:00\"",
+        "source": "hzppst",
+        "recovery": "possible only if discarded profile archived; not in merged.json"
+      },
+      {
+        "stage": "source_to_merged",
+        "table": "auth",
+        "id": null,
+        "class": "LOST",
+        "field": "auth.users / identities / encrypted_password",
+        "detail": "Public-table dump only. No auth.users, identities, or password hashes in afgveikz.json / hzppst.json / merged.json",
+        "source": "both"
+      }
+    ]
+  },
+  "m2l": {
+    "metrics": {
+      "gpsStartPreserved": 59,
+      "gpsEndDistinct": 0,
+      "gpsEndEqualStart": 59,
+      "commentNonEmpty": 0,
+      "declCommentNonEmpty": 0,
+      "gpsSamples": [],
+      "periodesTotal": 59,
+      "declsTotal": 57,
+      "profilesBusiness": 9,
+      "profilesLocal": 10
+    },
+    "capability": [
+      {
+        "area": "GPS history",
+        "source_model": "periodes_travail.latitude_debut/longitude_debut + latitude_fin/longitude_fin",
+        "dest_model": "periodes_travail.latitude/longitude (single point)",
+        "classification": "CAPABILITY_LOSS",
+        "evidence": "Local DDL has only latitude, longitude. End coordinates cannot be stored as a distinct point."
+      },
+      {
+        "area": "Comments on work periods",
+        "source_model": "periodes_travail.commentaire",
+        "dest_model": "column absent",
+        "classification": "CAPABILITY_LOSS",
+        "evidence": "Local columns: id, user_id, chantier_id, date, heure_debut, heure_fin, latitude, longitude, panier, deplacement, from_suggestion, statut, validated_by, validated_at, created_at, updated_at"
+      },
+      {
+        "area": "Comments on declarations",
+        "source_model": "declarations_heures.commentaire",
+        "dest_model": "column absent",
+        "classification": "CAPABILITY_LOSS",
+        "evidence": "Local columns: id, user_id, chantier_id, date, heures_normales, heures_supplementaires, nb_paniers, nb_deplacements, from_suggestion, statut, validated_by, validated_at, created_at, updated_at"
+      },
+      {
+        "area": "Schedule model",
+        "source_model": "chantiers.heure_debut + heure_fin (single work window)",
+        "dest_model": "heure_debut_matin/heure_fin_matin/heure_debut_apres_midi/heure_fin_apres_midi",
+        "classification": "CAPABILITY_LOSS",
+        "evidence": "ETL mapChantierHours forces single window into matin slots and copies fin into apres_midi fin; morning/afternoon split cannot be reconstructed from source nor faithfully stored from source single-window semantics."
+      },
+      {
+        "area": "Authentication model",
+        "source_model": "Supabase auth.users + identities + encrypted_password",
+        "dest_model": "profiles.password_hash (bcrypt local)",
+        "classification": "CAPABILITY_LOSS",
+        "evidence": "Auth schema never extracted. Destination cannot hold original Supabase credential material because it was never available to ETL."
+      },
+      {
+        "area": "Supabase audit / identity providers",
+        "source_model": "auth identities, provider metadata, refresh sessions",
+        "dest_model": "refresh_tokens (empty new system)",
+        "classification": "CAPABILITY_LOSS",
+        "evidence": "No migration of auth identities or historical auth sessions."
+      }
+    ],
+    "generated_count": 25,
+    "defaulted_count": 9,
+    "critical": [
+      {
+        "kind": "LOST_AUTHENTICATION",
+        "table": "profiles",
+        "id": "47c68c11-eff5-4ba3-9368-252c38d30825",
+        "email": "nguyenthikieunghi.ltp202@gmail.com",
+        "detail": "Original Supabase credentials not reconstructible; temp password hash generated"
+      },
+      {
+        "kind": "LOST_AUTHENTICATION",
+        "table": "profiles",
+        "id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+        "email": "joseph.ad@arson-concept.ch",
+        "detail": "Original Supabase credentials not reconstructible; temp password hash generated"
+      },
+      {
+        "kind": "LOST_AUTHENTICATION",
+        "table": "profiles",
+        "id": "aef70554-b535-4408-9407-946db41f772d",
+        "email": "jasmine.tl@gmail.com",
+        "detail": "Original Supabase credentials not reconstructible; temp password hash generated"
+      },
+      {
+        "kind": "LOST_AUTHENTICATION",
+        "table": "profiles",
+        "id": "f7c50816-459c-4a6d-a782-fe498d1988e4",
+        "email": "jasmine.collab@gmail.com",
+        "detail": "Original Supabase credentials not reconstructible; temp password hash generated"
+      },
+      {
+        "kind": "LOST_AUTHENTICATION",
+        "table": "profiles",
+        "id": "abcca969-52ff-40fc-902d-82de4743462f",
+        "email": "jasmine.n@gmail.com",
+        "detail": "Original Supabase credentials not reconstructible; temp password hash generated"
+      },
+      {
+        "kind": "LOST_AUTHENTICATION",
+        "table": "profiles",
+        "id": "5609a530-0e12-4e78-8104-d810cae90075",
+        "email": "joseph.collab@arson-concept.ch",
+        "detail": "Original Supabase credentials not reconstructible; temp password hash generated"
+      },
+      {
+        "kind": "LOST_AUTHENTICATION",
+        "table": "profiles",
+        "id": "05fae8ca-461d-480a-9ee0-8ee80cc0e85f",
+        "email": "la@yahoo.fr",
+        "detail": "Original Supabase credentials not reconstructible; temp password hash generated"
+      },
+      {
+        "kind": "LOST_AUTHENTICATION",
+        "table": "profiles",
+        "id": "eb5d70b5-0e89-49df-8254-01eaaf25ad3e",
+        "email": "ap@gmail.com",
+        "detail": "Original Supabase credentials not reconstructible; temp password hash generated"
+      },
+      {
+        "kind": "LOST_AUTHENTICATION",
+        "table": "profiles",
+        "id": "1d5ac48f-9eae-452a-a998-1b480f87ce18",
+        "email": "joseph.tl@arson-concept.ch",
+        "detail": "Original Supabase credentials not reconstructible; temp password hash generated"
+      }
+    ],
+    "findings": [
+      {
+        "stage": "merged_to_local",
+        "table": "profiles",
+        "id": "47c68c11-eff5-4ba3-9368-252c38d30825",
+        "class": "MODIFIED",
+        "field": "updated_at",
+        "detail": "\"2026-06-19T02:54:59.7737+00:00\" → \"2026-07-15T14:53:42.410Z\""
+      },
+      {
+        "stage": "merged_to_local",
+        "table": "profiles",
+        "id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+        "class": "MODIFIED",
+        "field": "updated_at",
+        "detail": "\"2026-06-18T08:38:27.151274+00:00\" → \"2026-07-15T14:53:42.410Z\""
+      },
+      {
+        "stage": "merged_to_local",
+        "table": "profiles",
+        "id": "aef70554-b535-4408-9407-946db41f772d",
+        "class": "MODIFIED",
+        "field": "updated_at",
+        "detail": "\"2026-06-24T09:31:38.495682+00:00\" → \"2026-07-15T14:53:42.410Z\""
+      },
+      {
+        "stage": "merged_to_local",
+        "table": "profiles",
+        "id": "f7c50816-459c-4a6d-a782-fe498d1988e4",
+        "class": "MODIFIED",
+        "field": "updated_at",
+        "detail": "\"2026-06-25T04:40:12.601329+00:00\" → \"2026-07-15T14:53:42.410Z\""
+      },
+      {
+        "stage": "merged_to_local",
+        "table": "profiles",
+        "id": "abcca969-52ff-40fc-902d-82de4743462f",
+        "class": "MODIFIED",
+        "field": "updated_at",
+        "detail": "\"2026-06-22T02:17:30.934515+00:00\" → \"2026-07-15T14:53:42.410Z\""
+      },
+      {
+        "stage": "merged_to_local",
+        "table": "profiles",
+        "id": "5609a530-0e12-4e78-8104-d810cae90075",
+        "class": "MODIFIED",
+        "field": "updated_at",
+        "detail": "\"2026-06-25T08:22:47.803904+00:00\" → \"2026-07-15T14:53:42.410Z\""
+      },
+      {
+        "stage": "merged_to_local",
+        "table": "profiles",
+        "id": "05fae8ca-461d-480a-9ee0-8ee80cc0e85f",
+        "class": "MODIFIED",
+        "field": "updated_at",
+        "detail": "\"2026-07-06T13:42:41.943912+00:00\" → \"2026-07-15T14:53:42.410Z\""
+      },
+      {
+        "stage": "merged_to_local",
+        "table": "profiles",
+        "id": "eb5d70b5-0e89-49df-8254-01eaaf25ad3e",
+        "class": "MODIFIED",
+        "field": "updated_at",
+        "detail": "\"2026-07-06T13:43:34.273911+00:00\" → \"2026-07-15T14:53:42.410Z\""
+      },
+      {
+        "stage": "merged_to_local",
+        "table": "profiles",
+        "id": "1d5ac48f-9eae-452a-a998-1b480f87ce18",
+        "class": "MODIFIED",
+        "field": "updated_at",
+        "detail": "\"2026-06-25T08:21:49.203448+00:00\" → \"2026-07-15T14:53:42.410Z\""
+      }
+    ]
+  },
+  "semantic": [
+    {
+      "q": "Can the same chantier be reconstructed?",
+      "a": "PARTIALLY",
+      "evidence": "Core attributes (code, nom, adresse, dates, actif) MATCH. Schedule semantics are CAPABILITY_LOSS (single window → forced matin/apres_midi)."
+    },
+    {
+      "q": "Can the same declaration be reconstructed?",
+      "a": "PARTIALLY",
+      "evidence": "Hour counts and statut MATCH. commentaire column absent (CAPABILITY_LOSS); currently all comments empty so no LOST values observed."
+    },
+    {
+      "q": "Can the same work period be reconstructed?",
+      "a": "PARTIALLY",
+      "evidence": "Date/hours/statut/flags MATCH (panier renamed). GPS reduced to one point; commentaire absent."
+    },
+    {
+      "q": "Can GPS history be reconstructed?",
+      "a": "NO",
+      "evidence": "Destination stores one (lat,lng). End point cannot be represented. Current data has end==start so numeric loss not observed, but history model is destroyed (CAPABILITY_LOSS)."
+    },
+    {
+      "q": "Can comments be reconstructed?",
+      "a": "NO",
+      "evidence": "No commentaire columns in local periodes_travail or declarations_heures. Empty today ≠ preservable tomorrow."
+    },
+    {
+      "q": "Can schedule semantics be reconstructed?",
+      "a": "NO",
+      "evidence": "Source single window mapped into four-slot morning/afternoon model with invented NULL afternoon start and duplicated fin."
+    },
+    {
+      "q": "Can identity be reconstructed?",
+      "a": "PARTIALLY",
+      "evidence": "9 merged profiles load; joseph.ad collision discarded hzppst identity fields (nom, matricule, phone, created_at, updated_at)."
+    },
+    {
+      "q": "Can every user log in?",
+      "a": "NO — LOST_AUTHENTICATION",
+      "evidence": "Original Supabase password hashes / identities absent from dumps. ETL generated temporary bcrypt hashes. Original credentials cannot authenticate."
+    },
+    {
+      "q": "Can every business action be replayed?",
+      "a": "NO",
+      "evidence": "Timesheet numeric actions mostly replayable; auth, discarded identity attributes, GPS end model, comments model, and schedule model prevent faithful full replay."
+    }
+  ]
+}

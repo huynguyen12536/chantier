@@ -13,7 +13,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Bell,
+  Calendar,
   CalendarDays,
+  CalendarOff,
   CalendarRange,
   Download,
   Info,
@@ -36,6 +38,8 @@ const INK = '#0E1320';
 const MUTED = '#677084';
 const BRAND_BLACK = '#111111';
 
+export type ExportDesktopPeriod = 'week' | 'month' | 'custom' | 'absence';
+
 export type ExportDesktopStatItem = {
   key: string;
   Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
@@ -53,15 +57,25 @@ export type ExportDesktopProps = {
   showNotificationBell: boolean;
   isChef: boolean;
   stats: ExportDesktopStatItem[];
-  onSelectPeriod: (period: 'week' | 'month') => void;
+  onSelectPeriod: (period: ExportDesktopPeriod) => void;
   loading: boolean;
-  loadingPeriod?: 'week' | 'month' | null;
-  onExport: (period: 'week' | 'month') => void;
-  periodLabels: { week: string; month: string };
+  loadingPeriod?: ExportDesktopPeriod | null;
+  onExport: (period: ExportDesktopPeriod) => void;
+  periodLabels: { week: string; month: string; custom: string; absence: string };
   exportPeriodTitle: string;
   exportInfo: string;
   exportFormat: string;
   exportButton: string;
+  customRangeEnabled?: boolean;
+  absenceExportEnabled?: boolean;
+  absencePeriodLabel?: string;
+  absenceHint?: string;
+  customFromLabel?: string;
+  customToLabel?: string;
+  customFromValue?: string;
+  customToValue?: string;
+  onSelectCustomFrom?: () => void;
+  onSelectCustomTo?: () => void;
   instructionsTitle: string;
   instructions: string[];
   legendTitle: string;
@@ -87,6 +101,16 @@ export function ExportDesktop({
   exportInfo,
   exportFormat,
   exportButton,
+  customRangeEnabled = false,
+  absenceExportEnabled = false,
+  absencePeriodLabel = '',
+  absenceHint = '',
+  customFromLabel = 'From',
+  customToLabel = 'To',
+  customFromValue = '',
+  customToValue = '',
+  onSelectCustomFrom,
+  onSelectCustomTo,
   instructionsTitle,
   instructions,
   legendTitle,
@@ -233,6 +257,112 @@ export function ExportDesktop({
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
+
+                {customRangeEnabled ? (
+                  <View style={styles.periodCard}>
+                    <View style={styles.periodCardHeader}>
+                      <View style={styles.periodCardIcon}>
+                        <Calendar size={22} color={ACCENT} strokeWidth={2.2} />
+                      </View>
+                      <Text style={styles.periodCardTitle}>{periodLabels.custom}</Text>
+                    </View>
+                    <View style={styles.customDateStack}>
+                      <TouchableOpacity
+                        style={styles.customDateField}
+                        onPress={onSelectCustomFrom}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.customDateLabel}>{customFromLabel}</Text>
+                        <Text style={styles.customDateValue} numberOfLines={1}>
+                          {customFromValue}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.customDateField}
+                        onPress={onSelectCustomTo}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.customDateLabel}>{customToLabel}</Text>
+                        <Text style={styles.customDateValue} numberOfLines={1}>
+                          {customToValue}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <TouchableOpacity
+                      style={[
+                        styles.periodExportButton,
+                        loading && loadingPeriod === 'custom' && styles.exportButtonDisabled,
+                      ]}
+                      onPress={() => {
+                        onSelectPeriod('custom');
+                        onExport('custom');
+                      }}
+                      disabled={loading}
+                      activeOpacity={0.88}
+                    >
+                      <LinearGradient
+                        colors={['#FF743D', ACCENT, '#F04410']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.periodExportButtonGradient}
+                      >
+                        {loading && loadingPeriod === 'custom' ? (
+                          <ActivityIndicator color="#FFF" />
+                        ) : (
+                          <>
+                            <Download size={20} color="#FFF" strokeWidth={2.4} />
+                            <Text style={styles.periodExportButtonText}>{exportButton}</Text>
+                          </>
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+
+                {absenceExportEnabled ? (
+                  <View style={styles.periodCard}>
+                    <View style={styles.periodCardHeader}>
+                      <View style={styles.periodCardIcon}>
+                        <CalendarOff size={22} color={ACCENT} strokeWidth={2.2} />
+                      </View>
+                      <Text style={styles.periodCardTitle}>{periodLabels.absence}</Text>
+                    </View>
+                    <View style={styles.absenceMetaBox}>
+                      <Text style={styles.absenceMetaLabel}>{absencePeriodLabel}</Text>
+                      {absenceHint ? (
+                        <Text style={styles.absenceMetaHint}>{absenceHint}</Text>
+                      ) : null}
+                    </View>
+                    <TouchableOpacity
+                      style={[
+                        styles.periodExportButton,
+                        loading && loadingPeriod === 'absence' && styles.exportButtonDisabled,
+                      ]}
+                      onPress={() => {
+                        onSelectPeriod('absence');
+                        onExport('absence');
+                      }}
+                      disabled={loading}
+                      activeOpacity={0.88}
+                    >
+                      <LinearGradient
+                        colors={['#FF743D', ACCENT, '#F04410']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.periodExportButtonGradient}
+                      >
+                        {loading && loadingPeriod === 'absence' ? (
+                          <ActivityIndicator color="#FFF" />
+                        ) : (
+                          <>
+                            <Download size={20} color="#FFF" strokeWidth={2.4} />
+                            <Text style={styles.periodExportButtonText}>{exportButton}</Text>
+                          </>
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
               </View>
 
               <View style={styles.infoBox}>
@@ -432,16 +562,66 @@ const styles = StyleSheet.create({
   },
   periodCards: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     marginBottom: 14,
   },
   periodCard: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '22%',
+    minWidth: 180,
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 14,
     paddingVertical: 14,
     gap: 12,
+  },
+  customDateStack: {
+    gap: 8,
+  },
+  absenceMetaBox: {
+    borderRadius: 12,
+    backgroundColor: '#FFF7F2',
+    borderWidth: 1,
+    borderColor: '#FFD5C4',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+    minHeight: 72,
+    justifyContent: 'center',
+  },
+  absenceMetaLabel: {
+    color: INK,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+  absenceMetaHint: {
+    color: MUTED,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
+  customDateField: {
+    borderRadius: 12,
+    backgroundColor: '#FFF7F2',
+    borderWidth: 1,
+    borderColor: '#FFD5C4',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  customDateLabel: {
+    color: ACCENT,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '800',
+  },
+  customDateValue: {
+    color: INK,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
   },
   periodCardHeader: {
     flexDirection: 'row',

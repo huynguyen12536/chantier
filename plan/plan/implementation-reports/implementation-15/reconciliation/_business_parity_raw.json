@@ -1,0 +1,321 @@
+{
+  "reportAt": "2026-07-15T15:20:22.071Z",
+  "verdict": "3. Partial migration (Some business information lost)",
+  "verdictReason": "Public-table UUIDs complete and most comparable fields MATCH, but auth credentials not migrated; merge discarded alternate profile attributes; schema drops commentaire + GPS fin (documented). Documented hour/GPS transforms preserve values where applicable.",
+  "tz": "UTC",
+  "nodeOffset": -420,
+  "statusCounts": {
+    "profiles": {
+      "MATCH": 71,
+      "TRANSFORMED": 10,
+      "LOST": 9,
+      "MODIFIED": 9,
+      "UNKNOWN": 0
+    },
+    "chantiers": {
+      "MATCH": 48,
+      "TRANSFORMED": 30,
+      "LOST": 0,
+      "MODIFIED": 0,
+      "UNKNOWN": 0
+    },
+    "affectations_chantiers": {
+      "MATCH": 84,
+      "TRANSFORMED": 0,
+      "LOST": 0,
+      "MODIFIED": 0,
+      "UNKNOWN": 0
+    },
+    "zones_equipe": {
+      "MATCH": 0,
+      "TRANSFORMED": 0,
+      "LOST": 0,
+      "MODIFIED": 0,
+      "UNKNOWN": 0
+    },
+    "zones_chantiers": {
+      "MATCH": 0,
+      "TRANSFORMED": 0,
+      "LOST": 0,
+      "MODIFIED": 0,
+      "UNKNOWN": 0
+    },
+    "zones_ouvriers": {
+      "MATCH": 0,
+      "TRANSFORMED": 0,
+      "LOST": 0,
+      "MODIFIED": 0,
+      "UNKNOWN": 0
+    },
+    "periodes_travail": {
+      "MATCH": 767,
+      "TRANSFORMED": 118,
+      "LOST": 59,
+      "MODIFIED": 0,
+      "UNKNOWN": 0
+    },
+    "declarations_heures": {
+      "MATCH": 798,
+      "TRANSFORMED": 0,
+      "LOST": 57,
+      "MODIFIED": 0,
+      "UNKNOWN": 0
+    }
+  },
+  "missingTotal": 0,
+  "dateShifts": 0,
+  "modifiedNonTs": 0,
+  "hiddenLossCount": 0,
+  "defaultCorruptionCount": 18,
+  "auth": {
+    "impossible_original": 9,
+    "temp": 9,
+    "missing": 0
+  },
+  "mergeFieldLoss": [
+    {
+      "email": "joseph.ad@arson-concept.ch",
+      "col": "nom",
+      "discarded_value": "Arson",
+      "kept_value": "Asron",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b"
+    },
+    {
+      "email": "joseph.ad@arson-concept.ch",
+      "col": "matricule",
+      "discarded_value": "USR750160",
+      "kept_value": "",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b"
+    },
+    {
+      "email": "joseph.ad@arson-concept.ch",
+      "col": "phone",
+      "discarded_value": "+33234234234",
+      "kept_value": "+33342342354",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b"
+    },
+    {
+      "email": "joseph.ad@arson-concept.ch",
+      "col": "created_at",
+      "discarded_value": "2026-06-25T06:25:50.653741+00:00",
+      "kept_value": "2026-06-18T08:38:27.151274+00:00",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b"
+    }
+  ],
+  "discardAudit": [
+    {
+      "type": "profile_email_collision",
+      "email": "joseph.ad@arson-concept.ch",
+      "discarded_id": "00ff4c88-626c-44a3-93b2-e6964af2ad73",
+      "kept_id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+      "discarded_source": "hzppst",
+      "remapped_periodes": 3,
+      "remapped_declarations": 3
+    }
+  ],
+  "semantic": [
+    {
+      "question": "Can the same chantier be opened?",
+      "answer": "YES — all 6 chantier UUIDs present; codes/noms match",
+      "caveat": "Hours model transformed 1-window→2-slots (documented). Dates MATCH when read as calendar ::text."
+    },
+    {
+      "question": "Can the same declaration be validated?",
+      "answer": "YES for row identity / statut / hours amounts (verify field report)",
+      "caveat": "commentaire column absent; dates MATCH (::text)."
+    },
+    {
+      "question": "Can the same work period be reconstructed?",
+      "answer": "MOSTLY — times/statut/user/chantier preserved",
+      "caveat": "GPS end coordinates discarded by schema; in this dump all GPS values are 0 so no unique coordinate lost. commentaire dropped."
+    },
+    {
+      "question": "Can GPS history be reconstructed?",
+      "answer": "NO (schema) / YES for unique values in this dump",
+      "caveat": "4 coordinates → 2 (debut only). All 59 rows have debut=fin=0,0 — discarded fin equals kept debut; unique info loss = 0 for this dump, capability loss remains."
+    },
+    {
+      "question": "Can comments be reconstructed?",
+      "answer": "NO — column not in target schema",
+      "caveat": "Merged dump has 0 non-empty commentaires on periods and declarations — no text payload lost today; schema cannot store future comments from source shape."
+    },
+    {
+      "question": "Can every business user authenticate with their Supabase password?",
+      "answer": "NO",
+      "caveat": "auth.users never migrated. All 9 business profiles have synthetic bcrypt. Original passwords unrecoverable from artifacts."
+    },
+    {
+      "question": "Is local a complete business merge of BOTH Supabase DBs?",
+      "answer": "PARTIAL",
+      "caveat": "Row coverage of merged public tables is complete, but (1) auth secrets lost, (2) email-collision discarded B profile fields (nom/matricule/phone), (3) schema transforms drop commentaire + GPS fin, (4) hours semantics changed."
+    }
+  ],
+  "perTable": {
+    "profiles": {
+      "counts": {
+        "A": 5,
+        "B": 5,
+        "Merged": 9,
+        "Local": 10,
+        "missing": 0,
+        "extra": 1,
+        "matching": 9
+      },
+      "statusCounts": {
+        "MATCH": 71,
+        "TRANSFORMED": 10,
+        "LOST": 9,
+        "MODIFIED": 9,
+        "UNKNOWN": 0
+      },
+      "missing": [],
+      "extra": [
+        "00000000-0000-4000-8000-000000000001"
+      ]
+    },
+    "chantiers": {
+      "counts": {
+        "A": 3,
+        "B": 3,
+        "Merged": 6,
+        "Local": 6,
+        "missing": 0,
+        "extra": 0,
+        "matching": 6
+      },
+      "statusCounts": {
+        "MATCH": 48,
+        "TRANSFORMED": 30,
+        "LOST": 0,
+        "MODIFIED": 0,
+        "UNKNOWN": 0
+      },
+      "missing": [],
+      "extra": []
+    },
+    "affectations_chantiers": {
+      "counts": {
+        "A": 6,
+        "B": 6,
+        "Merged": 12,
+        "Local": 12,
+        "missing": 0,
+        "extra": 0,
+        "matching": 12
+      },
+      "statusCounts": {
+        "MATCH": 84,
+        "TRANSFORMED": 0,
+        "LOST": 0,
+        "MODIFIED": 0,
+        "UNKNOWN": 0
+      },
+      "missing": [],
+      "extra": []
+    },
+    "zones_equipe": {
+      "counts": {
+        "A": 0,
+        "B": 0,
+        "Merged": 0,
+        "Local": 0,
+        "missing": 0,
+        "extra": 0,
+        "matching": 0
+      },
+      "statusCounts": {
+        "MATCH": 0,
+        "TRANSFORMED": 0,
+        "LOST": 0,
+        "MODIFIED": 0,
+        "UNKNOWN": 0
+      },
+      "missing": [],
+      "extra": []
+    },
+    "zones_chantiers": {
+      "counts": {
+        "A": 0,
+        "B": 0,
+        "Merged": 0,
+        "Local": 0,
+        "missing": 0,
+        "extra": 0,
+        "matching": 0
+      },
+      "statusCounts": {
+        "MATCH": 0,
+        "TRANSFORMED": 0,
+        "LOST": 0,
+        "MODIFIED": 0,
+        "UNKNOWN": 0
+      },
+      "missing": [],
+      "extra": []
+    },
+    "zones_ouvriers": {
+      "counts": {
+        "A": 0,
+        "B": 0,
+        "Merged": 0,
+        "Local": 0,
+        "missing": 0,
+        "extra": 0,
+        "matching": 0
+      },
+      "statusCounts": {
+        "MATCH": 0,
+        "TRANSFORMED": 0,
+        "LOST": 0,
+        "MODIFIED": 0,
+        "UNKNOWN": 0
+      },
+      "missing": [],
+      "extra": []
+    },
+    "periodes_travail": {
+      "counts": {
+        "A": 31,
+        "B": 28,
+        "Merged": 59,
+        "Local": 59,
+        "missing": 0,
+        "extra": 0,
+        "matching": 59
+      },
+      "statusCounts": {
+        "MATCH": 767,
+        "TRANSFORMED": 118,
+        "LOST": 59,
+        "MODIFIED": 0,
+        "UNKNOWN": 0
+      },
+      "missing": [],
+      "extra": []
+    },
+    "declarations_heures": {
+      "counts": {
+        "A": 30,
+        "B": 27,
+        "Merged": 57,
+        "Local": 57,
+        "missing": 0,
+        "extra": 0,
+        "matching": 57
+      },
+      "statusCounts": {
+        "MATCH": 798,
+        "TRANSFORMED": 0,
+        "LOST": 57,
+        "MODIFIED": 0,
+        "UNKNOWN": 0
+      },
+      "missing": [],
+      "extra": []
+    }
+  }
+}

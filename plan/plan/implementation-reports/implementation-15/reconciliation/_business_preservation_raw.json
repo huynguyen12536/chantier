@@ -1,0 +1,333 @@
+{
+  "reportAt": "2026-07-15T15:38:02.126Z",
+  "verdict": "BUSINESS DATA LOSS",
+  "verdictReason": "Business information not fully preserved: LOST AUTHENTICATION (9 users); CAPABILITY LOSS (GPS fin, commentaire, single-window hours model); MERGED email-collision discarded differing profile fields (nom/matricule/phone/created_at). Row/UUID equality does not constitute parity.",
+  "businessParityScore": 55.67676767676768,
+  "fieldPreservationScore": 85.67676767676768,
+  "statusByTable": {
+    "profiles": {
+      "preservationPct": 71.71717171717172,
+      "statusCounts": {
+        "MATCH": 71,
+        "TRANSFORMED": 0,
+        "MODIFIED": 10,
+        "DEFAULTED": 9,
+        "LOST": 9,
+        "MERGED": 0,
+        "UNKNOWN": 0
+      },
+      "counts": {
+        "A": 5,
+        "B": 5,
+        "Merged": 9,
+        "Local": 10,
+        "missing": 0,
+        "extra": 1,
+        "matching": 9
+      }
+    },
+    "chantiers": {
+      "preservationPct": 83.33333333333333,
+      "statusCounts": {
+        "MATCH": 48,
+        "TRANSFORMED": 12,
+        "MODIFIED": 0,
+        "DEFAULTED": 6,
+        "LOST": 6,
+        "MERGED": 0,
+        "UNKNOWN": 0
+      },
+      "counts": {
+        "A": 3,
+        "B": 3,
+        "Merged": 6,
+        "Local": 6,
+        "missing": 0,
+        "extra": 0,
+        "matching": 6
+      }
+    },
+    "affectations_chantiers": {
+      "preservationPct": 100,
+      "statusCounts": {
+        "MATCH": 84,
+        "TRANSFORMED": 0,
+        "MODIFIED": 0,
+        "DEFAULTED": 0,
+        "LOST": 0,
+        "MERGED": 0,
+        "UNKNOWN": 0
+      },
+      "counts": {
+        "A": 6,
+        "B": 6,
+        "Merged": 12,
+        "Local": 12,
+        "missing": 0,
+        "extra": 0,
+        "matching": 12
+      }
+    },
+    "zones_equipe": {
+      "preservationPct": 100,
+      "statusCounts": {
+        "MATCH": 0,
+        "TRANSFORMED": 0,
+        "MODIFIED": 0,
+        "DEFAULTED": 0,
+        "LOST": 0,
+        "MERGED": 0,
+        "UNKNOWN": 0
+      },
+      "counts": {
+        "A": 0,
+        "B": 0,
+        "Merged": 0,
+        "Local": 0,
+        "missing": 0,
+        "extra": 0,
+        "matching": 0
+      }
+    },
+    "zones_chantiers": {
+      "preservationPct": 100,
+      "statusCounts": {
+        "MATCH": 0,
+        "TRANSFORMED": 0,
+        "MODIFIED": 0,
+        "DEFAULTED": 0,
+        "LOST": 0,
+        "MERGED": 0,
+        "UNKNOWN": 0
+      },
+      "counts": {
+        "A": 0,
+        "B": 0,
+        "Merged": 0,
+        "Local": 0,
+        "missing": 0,
+        "extra": 0,
+        "matching": 0
+      }
+    },
+    "zones_ouvriers": {
+      "preservationPct": 100,
+      "statusCounts": {
+        "MATCH": 0,
+        "TRANSFORMED": 0,
+        "MODIFIED": 0,
+        "DEFAULTED": 0,
+        "LOST": 0,
+        "MERGED": 0,
+        "UNKNOWN": 0
+      },
+      "counts": {
+        "A": 0,
+        "B": 0,
+        "Merged": 0,
+        "Local": 0,
+        "missing": 0,
+        "extra": 0,
+        "matching": 0
+      }
+    },
+    "periodes_travail": {
+      "preservationPct": 80,
+      "statusCounts": {
+        "MATCH": 767,
+        "TRANSFORMED": 177,
+        "MODIFIED": 0,
+        "DEFAULTED": 0,
+        "LOST": 236,
+        "MERGED": 0,
+        "UNKNOWN": 0
+      },
+      "counts": {
+        "A": 31,
+        "B": 28,
+        "Merged": 59,
+        "Local": 59,
+        "missing": 0,
+        "extra": 0,
+        "matching": 59
+      }
+    },
+    "declarations_heures": {
+      "preservationPct": 93.33333333333333,
+      "statusCounts": {
+        "MATCH": 798,
+        "TRANSFORMED": 0,
+        "MODIFIED": 0,
+        "DEFAULTED": 0,
+        "LOST": 57,
+        "MERGED": 0,
+        "UNKNOWN": 0
+      },
+      "counts": {
+        "A": 30,
+        "B": 27,
+        "Merged": 57,
+        "Local": 57,
+        "missing": 0,
+        "extra": 0,
+        "matching": 57
+      }
+    }
+  },
+  "auth": {
+    "original_login_possible": "NO",
+    "users": [
+      {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "email": "system.auto-approve@platform.local",
+        "role": "admin",
+        "actif": true,
+        "in_merged": false,
+        "system": true,
+        "status": "DEFAULTED",
+        "subtype": "SYSTEM_ACTOR",
+        "detail": "platform system actor — not from Supabase"
+      },
+      {
+        "id": "47c68c11-eff5-4ba3-9368-252c38d30825",
+        "email": "nguyenthikieunghi.ltp202@gmail.com",
+        "role": "admin",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST",
+        "subtype": "LOST_AUTHENTICATION",
+        "detail": "original Supabase auth cannot be reproduced"
+      },
+      {
+        "id": "1200f3b8-b1d0-44ea-a75d-60f10993477b",
+        "email": "joseph.ad@arson-concept.ch",
+        "role": "admin",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST",
+        "subtype": "LOST_AUTHENTICATION",
+        "detail": "original Supabase auth cannot be reproduced"
+      },
+      {
+        "id": "aef70554-b535-4408-9407-946db41f772d",
+        "email": "jasmine.tl@gmail.com",
+        "role": "chef_equipe",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST",
+        "subtype": "LOST_AUTHENTICATION",
+        "detail": "original Supabase auth cannot be reproduced"
+      },
+      {
+        "id": "f7c50816-459c-4a6d-a782-fe498d1988e4",
+        "email": "jasmine.collab@gmail.com",
+        "role": "ouvrier",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST",
+        "subtype": "LOST_AUTHENTICATION",
+        "detail": "original Supabase auth cannot be reproduced"
+      },
+      {
+        "id": "abcca969-52ff-40fc-902d-82de4743462f",
+        "email": "jasmine.n@gmail.com",
+        "role": "admin",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST",
+        "subtype": "LOST_AUTHENTICATION",
+        "detail": "original Supabase auth cannot be reproduced"
+      },
+      {
+        "id": "5609a530-0e12-4e78-8104-d810cae90075",
+        "email": "joseph.collab@arson-concept.ch",
+        "role": "ouvrier",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST",
+        "subtype": "LOST_AUTHENTICATION",
+        "detail": "original Supabase auth cannot be reproduced"
+      },
+      {
+        "id": "05fae8ca-461d-480a-9ee0-8ee80cc0e85f",
+        "email": "la@yahoo.fr",
+        "role": "ouvrier",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST",
+        "subtype": "LOST_AUTHENTICATION",
+        "detail": "original Supabase auth cannot be reproduced"
+      },
+      {
+        "id": "eb5d70b5-0e89-49df-8254-01eaaf25ad3e",
+        "email": "ap@gmail.com",
+        "role": "ouvrier",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST",
+        "subtype": "LOST_AUTHENTICATION",
+        "detail": "original Supabase auth cannot be reproduced"
+      },
+      {
+        "id": "1d5ac48f-9eae-452a-a998-1b480f87ce18",
+        "email": "joseph.tl@arson-concept.ch",
+        "role": "chef_equipe",
+        "actif": true,
+        "in_merged": true,
+        "system": false,
+        "status": "LOST",
+        "subtype": "LOST_AUTHENTICATION",
+        "detail": "original Supabase auth cannot be reproduced"
+      }
+    ],
+    "lost_authentication_count": 9
+  },
+  "semantic": [
+    {
+      "process": "Can user log in with original Supabase credentials?",
+      "answer": "NO",
+      "justification": "auth.users never migrated. All business password hashes are generated. LOST AUTHENTICATION for 9/9 users."
+    },
+    {
+      "process": "Can work period be reconstructed?",
+      "answer": "PARTIAL",
+      "justification": "All period UUIDs present; times/statut/user/chantier/date MATCH. GPS fin LOST (capability). commentaire LOST (capability)."
+    },
+    {
+      "process": "Can chantier schedule be reconstructed?",
+      "answer": "PARTIAL",
+      "justification": "Chantier rows + date windows MATCH. Single heure_debut/heure_fin window mapped into 2-slot model — clock values partially preserved, schedule semantics NOT 100% (apres-midi start null). CAPABILITY/semantic loss."
+    },
+    {
+      "process": "Can declaration be reconstructed?",
+      "answer": "PARTIAL",
+      "justification": "All declaration UUIDs present; numeric hours/statuts MATCH. commentaire column LOST."
+    },
+    {
+      "process": "Can GPS history be reconstructed?",
+      "answer": "NO",
+      "justification": "Only one point stored. End coordinates permanently discarded. Schema cannot represent start≠end. CAPABILITY LOSS even when values are 0."
+    },
+    {
+      "process": "Can comments be reconstructed?",
+      "answer": "NO",
+      "justification": "commentaire absent from destination DDL. Capability lost (current dump has 0 non-empty values, but model cannot store comments)."
+    }
+  ],
+  "lostCount": 314,
+  "capabilityCount": 299,
+  "mergedFieldCount": 9,
+  "mergeFieldsLost": 6,
+  "defaultedCount": 15,
+  "generatedCount": 34,
+  "modifiedCount": 10,
+  "hiddenCorruptionCount": 1
+}

@@ -1802,6 +1802,20 @@ export default function ManagementScreen() {
                         </View>
                       </View>
 
+                      <View style={styles.wsMetaChip}>
+                        <Text style={styles.wsMetaLine} numberOfLines={1}>
+                          <Text style={styles.wsMetaLabel}>{mgmt.startLabel} </Text>
+                          <Text style={styles.wsMetaValue}>
+                            {formatDisplayDate(ws.date_debut, dateLocale, mgmt.dateUndefined)}
+                          </Text>
+                          <Text style={styles.wsMetaDot}> · </Text>
+                          <Text style={styles.wsMetaLabel}>{mgmt.endLabel} </Text>
+                          <Text style={styles.wsMetaValue}>
+                            {formatDisplayDate(ws.date_fin, dateLocale, mgmt.dateUndefined)}
+                          </Text>
+                        </Text>
+                      </View>
+
                       {!!ws.adresse && (
                         <View style={styles.wsAddressRow}>
                           <MapPin size={13} color={Colors.primary} strokeWidth={2.3} />
@@ -1810,14 +1824,6 @@ export default function ManagementScreen() {
                           </Text>
                         </View>
                       )}
-
-                      <Text style={styles.wsMetaLine} numberOfLines={1}>
-                        <Text style={styles.wsMetaLabel}>{mgmt.startLabel} </Text>
-                        {formatDisplayDate(ws.date_debut, dateLocale, mgmt.dateUndefined)}
-                        <Text style={styles.wsMetaDot}> · </Text>
-                        <Text style={styles.wsMetaLabel}>{mgmt.endLabel} </Text>
-                        {formatDisplayDate(ws.date_fin, dateLocale, mgmt.dateUndefined)}
-                      </Text>
 
                       <View style={styles.wsUsersLine}>
                         <Users size={13} color={Colors.primary} strokeWidth={2.3} />
@@ -3242,18 +3248,29 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 3,
   },
+  wsMetaChip: {
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+  },
   wsMetaLine: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: Colors.cardWarm.meta,
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.cardWarm.body,
     lineHeight: 16,
-    textShadowColor: 'rgba(255, 255, 255, 0.65)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 3,
   },
   wsMetaLabel: {
-    fontWeight: '700',
+    fontWeight: '800',
     color: Colors.cardWarm.label,
+  },
+  wsMetaValue: {
+    fontWeight: '700',
+    color: Colors.cardWarm.body,
   },
   wsMetaDot: {
     color: Colors.cardWarm.muted,
