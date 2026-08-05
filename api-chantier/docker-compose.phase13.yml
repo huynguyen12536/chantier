@@ -1,9 +1,14 @@
-# Phase 13 local stack: Postgres + Unified API + FE (web static)
+# Phase 13 overlay — FE web on top of BE docker-compose.yml (monorepo local)
 # Usage (from api-chantier/):
 #   docker compose -f docker-compose.yml -f docker-compose.phase13.yml up -d --build
-# FE → http://localhost:16035
+#
+# FE → http://localhost:${WEB_PORT:-16035}
 # API → http://localhost:${API_PORT:-3001}
 # DB  → localhost:${POSTGRES_PORT:-5432}
+#
+# Split-repo deploy (no this file):
+#   BE:  cd api-chantier && docker compose up -d --build
+#   FE:  cd Chantier-web-app-main && docker compose -f docker-compose.local.yml up -d --build
 
 services:
   api:
@@ -11,7 +16,6 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      # allow seed/migrate tools if needed; runtime uses image src
       - ./migrations:/app/migrations:ro
       - ./scripts:/app/scripts:ro
     environment:
@@ -42,10 +46,13 @@ services:
       MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-ATN Chantier}
       OTP_SECRET: ${OTP_SECRET:-${JWT_SECRET:-change-me-in-production-use-long-random-string}}
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-true}
+      AUTO_SEED: ${AUTO_SEED:-false}
+    command: ["sh", "/app/scripts/docker-entrypoint.sh"]
 
   web:
     build:
-      context: ../chantier1/Chantier-web-app-main/Chantier-web-app-main
+      context: ../Chantier-web-app-main
       dockerfile: Dockerfile
       args:
         # Browser calls host-mapped API port (not docker DNS)

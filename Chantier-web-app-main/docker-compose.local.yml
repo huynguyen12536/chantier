@@ -1,0 +1,38 @@
+﻿# FE local standalone (split-repo deploy) — mirrors Phase 13 web settings.
+# Requires BE already running (api-chantier docker compose) so nginx can
+# reach hostname `api` on the external network `api-chantier_default`.
+#
+# Usage (from Chantier-web-app-main/):
+#   docker compose -f docker-compose.local.yml up -d --build
+#
+# FE  → http://localhost:${WEB_PORT:-16035}
+# API → http://localhost:${EXPO_PUBLIC_API_URL:-http://localhost:3001}
+#       (baked into the web bundle for browser calls)
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:3001}
+        EXPO_PUBLIC_API_ANON_KEY: ${EXPO_PUBLIC_API_ANON_KEY:-local-anon}
+    image: chantier-web-app:local
+    container_name: chantier-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-16035}:80"
+    networks:
+      - default
+      - chantier_api
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+networks:
+  chantier_api:
+    external: true
+    name: api-chantier_default
