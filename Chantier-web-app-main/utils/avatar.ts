@@ -9,7 +9,7 @@ export function getAvatarPublicUrl(
   avatarUpdatedAt?: string | null,
 ): string | null {
   if (!avatarPath?.trim() || !supabaseUrl) return null;
-  const base = `${supabaseUrl}/storage/v1/object/public/${AVATAR_BUCKET}/${avatarPath.replace(/^\//, '')}`;
+  const base = `${supabaseUrl}/api/storage/${AVATAR_BUCKET}/${avatarPath.replace(/^\//, '')}`;
   if (avatarUpdatedAt) {
     const t = new Date(avatarUpdatedAt).getTime();
     if (Number.isFinite(t)) {

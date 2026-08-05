@@ -300,6 +300,8 @@ function replicationPayload(userId: string, plan: WeekDayReplicationPlan) {
     heure_fin: plan.heure_fin,
     panier_repas: plan.panier_repas,
     deplacement: plan.deplacement,
+    // Required: BE skips outside-cadre reason when from_suggestion (same as declare-day-suggestion).
+    from_suggestion: true,
     statut: 'validee',
     latitude_debut: 0,
     longitude_debut: 0,
