@@ -1,3 +1,17 @@
+# Backend local stack (split-repo deploy): Postgres + Unified API + MinIO — NO FE
+# Usage (from api-chantier/):
+#   docker compose up -d --build
+#
+# Full monorepo stack (BE + FE) — Phase 13 overlay:
+#   docker compose -f docker-compose.yml -f docker-compose.phase13.yml up -d --build
+#
+# API → http://localhost:${API_PORT:-3001}
+# DB  → localhost:${POSTGRES_PORT:-5432}
+# MinIO → localhost:${MINIO_PORT:-9000}
+#
+# On API start: auto-runs migrations (AUTO_MIGRATE=true).
+# Optional: AUTO_SEED=true → scripts/seed-system-admin.js
+
 services:
   db:
     image: postgres:16-alpine
@@ -29,6 +43,10 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+    volumes:
+      # phase13-style: live migrate/seed tools
+      - ./migrations:/app/migrations:ro
+      - ./scripts:/app/scripts:ro
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -44,13 +62,24 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET:-chantier-assets}
       MINIO_PUBLIC_HOST: ${MINIO_PUBLIC_HOST:-localhost:9000}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:16035}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_FROM: ${SMTP_FROM:-noreply@chantier.local}
+      SMTP_HOST: ${SMTP_HOST:-${MAIL_HOST:-}}
+      SMTP_PORT: ${SMTP_PORT:-${MAIL_PORT:-587}}
+      SMTP_USER: ${SMTP_USER:-${MAIL_USERNAME:-}}
+      SMTP_PASS: ${SMTP_PASS:-${MAIL_PASSWORD:-}}
+      SMTP_FROM: ${SMTP_FROM:-${MAIL_FROM_EMAIL:-noreply@chantier.local}}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-${MAIL_FROM_NAME:-ATN Chantier}}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-ATN Chantier}
+      OTP_SECRET: ${OTP_SECRET:-${JWT_SECRET:-change-me-in-production-use-long-random-string}}
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-true}
+      AUTO_SEED: ${AUTO_SEED:-false}
     ports:
-      - "${API_PORT:-3000}:3000"
+      - "${API_PORT:-3001}:3000"
+    command: ["sh", "/app/scripts/docker-entrypoint.sh"]
 
   minio:
     image: minio/minio:latest

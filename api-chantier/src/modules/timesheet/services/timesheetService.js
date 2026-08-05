@@ -29,6 +29,7 @@ async function assertOutsideFrameHasReason(client, period) {
   if (period?.from_suggestion) return;
   if (!period?.heure_fin || !period?.heure_debut || !period?.chantier_id) return;
   const chantier = await repo.getChantier(client, period.chantier_id);
+  if (chantier?.source === 'divers' && chantier.divers_statut !== 'approuve') return;
   if (!isShiftOutsideCadre(period.heure_debut, period.heure_fin, chantier)) return;
   const reason = typeof period.commentaire === 'string' ? period.commentaire.trim() : '';
   if (!reason) {
