@@ -16,7 +16,7 @@ import { useIsDesktopLayout } from '@/hooks/useIsDesktopLayout';
 import { HeaderLanguageSwitcher } from '@/components/common/HeaderLanguageSwitcher';
 import { UserAvatar } from '@/components/common';
 import { ProfileDesktop } from '@/components/layoutDesktop';
-import { LogOut, HardHat, Mail, Hash } from 'lucide-react-native';
+import { Building2, LogOut, HardHat, Mail, Hash } from 'lucide-react-native';
 import { pickAvatarImage, uploadUserAvatar } from '@/utils/avatar';
 
 export default function ProfileScreen() {
@@ -131,6 +131,8 @@ export default function ProfileScreen() {
           roleDescription={roleDescription}
           email={profile?.email ?? ''}
           emailLabel={t.profile.email}
+          companyName={profile?.company_name}
+          companyLabel={t.profile.company}
           matricule={profile?.matricule ?? ''}
           matriculeLabel={t.profile.matricule}
           roleFieldLabel={t.profile.role}
@@ -201,6 +203,18 @@ export default function ProfileScreen() {
               <Text style={styles.infoValue}>{profile?.email}</Text>
             </View>
           </View>
+
+          {profile?.company_name ? (
+            <View style={styles.infoRow}>
+              <View style={styles.iconContainer}>
+                <Building2 size={20} color="#FF6B35" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>{t.profile.company}</Text>
+                <Text style={styles.infoValue}>{profile.company_name}</Text>
+              </View>
+            </View>
+          ) : null}
 
           <View style={styles.infoRow}>
             <View style={styles.iconContainer}>

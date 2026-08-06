@@ -8,7 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Camera, HardHat, Hash, Mail, ShieldCheck } from 'lucide-react-native';
+import { Building2, Camera, HardHat, Hash, Mail, ShieldCheck } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FlagFR, FlagGB } from '@/components/common/FlagIcons';
 import { UserAvatar } from '@/components/common';
@@ -29,6 +29,8 @@ export type ProfileDesktopProps = {
   roleDescription: string;
   email: string;
   emailLabel: string;
+  companyName?: string | null;
+  companyLabel: string;
   matricule: string;
   matriculeLabel: string;
   roleFieldLabel: string;
@@ -53,6 +55,8 @@ export function ProfileDesktop({
   roleDescription,
   email,
   emailLabel,
+  companyName,
+  companyLabel,
   matricule,
   matriculeLabel,
   roleFieldLabel,
@@ -161,6 +165,18 @@ export function ProfileDesktop({
                   <Text style={styles.infoValue}>{email || '—'}</Text>
                 </View>
               </View>
+
+              {companyName ? (
+                <View style={styles.infoRow}>
+                  <View style={styles.infoIcon}>
+                    <Building2 size={18} color={ACCENT} strokeWidth={2.2} />
+                  </View>
+                  <View style={styles.infoCopy}>
+                    <Text style={styles.infoLabel}>{companyLabel}</Text>
+                    <Text style={styles.infoValue}>{companyName}</Text>
+                  </View>
+                </View>
+              ) : null}
 
               <View style={styles.infoRow}>
                 <View style={styles.infoIcon}>

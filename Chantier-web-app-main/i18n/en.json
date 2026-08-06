@@ -362,6 +362,9 @@
     "toLabel": "To",
     "customRangeHint": "Choose the start and end dates for the export period.",
     "absenceNextMonthHint": "Export leave / absences declared for the next month.",
+    "chooseRangeTitle": "Choose export dates",
+    "confirmAbsenceTitle": "Confirm absence export",
+    "confirmExport": "Confirm export",
     "invalidCustomRange": "End date must be after start date.",
     "resetToToday": "Reset to today",
     "resetToStart": "Match start date",
@@ -410,6 +413,7 @@
   "profile": {
     "personalInfo": "Personal information",
     "email": "Email",
+    "company": "Company",
     "matricule": "Employee ID",
     "role": "Role",
     "permissions": "Permissions",
