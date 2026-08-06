@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Modal,
   Platform,
   useWindowDimensions,
 } from 'react-native';
@@ -74,6 +75,7 @@ export default function ExportScreen() {
   const [customFrom, setCustomFrom] = useState(today);
   const [customTo, setCustomTo] = useState(today);
   const [activeDateField, setActiveDateField] = useState<'from' | 'to' | null>(null);
+  const [rangeModal, setRangeModal] = useState<'custom' | 'absence' | null>(null);
   const isChef = profile?.role === 'chef_equipe';
   const isAdmin = profile?.role === 'admin';
   const headerTitle = isAdmin ? t.export.titleAdmin : t.export.title;
@@ -430,6 +432,22 @@ export default function ExportScreen() {
     }
   };
 
+  const requestExport = (period: ExportPeriod = selectedPeriod) => {
+    setSelectedPeriod(period);
+    if (period === 'custom' || period === 'absence') {
+      setRangeModal(period);
+      return;
+    }
+    void handleExport(period);
+  };
+
+  const confirmRangeExport = () => {
+    const period = rangeModal;
+    if (!period) return;
+    setRangeModal(null);
+    void handleExport(period);
+  };
+
   if (!profile?.role || !canExport(profile.role)) return null;
 
   const datePickers = (
@@ -465,6 +483,86 @@ export default function ExportScreen() {
         highlightRange
       />
     </>
+  );
+
+  const rangePickerModal = (
+    <Modal
+      visible={rangeModal != null}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setRangeModal(null)}
+    >
+      <View style={styles.rangeModalOverlay}>
+        <View style={styles.rangeModalCard}>
+          <Text style={styles.rangeModalTitle}>
+            {rangeModal === 'absence' ? t.export.confirmAbsenceTitle : t.export.chooseRangeTitle}
+          </Text>
+
+          {rangeModal === 'custom' ? (
+            <>
+              <View style={styles.customDateRow}>
+                <TouchableOpacity
+                  style={styles.customDateField}
+                  onPress={() => setActiveDateField('from')}
+                  activeOpacity={0.82}
+                >
+                  <Text style={styles.customDateLabel}>{t.export.fromLabel}</Text>
+                  <View style={styles.customDateValueRow}>
+                    <Calendar size={16} color="#FF6B35" />
+                    <Text style={styles.customDateValue}>{formatDateFieldLabel(customFrom, language)}</Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.customDateField}
+                  onPress={() => setActiveDateField('to')}
+                  activeOpacity={0.82}
+                >
+                  <Text style={styles.customDateLabel}>{t.export.toLabel}</Text>
+                  <View style={styles.customDateValueRow}>
+                    <Calendar size={16} color="#FF6B35" />
+                    <Text style={styles.customDateValue}>{formatDateFieldLabel(customTo, language)}</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.customDateHint}>{t.export.customRangeHint}</Text>
+            </>
+          ) : (
+            <>
+              <View style={styles.absencePeriodBox}>
+                <Calendar size={18} color="#FF6B35" />
+                <Text style={styles.absencePeriodText}>{nextMonthLabel}</Text>
+              </View>
+              <Text style={styles.customDateHint}>{t.export.absenceNextMonthHint}</Text>
+            </>
+          )}
+
+          <View style={styles.rangeModalActions}>
+            <TouchableOpacity
+              style={styles.rangeModalCancel}
+              onPress={() => setRangeModal(null)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.rangeModalCancelText}>{t.common.cancel}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.rangeModalConfirm, loading && styles.exportButtonDisabled]}
+              onPress={confirmRangeExport}
+              disabled={loading}
+              activeOpacity={0.88}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <Download size={18} color="#FFF" />
+                  <Text style={styles.rangeModalConfirmText}>{t.export.confirmExport}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 
   if (isDesktopLayout) {
@@ -517,7 +615,7 @@ export default function ExportScreen() {
           onSelectPeriod={setSelectedPeriod}
           loading={loading}
           loadingPeriod={loadingPeriod}
-          onExport={handleExport}
+          onExport={requestExport}
           periodLabels={{
             week: t.export.thisWeek,
             month: t.export.thisMonth,
@@ -534,14 +632,6 @@ export default function ExportScreen() {
           exportButton={t.export.exportButton}
           customRangeEnabled={canUseCustomRange}
           absenceExportEnabled={canUseAbsenceExport}
-          absencePeriodLabel={nextMonthLabel}
-          absenceHint={t.export.absenceNextMonthHint}
-          customFromLabel={t.export.fromLabel}
-          customToLabel={t.export.toLabel}
-          customFromValue={formatDateFieldLabel(customFrom, language)}
-          customToValue={formatDateFieldLabel(customTo, language)}
-          onSelectCustomFrom={() => setActiveDateField('from')}
-          onSelectCustomTo={() => setActiveDateField('to')}
           instructionsTitle={t.export.instructions}
           instructions={[
             t.export.instruction1,
@@ -552,6 +642,7 @@ export default function ExportScreen() {
           legendTitle={t.export.indicatorsLegend}
           legendItems={indicatorLegendItems}
         />
+        {rangePickerModal}
         {datePickers}
       </>
     );
@@ -680,46 +771,6 @@ export default function ExportScreen() {
                 ) : null}
               </View>
 
-              {canUseCustomRange && selectedPeriod === 'custom' ? (
-                <View style={styles.customRangeBox}>
-                  <View style={styles.customDateRow}>
-                    <TouchableOpacity
-                      style={styles.customDateField}
-                      onPress={() => setActiveDateField('from')}
-                      activeOpacity={0.82}
-                    >
-                      <Text style={styles.customDateLabel}>{t.export.fromLabel}</Text>
-                      <View style={styles.customDateValueRow}>
-                        <Calendar size={16} color="#FF6B35" />
-                        <Text style={styles.customDateValue}>{formatDateFieldLabel(customFrom, language)}</Text>
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.customDateField}
-                      onPress={() => setActiveDateField('to')}
-                      activeOpacity={0.82}
-                    >
-                      <Text style={styles.customDateLabel}>{t.export.toLabel}</Text>
-                      <View style={styles.customDateValueRow}>
-                        <Calendar size={16} color="#FF6B35" />
-                        <Text style={styles.customDateValue}>{formatDateFieldLabel(customTo, language)}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={styles.customDateHint}>{t.export.customRangeHint}</Text>
-                </View>
-              ) : null}
-
-              {canUseAbsenceExport && selectedPeriod === 'absence' ? (
-                <View style={styles.customRangeBox}>
-                  <View style={styles.absencePeriodBox}>
-                    <Calendar size={18} color="#FF6B35" />
-                    <Text style={styles.absencePeriodText}>{nextMonthLabel}</Text>
-                  </View>
-                  <Text style={styles.customDateHint}>{t.export.absenceNextMonthHint}</Text>
-                </View>
-              ) : null}
-
               <View style={styles.infoBox}>
                 <Text style={styles.infoText}>
                   {selectedPeriod === 'absence' ? t.export.absenceExportInfo : t.export.exportInfo}
@@ -732,7 +783,7 @@ export default function ExportScreen() {
               <TouchableOpacity
                 style={[styles.exportButton, loading && styles.exportButtonDisabled]}
                 onPress={() => {
-                  void handleExport();
+                  requestExport(selectedPeriod);
                 }}
                 disabled={loading}
               >
@@ -781,6 +832,7 @@ export default function ExportScreen() {
           )}
         </View>
       </ScrollView>
+      {rangePickerModal}
       {datePickers}
     </View>
   );
@@ -1093,5 +1145,62 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1A1A1A',
     lineHeight: 24,
+  },
+  rangeModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(14, 19, 32, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  rangeModalCard: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: '#FFF',
+    borderRadius: 18,
+    padding: 20,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: '#F0E4DC',
+  },
+  rangeModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1A1A1A',
+  },
+  rangeModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  rangeModalCancel: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  rangeModalCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#555',
+  },
+  rangeModalConfirm: {
+    flex: 1.4,
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: '#FF6B35',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+  },
+  rangeModalConfirmText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFF',
   },
 });

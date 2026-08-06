@@ -71,8 +71,14 @@ export async function insertAuditEvent(client, event) {
     client,
     `INSERT INTO approval_audit_events (
        entity_type, entity_id, declaration_id, action,
-       from_statut, to_statut, actor_id, reason, correlation_id
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       from_statut, to_statut, actor_id, reason, correlation_id, company_id
+     ) VALUES (
+       $1,$2,$3,$4,$5,$6,$7,$8,$9,
+       COALESCE(
+         (SELECT company_id FROM declarations_heures WHERE id = $3),
+         (SELECT company_id FROM periodes_travail WHERE id = $2)
+       )
+     )
      RETURNING *`,
     [
       event.entity_type,

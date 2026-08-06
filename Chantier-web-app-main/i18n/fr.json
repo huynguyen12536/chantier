@@ -362,6 +362,9 @@
     "toLabel": "Au",
     "customRangeHint": "Choisissez les dates de début et de fin de la période à exporter.",
     "absenceNextMonthHint": "Export des congés / absences déclarés pour le mois suivant.",
+    "chooseRangeTitle": "Choisir les dates d'export",
+    "confirmAbsenceTitle": "Confirmer l'export des absences",
+    "confirmExport": "Confirmer l'export",
     "invalidCustomRange": "La date de fin doit être après la date de début.",
     "resetToToday": "Revenir à aujourd'hui",
     "resetToStart": "Aligner sur la date de début",
@@ -410,6 +413,7 @@
   "profile": {
     "personalInfo": "Informations personnelles",
     "email": "Email",
+    "company": "Entreprise",
     "matricule": "Matricule",
     "role": "Rôle",
     "permissions": "Permissions",

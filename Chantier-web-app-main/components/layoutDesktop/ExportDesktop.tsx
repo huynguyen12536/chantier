@@ -13,7 +13,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Bell,
-  Calendar,
   CalendarDays,
   CalendarOff,
   CalendarRange,
@@ -68,14 +67,6 @@ export type ExportDesktopProps = {
   exportButton: string;
   customRangeEnabled?: boolean;
   absenceExportEnabled?: boolean;
-  absencePeriodLabel?: string;
-  absenceHint?: string;
-  customFromLabel?: string;
-  customToLabel?: string;
-  customFromValue?: string;
-  customToValue?: string;
-  onSelectCustomFrom?: () => void;
-  onSelectCustomTo?: () => void;
   instructionsTitle: string;
   instructions: string[];
   legendTitle: string;
@@ -103,14 +94,6 @@ export function ExportDesktop({
   exportButton,
   customRangeEnabled = false,
   absenceExportEnabled = false,
-  absencePeriodLabel = '',
-  absenceHint = '',
-  customFromLabel = 'From',
-  customToLabel = 'To',
-  customFromValue = '',
-  customToValue = '',
-  onSelectCustomFrom,
-  onSelectCustomTo,
   instructionsTitle,
   instructions,
   legendTitle,
@@ -262,31 +245,9 @@ export function ExportDesktop({
                   <View style={styles.periodCard}>
                     <View style={styles.periodCardHeader}>
                       <View style={styles.periodCardIcon}>
-                        <Calendar size={22} color={ACCENT} strokeWidth={2.2} />
+                        <CalendarRange size={22} color={ACCENT} strokeWidth={2.2} />
                       </View>
                       <Text style={styles.periodCardTitle}>{periodLabels.custom}</Text>
-                    </View>
-                    <View style={styles.customDateStack}>
-                      <TouchableOpacity
-                        style={styles.customDateField}
-                        onPress={onSelectCustomFrom}
-                        activeOpacity={0.85}
-                      >
-                        <Text style={styles.customDateLabel}>{customFromLabel}</Text>
-                        <Text style={styles.customDateValue} numberOfLines={1}>
-                          {customFromValue}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.customDateField}
-                        onPress={onSelectCustomTo}
-                        activeOpacity={0.85}
-                      >
-                        <Text style={styles.customDateLabel}>{customToLabel}</Text>
-                        <Text style={styles.customDateValue} numberOfLines={1}>
-                          {customToValue}
-                        </Text>
-                      </TouchableOpacity>
                     </View>
                     <TouchableOpacity
                       style={[
@@ -326,12 +287,6 @@ export function ExportDesktop({
                         <CalendarOff size={22} color={ACCENT} strokeWidth={2.2} />
                       </View>
                       <Text style={styles.periodCardTitle}>{periodLabels.absence}</Text>
-                    </View>
-                    <View style={styles.absenceMetaBox}>
-                      <Text style={styles.absenceMetaLabel}>{absencePeriodLabel}</Text>
-                      {absenceHint ? (
-                        <Text style={styles.absenceMetaHint}>{absenceHint}</Text>
-                      ) : null}
                     </View>
                     <TouchableOpacity
                       style={[
@@ -575,53 +530,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     gap: 12,
-  },
-  customDateStack: {
-    gap: 8,
-  },
-  absenceMetaBox: {
-    borderRadius: 12,
-    backgroundColor: '#FFF7F2',
-    borderWidth: 1,
-    borderColor: '#FFD5C4',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 4,
-    minHeight: 72,
-    justifyContent: 'center',
-  },
-  absenceMetaLabel: {
-    color: INK,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '800',
-  },
-  absenceMetaHint: {
-    color: MUTED,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
-  },
-  customDateField: {
-    borderRadius: 12,
-    backgroundColor: '#FFF7F2',
-    borderWidth: 1,
-    borderColor: '#FFD5C4',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 4,
-  },
-  customDateLabel: {
-    color: ACCENT,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '800',
-  },
-  customDateValue: {
-    color: INK,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
   },
   periodCardHeader: {
     flexDirection: 'row',
