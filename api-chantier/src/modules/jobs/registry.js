@@ -1,7 +1,13 @@
-import { JOB_MAIL_SEND, JOB_PLATFORM_NOOP, JOB_REALTIME_REDISPATCH_CATALOG } from './jobTypes.js';
+import {
+  JOB_CLEANUP_EXPIRED_DIVERS,
+  JOB_MAIL_SEND,
+  JOB_PLATFORM_NOOP,
+  JOB_REALTIME_REDISPATCH_CATALOG,
+} from './jobTypes.js';
 import * as platformNoop from './handlers/platformNoop.js';
 import * as realtimeRedispatch from './handlers/realtimeRedispatch.js';
 import * as sendEmail from './handlers/sendEmail.js';
+import * as cleanupExpiredDivers from './handlers/cleanupExpiredDivers.js';
 
 /** @type {Map<string, { handler: Function, maxAttempts?: number }>} */
 const jobs = new Map();
@@ -33,4 +39,5 @@ export function registerBuiltinJobs() {
   registerJob(JOB_PLATFORM_NOOP, { handler: platformNoop.handler });
   registerJob(JOB_REALTIME_REDISPATCH_CATALOG, { handler: realtimeRedispatch.handler });
   registerJob(JOB_MAIL_SEND, { handler: sendEmail.handler, maxAttempts: 5 });
+  registerJob(JOB_CLEANUP_EXPIRED_DIVERS, { handler: cleanupExpiredDivers.handler, maxAttempts: 3 });
 }

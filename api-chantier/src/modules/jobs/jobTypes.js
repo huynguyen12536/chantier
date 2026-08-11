@@ -6,3 +6,6 @@ export const JOB_REALTIME_REDISPATCH_CATALOG = 'jobs.realtime.redispatch_catalog
 
 /** Outbound email delivery (worker only — never from FE). */
 export const JOB_MAIL_SEND = 'mail.send';
+
+/** Daily cleanup of Divers worksites older than 4 months. */
+export const JOB_CLEANUP_EXPIRED_DIVERS = 'chantiers.cleanup_expired_divers';

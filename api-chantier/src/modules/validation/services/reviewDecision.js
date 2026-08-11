@@ -18,6 +18,7 @@ import {
 import { recordDecisionAudit, listDeclarationHistory } from './auditService.js';
 import { emitReviewEvent } from './notificationHooks.js';
 import { mapAuditEvent } from '../dto.js';
+import { clientQuery } from '../../../shared/db/pool.js';
 
 function assertReviewerRole(actor) {
   if (!actor || !isReviewerRole(actor.role)) {
@@ -45,6 +46,38 @@ async function runDeclarationAction(id, actionKey, actor, options = {}) {
     const current = await repo.getDeclaration(client, id);
     if (!current) throw new AppError('Declaration not found', 404, { code: 'NOT_FOUND' });
     await assertCanReviewChantier(actor, current.chantier_id);
+
+    if (actionKey === 'approve') {
+      const { rows: chantierRows } = await clientQuery(
+        client,
+        `SELECT id, source, divers_statut, heure_debut_matin, heure_fin_apres_midi
+           FROM chantiers WHERE id = $1 FOR UPDATE`,
+        [current.chantier_id],
+      );
+      const chantier = chantierRows[0];
+      if (chantier?.source === 'divers' && chantier.divers_statut === 'en_attente') {
+        if (!['admin', 'administratif'].includes(actor.role)) {
+          throw new AppError(
+            "Impossible de valider les heures tant que le chantier divers n'est pas approuve",
+            403,
+            { code: 'FORBIDDEN' },
+          );
+        }
+        if (!chantier.heure_debut_matin || !chantier.heure_fin_apres_midi) {
+          throw new AppError('Horaires de chantier invalides', 400, { code: 'VALIDATION_ERROR' });
+        }
+        await clientQuery(
+          client,
+          `UPDATE chantiers SET
+             actif = true,
+             divers_statut = 'approuve',
+             divers_reviewed_by = $2,
+             divers_reviewed_at = NOW()
+           WHERE id = $1`,
+          [chantier.id, actor.id],
+        );
+      }
+    }
 
     const updated = await repo.applyDeclarationDecision(
       client,
@@ -96,6 +129,18 @@ async function runDeclarationAction(id, actionKey, actor, options = {}) {
   });
 
   return { declaration: result.declaration };
+}
+
+export async function validateDeclarationUnlockDivers(declarationId, actor) {
+  if (!declarationId) {
+    throw new AppError('p_declaration_id requis', 400, { code: 'VALIDATION_ERROR' });
+  }
+  const result = await approveDeclaration(declarationId, actor);
+  return {
+    declaration: result.declaration,
+    chantier_unlocked: true,
+    chantier_id: result.declaration.chantier_id,
+  };
 }
 
 export async function decideDeclaration(id, input, actor, options = {}) {

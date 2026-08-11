@@ -71,6 +71,38 @@ export async function getChantier(id, actor) {
   return mapRow(rows[0]);
 }
 
+export function normalizeChantierName(name) {
+  return String(name ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+export async function assertUniqueChantierName(nom, { companyId, excludeId, client } = {}) {
+  const cleaned = String(nom ?? '').trim().replace(/\s+/g, ' ');
+  const normalized = normalizeChantierName(cleaned);
+  if (!normalized) {
+    throw new AppError('chantier_name_required', 400, { code: 'VALIDATION_ERROR' });
+  }
+  const run = client
+    ? (text, params) => client.query(text, params)
+    : (text, params) => query(text, params);
+  const params = [normalized, companyId ?? null];
+  let sql = `SELECT id FROM chantiers
+     WHERE lower(regexp_replace(btrim(nom), '[[:space:]]+', ' ', 'g')) = $1
+       AND ($2::uuid IS NULL OR company_id = $2)`;
+  if (excludeId) {
+    params.push(excludeId);
+    sql += ` AND id <> $3`;
+  }
+  sql += ' LIMIT 1';
+  const { rows } = await run(sql, params);
+  if (rows[0]) {
+    throw new AppError('chantier_name_already_exists', 409, { code: 'CONFLICT' });
+  }
+  return cleaned;
+}
+
 function rejectClientCompanyOverride(input, actor) {
   if (input?.company_id == null) return;
   const companyId = tenantId(actor);
@@ -94,6 +126,7 @@ export async function createChantier(input, actor) {
   }
   const data = parsed.data;
   const companyId = tenantId(actor);
+  const nom = await assertUniqueChantierName(data.nom, { companyId });
   const code = data.code?.trim() || (await nextCode(companyId));
   try {
     const { rows } = await query(
@@ -104,7 +137,7 @@ export async function createChantier(input, actor) {
        RETURNING *`,
       [
         code,
-        data.nom,
+        nom,
         data.adresse ?? null,
         data.date_debut ?? null,
         data.date_fin ?? null,
@@ -138,7 +171,14 @@ export async function updateChantier(id, input, actor) {
   if (data.nom !== undefined && (!data.nom || !String(data.nom).trim())) {
     throw new AppError('Invalid chantier payload', 400, { code: 'VALIDATION_ERROR' });
   }
-  await getChantier(id, actor);
+  const existing = await getChantier(id, actor);
+  let nextNom = data.nom ?? null;
+  if (nextNom != null) {
+    nextNom = await assertUniqueChantierName(nextNom, {
+      companyId: existing.company_id,
+      excludeId: id,
+    });
+  }
   const { rows } = await query(
     `UPDATE chantiers SET
        nom = COALESCE($2, nom),
@@ -155,7 +195,7 @@ export async function updateChantier(id, input, actor) {
      RETURNING *`,
     [
       id,
-      data.nom ?? null,
+      nextNom,
       data.adresse ?? null,
       data.date_debut ?? null,
       data.date_fin ?? null,
