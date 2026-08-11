@@ -46,6 +46,7 @@ async function runDeclarationAction(id, actionKey, actor, options = {}) {
     const current = await repo.getDeclaration(client, id);
     if (!current) throw new AppError('Declaration not found', 404, { code: 'NOT_FOUND' });
     await assertCanReviewChantier(actor, current.chantier_id);
+    let chantierUnlocked = false;
 
     if (actionKey === 'approve') {
       const { rows: chantierRows } = await clientQuery(
@@ -76,6 +77,7 @@ async function runDeclarationAction(id, actionKey, actor, options = {}) {
            WHERE id = $1`,
           [chantier.id, actor.id],
         );
+        chantierUnlocked = true;
       }
     }
 
@@ -115,7 +117,11 @@ async function runDeclarationAction(id, actionKey, actor, options = {}) {
       correlationId: options.correlationId ?? null,
     });
 
-    return { declaration: mapDeclaration(updated), fromStatut: current.statut };
+    return {
+      declaration: mapDeclaration(updated),
+      fromStatut: current.statut,
+      chantierUnlocked,
+    };
   });
 
   emitReviewEvent({
@@ -128,7 +134,10 @@ async function runDeclarationAction(id, actionKey, actor, options = {}) {
     actorId: actor.id,
   });
 
-  return { declaration: result.declaration };
+  return {
+    declaration: result.declaration,
+    chantierUnlocked: Boolean(result.chantierUnlocked),
+  };
 }
 
 export async function validateDeclarationUnlockDivers(declarationId, actor) {
@@ -138,7 +147,7 @@ export async function validateDeclarationUnlockDivers(declarationId, actor) {
   const result = await approveDeclaration(declarationId, actor);
   return {
     declaration: result.declaration,
-    chantier_unlocked: true,
+    chantier_unlocked: Boolean(result.chantierUnlocked),
     chantier_id: result.declaration.chantier_id,
   };
 }

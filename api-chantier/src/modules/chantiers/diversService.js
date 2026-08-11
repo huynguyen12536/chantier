@@ -38,7 +38,7 @@ export async function createChantierDivers(actor, input) {
   if (!nom || !adresse) {
     throw new AppError('Nom et adresse sont obligatoires', 400);
   }
-  nom = await assertUniqueChantierName(nom, { companyId });
+  nom = nom.replace(/\s+/g, ' ');
   if (!heureDebut || !heureFin || heureFin <= heureDebut) {
     throw new AppError('Horaires de chantier invalides', 400);
   }
@@ -47,7 +47,8 @@ export async function createChantierDivers(actor, input) {
     `SELECT * FROM chantiers
      WHERE company_id = $3
        AND source = 'divers' AND divers_statut IN ('en_attente', 'approuve')
-       AND lower(trim(nom)) = lower($1) AND lower(trim(adresse)) = lower($2)
+       AND lower(regexp_replace(btrim(nom), '[[:space:]]+', ' ', 'g')) = lower($1)
+       AND lower(trim(adresse)) = lower($2)
      ORDER BY CASE divers_statut WHEN 'approuve' THEN 0 ELSE 1 END, created_at ASC
      LIMIT 1`,
     [nom, adresse, companyId],
@@ -86,6 +87,7 @@ export async function createChantierDivers(actor, input) {
     throw new AppError('Motif trop long', 400);
   }
 
+  nom = await assertUniqueChantierName(nom, { companyId });
   const code = await nextDiversCode(companyId);
   const { rows } = await query(
     `INSERT INTO chantiers (
@@ -121,23 +123,26 @@ export async function approveChantierDivers(actor, input) {
     throw new AppError('Horaires de chantier invalides', 400);
   }
 
-  const { rows } = await query(`SELECT * FROM chantiers WHERE id = $1 FOR UPDATE`, [chantierId]);
-  const row = rows[0];
-  if (!row) throw new AppError('Chantier introuvable', 404);
-  assertSameCompany(actor, row.company_id);
-  if (row.source !== 'divers' || row.divers_statut !== 'en_attente') {
-    throw new AppError('Ce chantier divers ne peut pas etre approuve', 400);
-  }
-
-  let nextNom = nom ?? '';
-  if (String(nextNom).trim()) {
-    nextNom = await assertUniqueChantierName(nextNom, {
-      companyId: row.company_id,
-      excludeId: chantierId,
-    });
-  }
-
   const updated = await withTransaction(async (client) => {
+    const { rows } = await client.query(`SELECT * FROM chantiers WHERE id = $1 FOR UPDATE`, [
+      chantierId,
+    ]);
+    const row = rows[0];
+    if (!row) throw new AppError('Chantier introuvable', 404);
+    assertSameCompany(actor, row.company_id);
+    if (row.source !== 'divers' || row.divers_statut !== 'en_attente') {
+      throw new AppError('Ce chantier divers ne peut pas etre approuve', 400);
+    }
+
+    let nextNom = nom ?? '';
+    if (String(nextNom).trim()) {
+      nextNom = await assertUniqueChantierName(nextNom, {
+        companyId: row.company_id,
+        excludeId: chantierId,
+        client,
+      });
+    }
+
     const { rows: updatedRows } = await client.query(
       `UPDATE chantiers SET
         nom = coalesce(nullif(trim($1), ''), nom),
@@ -180,7 +185,6 @@ export async function approveChantierDivers(actor, input) {
 }
 
 export async function cleanupExpiredChantiersDivers() {
-  const cutoff = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000);
   let processed = 0;
 
   const hidden = await query(
@@ -189,8 +193,7 @@ export async function cleanupExpiredChantiersDivers() {
       WHERE source = 'divers'
         AND divers_statut = 'approuve'
         AND actif = true
-        AND created_at < $1`,
-    [cutoff.toISOString()],
+        AND created_at < NOW() - INTERVAL '4 months'`,
   );
   processed += hidden.rowCount ?? 0;
 
@@ -198,8 +201,7 @@ export async function cleanupExpiredChantiersDivers() {
     `SELECT id FROM chantiers
       WHERE source = 'divers'
         AND divers_statut IN ('en_attente', 'rejete')
-        AND created_at < $1`,
-    [cutoff.toISOString()],
+        AND created_at < NOW() - INTERVAL '4 months'`,
   );
 
   for (const row of expired.rows) {
