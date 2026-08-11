@@ -2,6 +2,7 @@ import { asyncHandler } from '../../../shared/utils/asyncHandler.js';
 import { AppError } from '../../../shared/errors/AppError.js';
 import * as chantiersService from '../../chantiers/service.js';
 import * as diversService from '../../chantiers/diversService.js';
+import * as reviewDecision from '../../validation/services/reviewDecision.js';
 import * as chantierMapper from '../mappers/chantierMapper.js';
 
 export const deleteChantierCascade = asyncHandler(async (req, res) => {
@@ -37,6 +38,12 @@ async function handleRpc(name, req, res) {
         result = await diversService.getCollaboratorDiversNotifications(
           req.user,
           req.body ?? {},
+        );
+        break;
+      case 'validate_declaration_unlock_divers':
+        result = await reviewDecision.validateDeclarationUnlockDivers(
+          req.body?.p_declaration_id ?? req.body?.declaration_id,
+          req.user,
         );
         break;
       default:

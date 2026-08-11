@@ -14,9 +14,39 @@ import { createJobCorrelationId } from './correlation.js';
 import * as registry from './registry.js';
 import * as queue from './queue.js';
 import * as runner from './runner.js';
-import { JOB_PLATFORM_NOOP, JOB_REALTIME_REDISPATCH_CATALOG } from './jobTypes.js';
+import {
+  JOB_CLEANUP_EXPIRED_DIVERS,
+  JOB_PLATFORM_NOOP,
+  JOB_REALTIME_REDISPATCH_CATALOG,
+} from './jobTypes.js';
 
-export { JOB_PLATFORM_NOOP, JOB_REALTIME_REDISPATCH_CATALOG };
+export { JOB_CLEANUP_EXPIRED_DIVERS, JOB_PLATFORM_NOOP, JOB_REALTIME_REDISPATCH_CATALOG };
+
+let cleanupTimer = null;
+
+function msUntilNextUtcHour(hour = 3) {
+  const now = new Date();
+  const next = new Date(now);
+  next.setUTCHours(hour, 0, 0, 0);
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+  return next.getTime() - now.getTime();
+}
+
+function scheduleExpiredDiversCleanup() {
+  if (cleanupTimer) clearTimeout(cleanupTimer);
+  cleanupTimer = setTimeout(() => {
+    try {
+      enqueueJob({
+        type: JOB_CLEANUP_EXPIRED_DIVERS,
+        idempotencyKey: `cleanup-divers:${new Date().toISOString().slice(0, 10)}`,
+      });
+    } catch (err) {
+      logger.warn('jobs.cleanup_expired_divers.schedule_failed', { message: err.message });
+    }
+    scheduleExpiredDiversCleanup();
+  }, msUntilNextUtcHour(3));
+  if (typeof cleanupTimer.unref === 'function') cleanupTimer.unref();
+}
 
 /**
  * Start Imp-10 in-process job platform (DR-001=A / Wave B1 extends builtins only).
@@ -37,9 +67,14 @@ export function startJobs() {
     JOB_REALTIME_REDISPATCH_CATALOG,
   });
   runner.startRunner();
+  scheduleExpiredDiversCleanup();
 }
 
 export function stopJobs() {
+  if (cleanupTimer) {
+    clearTimeout(cleanupTimer);
+    cleanupTimer = null;
+  }
   runner.stopRunner();
   unbindJobsEnqueueApi();
 }

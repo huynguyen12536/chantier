@@ -1,7 +1,9 @@
-import { query } from '../../shared/db/pool.js';
+import { query, withTransaction } from '../../shared/db/pool.js';
 import { AppError } from '../../shared/errors/AppError.js';
 import { toFeChantierHours } from '../compat/mappers/hoursMapper.js';
 import { tenantId, assertSameCompany } from '../../shared/authz/tenantScope.js';
+import { assertUniqueChantierName } from './service.js';
+import { syncPeriodsFromDeclaration } from '../timesheet/services/periodPropagation.js';
 import bcrypt from 'bcryptjs';
 
 function isAdminRole(role) {
@@ -27,7 +29,7 @@ export async function createChantierDivers(actor, input) {
   }
   const companyId = tenantId(actor);
 
-  const nom = String(input.p_nom ?? input.nom ?? '').trim();
+  let nom = String(input.p_nom ?? input.nom ?? '').trim();
   const adresse = String(input.p_adresse ?? input.adresse ?? '').trim();
   const motif = String(input.p_motif ?? input.motif ?? '').trim();
   const heureDebut = input.p_heure_debut ?? input.heure_debut;
@@ -36,6 +38,7 @@ export async function createChantierDivers(actor, input) {
   if (!nom || !adresse) {
     throw new AppError('Nom et adresse sont obligatoires', 400);
   }
+  nom = await assertUniqueChantierName(nom, { companyId });
   if (!heureDebut || !heureFin || heureFin <= heureDebut) {
     throw new AppError('Horaires de chantier invalides', 400);
   }
@@ -126,28 +129,91 @@ export async function approveChantierDivers(actor, input) {
     throw new AppError('Ce chantier divers ne peut pas etre approuve', 400);
   }
 
-  const { rows: updated } = await query(
-    `UPDATE chantiers SET
-      nom = coalesce(nullif(trim($1), ''), nom),
-      adresse = coalesce(nullif(trim($2), ''), adresse),
-      heure_debut_matin = $3,
-      heure_fin_apres_midi = $4,
-      actif = true,
-      divers_statut = 'approuve',
-      divers_reviewed_by = $5,
-      divers_reviewed_at = NOW()
-     WHERE id = $6
-     RETURNING *`,
-    [nom ?? '', adresse ?? '', heureDebut, heureFin, actor.id, chantierId],
+  let nextNom = nom ?? '';
+  if (String(nextNom).trim()) {
+    nextNom = await assertUniqueChantierName(nextNom, {
+      companyId: row.company_id,
+      excludeId: chantierId,
+    });
+  }
+
+  const updated = await withTransaction(async (client) => {
+    const { rows: updatedRows } = await client.query(
+      `UPDATE chantiers SET
+        nom = coalesce(nullif(trim($1), ''), nom),
+        adresse = coalesce(nullif(trim($2), ''), adresse),
+        heure_debut_matin = $3,
+        heure_fin_apres_midi = $4,
+        actif = true,
+        divers_statut = 'approuve',
+        divers_reviewed_by = $5,
+        divers_reviewed_at = NOW()
+       WHERE id = $6
+       RETURNING *`,
+      [nextNom, adresse ?? '', heureDebut, heureFin, actor.id, chantierId],
+    );
+
+    const { rows: soumise } = await client.query(
+      `UPDATE declarations_heures
+          SET statut = 'validee',
+              validated_by = $2,
+              validated_at = NOW(),
+              updated_at = NOW()
+        WHERE chantier_id = $1 AND statut = 'soumise'
+        RETURNING *`,
+      [chantierId, actor.id],
+    );
+    for (const declaration of soumise) {
+      await syncPeriodsFromDeclaration(client, declaration, actor.id);
+    }
+
+    await client.query(
+      `UPDATE declarations_heures SET updated_at = NOW()
+       WHERE chantier_id = $1 AND statut = 'brouillon'`,
+      [chantierId],
+    );
+
+    return updatedRows[0];
+  });
+
+  return toFeChantierHours(updated);
+}
+
+export async function cleanupExpiredChantiersDivers() {
+  const cutoff = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000);
+  let processed = 0;
+
+  const hidden = await query(
+    `UPDATE chantiers
+        SET actif = false
+      WHERE source = 'divers'
+        AND divers_statut = 'approuve'
+        AND actif = true
+        AND created_at < $1`,
+    [cutoff.toISOString()],
+  );
+  processed += hidden.rowCount ?? 0;
+
+  const expired = await query(
+    `SELECT id FROM chantiers
+      WHERE source = 'divers'
+        AND divers_statut IN ('en_attente', 'rejete')
+        AND created_at < $1`,
+    [cutoff.toISOString()],
   );
 
-  await query(
-    `UPDATE declarations_heures SET updated_at = NOW()
-     WHERE chantier_id = $1 AND statut IN ('soumise', 'brouillon')`,
-    [chantierId],
-  );
+  for (const row of expired.rows) {
+    await withTransaction(async (client) => {
+      await client.query(`DELETE FROM periodes_travail WHERE chantier_id = $1`, [row.id]);
+      await client.query(`DELETE FROM declarations_heures WHERE chantier_id = $1`, [row.id]);
+      await client.query(`DELETE FROM zones_chantiers WHERE chantier_id = $1`, [row.id]);
+      await client.query(`DELETE FROM affectations_chantiers WHERE chantier_id = $1`, [row.id]);
+      await client.query(`DELETE FROM chantiers WHERE id = $1`, [row.id]);
+    });
+    processed += 1;
+  }
 
-  return toFeChantierHours(updated[0]);
+  return processed;
 }
 
 export async function rejectChantierDivers(actor, input) {
